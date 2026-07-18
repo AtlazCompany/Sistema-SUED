@@ -1,0 +1,86 @@
+/* Reset enxuto + tipografia base */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  min-height: 100vh;
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+h1, h2, h3 {
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+/* Utilitário: veios/ramificações douradas (fundo institucional sutil) */
+.sued-marble-bg {
+  background-color: var(--sued-marble);
+  background-image:
+    radial-gradient(ellipse 80% 60% at 15% 0%, rgba(232, 217, 176, 0.35) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 50% at 100% 100%, rgba(233, 220, 194, 0.4) 0%, transparent 50%);
+}
+
+.sued-gold-text {
+  background: linear-gradient(100deg, var(--sued-gold-dark), var(--sued-gold), var(--sued-gold-soft), var(--sued-gold));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.sued-divider-gold {
+  height: 1px;
+  border: 0;
+  background: linear-gradient(to right, transparent, var(--sued-gold-soft) 20%, var(--sued-gold) 50%, var(--sued-gold-soft) 80%, transparent);
+  opacity: 0.6;
+}
+
+/* Scrollbar discreta */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb {
+  background: var(--sued-border-strong);
+  border-radius: 999px;
+  border: 3px solid var(--sued-marble);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--sued-gold-soft); }
+
+/* Foco acessível dourado */
+:where(a, button, input, select, textarea):focus-visible {
+  outline: 2px solid var(--sued-ring);
+  outline-offset: 2px;
+}

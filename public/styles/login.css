@@ -1,0 +1,312 @@
+/* ============================================================
+   SUED ERP — Tela de login (identidade institucional)
+   Mármore claro + veios dourados orgânicos + monograma SUED.
+   Só CSS/gradientes/SVG leve — sem imagens pesadas.
+   ============================================================ */
+
+.login {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  min-height: 100vh;
+  animation: login-fade 0.6s ease both;
+}
+@keyframes login-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* ---------- LADO ESQUERDO (institucional) ---------- */
+.login__aside {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: clamp(40px, 4.6vw, 72px);
+  overflow: hidden;
+  isolation: isolate;
+  /* Painel de pedra clara com profundidade e áreas aquecidas */
+  background-color: var(--sued-marble);
+  background-image:
+    radial-gradient(115% 85% at 16% 6%, rgba(255, 255, 255, 0.95) 0%, transparent 46%),
+    radial-gradient(85% 70% at 90% 18%, rgba(244, 236, 221, 0.75) 0%, transparent 55%),
+    radial-gradient(95% 80% at 82% 104%, rgba(233, 220, 194, 0.6) 0%, transparent 55%),
+    radial-gradient(75% 60% at 4% 96%, rgba(240, 233, 220, 0.62) 0%, transparent 60%),
+    radial-gradient(60% 50% at 48% 46%, rgba(255, 253, 248, 0.55) 0%, transparent 70%),
+    linear-gradient(135deg, #fbfaf7 0%, #f6f2ea 52%, #efe9dd 100%);
+}
+/* borda de luz superior + vinheta muito sutil para profundidade */
+.login__aside::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.55), transparent 26%),
+    radial-gradient(120% 120% at 50% 40%, transparent 62%, rgba(28, 25, 23, 0.04) 100%);
+}
+/* separador dourado vertical delicado entre os dois lados */
+.login__aside::after {
+  content: "";
+  position: absolute;
+  top: 10%;
+  bottom: 10%;
+  right: 0;
+  width: 1px;
+  z-index: -1;
+  background: linear-gradient(180deg, transparent, rgba(201, 162, 39, 0.4) 22%, rgba(201, 162, 39, 0.55) 50%, rgba(201, 162, 39, 0.4) 78%, transparent);
+}
+
+.login-veins { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+.login-veins .veins { position: absolute; filter: drop-shadow(0 1px 1px rgba(201, 162, 39, 0.08)); }
+.login-veins .veins--tr { top: -6%; right: -12%; width: 80%; height: 90%; }
+.login-veins .veins--bl { bottom: -8%; left: -15%; width: 72%; height: 84%; }
+.login-veins .veins--arc { top: -10%; left: -12%; width: 118%; height: 60%; }
+
+.login-aside__top,
+.login-aside__center,
+.login-aside__foot { position: relative; z-index: 1; }
+
+/* ---------- Marca SUED ---------- */
+.login-brand { display: flex; align-items: center; gap: 0.95rem; }
+.login-monogram { display: inline-flex; }
+.login-monogram .mono { display: block; }
+.login-brand--aside .login-monogram .mono { width: 54px; height: 56px; }
+
+.login-brand__text { display: flex; flex-direction: column; line-height: 1; }
+.login-brand__word {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 2.4rem;
+  letter-spacing: 0.26em;
+  padding-left: 0.26em;
+  color: var(--sued-ink);
+}
+.login-brand__caption {
+  margin-top: 0.5rem;
+  font-size: 0.6rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.42em;
+  padding-left: 0.42em;
+  color: var(--sued-muted);
+}
+
+/* ---------- Bloco central (headline) ---------- */
+.login-aside__center { max-width: 28rem; }
+.login-headline__mark {
+  display: block;
+  width: 52px;
+  height: 2px;
+  margin-bottom: 24px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--sued-gold-dark), var(--sued-gold) 55%, transparent);
+}
+.login-headline {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(2rem, 3vw, 2.65rem);
+  line-height: 1.1;
+  letter-spacing: 0.005em;
+}
+.login-headline__lead { display: block; color: var(--sued-ink); }
+.login-headline__accent { display: block; }
+.login-aside__desc {
+  margin-top: 1.15rem;
+  max-width: 23rem;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--sued-ink-soft);
+}
+
+/* ---------- Assinatura institucional (rodapé esquerdo) ---------- */
+.login-aside__foot { max-width: 30rem; }
+.login-signature__line {
+  display: block;
+  width: 3.6rem;
+  height: 1px;
+  margin-bottom: 1rem;
+  background: linear-gradient(90deg, var(--sued-gold), var(--sued-gold-soft) 70%, transparent);
+}
+.login-signature__concept {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 1.06rem;
+  color: var(--sued-ink);
+  letter-spacing: 0.01em;
+}
+.login-signature__houses {
+  margin-top: 0.55rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--sued-gold-dark);
+}
+.login-signature__years {
+  margin-top: 0.35rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: var(--sued-muted);
+}
+
+/* ---------- LADO DIREITO (formulário) ---------- */
+.login__form-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  background:
+    radial-gradient(65% 45% at 100% 0%, rgba(244, 236, 221, 0.4), transparent 60%),
+    #ffffff;
+}
+.login__form {
+  width: 100%;
+  max-width: 376px;
+  animation: login-rise 0.6s 0.08s ease both;
+}
+@keyframes login-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+.login-formhead { margin-bottom: 2rem; }
+.login-kicker {
+  display: block;
+  width: 34px;
+  height: 2px;
+  margin-bottom: 1.1rem;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--sued-gold-dark), var(--sued-gold-soft));
+}
+.login-title {
+  font-family: var(--font-display);
+  font-size: 1.85rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--sued-ink);
+}
+.login-subtitle { margin-top: 0.4rem; font-size: 0.9rem; color: var(--sued-muted); }
+
+.login-fields { display: flex; flex-direction: column; gap: 1.1rem; }
+.login-fieldrow { display: flex; flex-direction: column; gap: 0.45rem; }
+.login-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--sued-ink-soft);
+}
+
+.login-inputwrap { position: relative; display: flex; align-items: center; }
+.login-inputwrap__icon {
+  position: absolute;
+  left: 14px;
+  display: inline-flex;
+  color: var(--sued-muted);
+  pointer-events: none;
+  transition: color 0.2s ease;
+}
+.login-input {
+  width: 100%;
+  height: 48px;
+  padding: 0 44px;
+  background: #fff;
+  border: 1px solid var(--sued-border-strong);
+  border-radius: 12px;
+  color: var(--sued-ink);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.login-input::placeholder { color: var(--sued-muted); }
+.login-input:hover { border-color: var(--sued-gold-soft); }
+.login-input:focus {
+  outline: none;
+  border-color: var(--sued-gold);
+  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.14), var(--sued-shadow-sm);
+}
+.login-inputwrap:focus-within .login-inputwrap__icon { color: var(--sued-gold-dark); }
+
+.login-eye {
+  position: absolute;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px; height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sued-muted);
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+.login-eye:hover { color: var(--sued-gold-dark); background: var(--sued-marble-2); }
+
+.login-error {
+  margin-top: 1rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid rgba(179, 69, 58, 0.25);
+  border-left: 3px solid var(--sued-danger);
+  border-radius: 10px;
+  background: rgba(179, 69, 58, 0.05);
+  color: var(--sued-danger);
+  font-size: 0.85rem;
+  animation: login-rise 0.25s ease both;
+}
+
+/* Botão Entrar — dourado sofisticado, leve profundidade e elevação no hover */
+.login-submit {
+  width: 100%;
+  height: 50px;
+  margin-top: 1.6rem;
+  border: 0;
+  border-radius: 12px;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  background: linear-gradient(180deg, #d4b13a 0%, #c9a227 55%, #b8901a 100%);
+  box-shadow: 0 6px 18px rgba(201, 162, 39, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+.login-submit:hover:not(:disabled) {
+  filter: brightness(0.96);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(201, 162, 39, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+.login-submit:active:not(:disabled) { transform: translateY(0); }
+.login-submit:disabled { opacity: 0.75; cursor: default; }
+.login-submit.is-loading { cursor: progress; }
+
+.login-foot { margin-top: 1.6rem; text-align: center; font-size: 0.75rem; color: var(--sued-muted); }
+
+/* Marca no topo do formulário — só aparece no mobile */
+.login-brand--mobile { display: none; justify-content: center; margin-bottom: 2.2rem; }
+.login-brand--mobile .login-monogram .mono { width: 40px; height: 42px; }
+.login-brand--mobile .login-brand__word { font-size: 1.7rem; }
+
+/* ---------- RESPONSIVIDADE ---------- */
+@media (max-width: 1024px) {
+  .login { grid-template-columns: 0.95fr 1fr; }
+  .login__aside { padding: 40px; }
+  .login-brand__word { font-size: 2rem; }
+  .login-brand--aside .login-monogram .mono { width: 46px; height: 48px; }
+}
+
+@media (max-width: 760px) {
+  .login { grid-template-columns: 1fr; }
+  .login__aside { display: none; }
+  .login__form-wrap {
+    padding: 40px 22px;
+    background:
+      radial-gradient(120% 55% at 50% -8%, rgba(244, 236, 221, 0.55), transparent 60%),
+      linear-gradient(180deg, #fbfaf7, #ffffff 42%);
+  }
+  .login-brand--mobile { display: flex; }
+  .login-brand--mobile .login-brand__caption { display: none; }
+  .login-formhead { text-align: center; }
+  .login-kicker { margin-left: auto; margin-right: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login, .login__form, .login-error { animation: none; }
+  .login-submit, .login-input { transition: none; }
+}

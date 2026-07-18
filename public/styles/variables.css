@@ -1,0 +1,69 @@
+/* ============================================================
+   SUED ERP — Identidade visual (tokens)
+   Luxo minimalista · mármore branco · dourado · champagne
+   ============================================================ */
+:root {
+  /* Neutros / mármore */
+  --sued-white: #ffffff;
+  --sued-marble: #faf9f6;
+  --sued-marble-2: #f6f3ec;
+  --sued-sand: #f1ece1;
+  --sued-champagne: #e9dcc2;
+  --sued-champagne-soft: #f4ecdd;
+
+  /* Dourado */
+  --sued-gold: #c9a227;
+  --sued-gold-dark: #a9820a;
+  --sued-gold-soft: #dcc98a;
+  --sued-gold-veil: #e8d9b0;
+
+  /* Texto (tons quentes, nunca preto puro no corpo) */
+  --sued-ink: #1c1917;
+  --sued-ink-soft: #56504a;
+  --sued-muted: #8a8378;
+  --sued-black: #14110e;
+
+  /* Bordas e foco */
+  --sued-border: #ece7dc;
+  --sued-border-strong: #ddd5c4;
+  --sued-ring: #d8c48f;
+
+  /* Semânticas */
+  --sued-success: #2f7d5b;
+  --sued-warning: #b7791f;
+  --sued-danger: #b3453a;
+  --sued-info: #3a6ea5;
+
+  /* Sombras extremamente suaves */
+  --sued-shadow-sm: 0 1px 2px rgba(28, 25, 23, 0.04), 0 1px 1px rgba(28, 25, 23, 0.03);
+  --sued-shadow: 0 4px 16px rgba(28, 25, 23, 0.05), 0 1px 3px rgba(28, 25, 23, 0.04);
+  --sued-shadow-lg: 0 12px 40px rgba(28, 25, 23, 0.08), 0 2px 8px rgba(28, 25, 23, 0.04);
+  --sued-shadow-gold: 0 6px 24px rgba(201, 162, 39, 0.12);
+
+  /* Brilho dourado (glow) e gradiente metálico — centralizados */
+  --sued-glow: 0 0 26px rgba(201, 162, 39, 0.16);
+  --sued-ring-glow: 0 0 0 3px rgba(201, 162, 39, 0.14);
+  --sued-gradient-gold: linear-gradient(
+    100deg,
+    var(--sued-gold-dark),
+    var(--sued-gold) 45%,
+    var(--sued-gold-soft) 70%,
+    var(--sued-gold)
+  );
+  /* Superfície de mármore claro (painéis institucionais) */
+  --sued-marble-panel:
+    radial-gradient(115% 85% at 16% 6%, rgba(255, 255, 255, 0.95) 0%, transparent 46%),
+    radial-gradient(85% 70% at 90% 18%, rgba(244, 236, 221, 0.7) 0%, transparent 55%),
+    radial-gradient(95% 80% at 82% 104%, rgba(233, 220, 194, 0.55) 0%, transparent 55%),
+    radial-gradient(60% 50% at 48% 46%, rgba(255, 253, 248, 0.5) 0%, transparent 70%),
+    linear-gradient(135deg, #fbfaf7 0%, #f6f2ea 52%, #efe9dd 100%);
+
+  /* Aliases semânticos */
+  --bg: var(--sued-marble);
+  --card: var(--sued-white);
+  --text: var(--sued-ink);
+  --radius: 0.75rem;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  --font-display: "Cormorant Garamond", Georgia, "Times New Roman", serif;
+}
