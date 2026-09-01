@@ -7,6 +7,7 @@ import { store } from "./state.js";
 import { router } from "./router.js";
 import { renderShell, setActiveNav } from "./components/shell.js";
 import { renderLogin, renderResetPassword } from "./views/login.js";
+import { renderOrcamentoPublico } from "./views/orcamento-publico.js";
 import { renderDashboard } from "./views/dashboard.js";
 import { renderClientes } from "./views/clientes.js";
 import { renderLeads } from "./views/leads.js";
@@ -79,7 +80,15 @@ function showResetPassword() {
   );
 }
 
+// Link público do orçamento (/orcamento/:id) — enviado ao cliente, sem
+// exigir login, igual ao caso de /redefinir-senha abaixo.
+const publicBudgetMatch = window.location.pathname.match(/^\/orcamento\/([^/]+)$/);
+
 async function init() {
+  if (publicBudgetMatch) {
+    appRoot.replaceChildren(await renderOrcamentoPublico(publicBudgetMatch[1]));
+    return;
+  }
   if (window.location.pathname === "/redefinir-senha") return showResetPassword();
   try {
     const user = await loadSession();

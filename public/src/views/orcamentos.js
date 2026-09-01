@@ -5,6 +5,7 @@ import { icon } from "../components/icons.js";
 import { renderTable } from "../components/table.js";
 import { toast } from "../components/toast.js";
 import { field } from "../components/form.js";
+import { renderOrcamentoDocumento } from "../components/orcamento-doc.js";
 
 export const BUDGET_STATUS = {
   RASCUNHO: { label: "Rascunho", cls: "badge--muted" },
@@ -159,8 +160,76 @@ export async function renderOrcamentos() {
     addFree.onclick = submitFree;
     freeInput.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); submitFree(); } };
 
-    header.querySelector("[name=discount]").oninput = recalc;
+    // Qualquer campo do cabeçalho (não só desconto) precisa recalcular —
+    // a pré-visualização abaixo depende de cliente/evento/validade/status/
+    // observações também, não só dos totais.
+    header.addEventListener("input", recalc);
+    header.addEventListener("change", recalc);
     recalc();
+
+    // ----- Pré-visualização (documento com a identidade SUED) -----
+    // Reflete o formulário em memória, sem ir ao servidor — "tempo real"
+    // de verdade aqui dentro do editor (o link enviado ao cliente, mais
+    // abaixo, é near-real-time por polling). Layout provisório, a ajustar
+    // quando um modelo de referência da SUED for enviado.
+    function previewData() {
+      const fd = new FormData(header);
+      const clientId = fd.get("clientId");
+      const eventId = fd.get("eventId");
+      return {
+        number: budget.number,
+        status: fd.get("status") || "RASCUNHO",
+        clientName: opts.clients.find((c) => c.id === clientId)?.name || "",
+        eventTitle: opts.events.find((e) => e.id === eventId)?.title || "",
+        validUntil: fd.get("validUntil") || null,
+        notes: fd.get("notes") || "",
+        discountCents: toCents(fd.get("discount")),
+        items: items.map((i) => ({ description: i.description, quantity: i.quantity, unitPriceCents: i.unitPriceCents })),
+      };
+    }
+    const previewHost = el("div", {});
+    function renderPreview() {
+      previewHost.replaceChildren(renderOrcamentoDocumento(previewData()));
+    }
+    const origRecalc = recalc;
+    recalc = () => { origRecalc(); renderPreview(); };
+    renderPreview();
+
+    const printBtn = el("button", { class: "btn btn--outline btn--sm", type: "button" }, "Baixar PDF");
+    printBtn.onclick = () => window.print();
+
+    const clientLinkRow = el("div", { class: "flex items-center gap-2 no-print", style: "margin-bottom:14px;flex-wrap:wrap" }, [printBtn]);
+    if (isEdit) {
+      const link = `${window.location.origin}/orcamento/${id}`;
+      const copiarLink = el("button", { class: "btn btn--outline btn--sm", type: "button" }, "Copiar link do cliente");
+      copiarLink.onclick = async () => {
+        try { await navigator.clipboard.writeText(link); toast("Link copiado — envie ao cliente para acompanhar em tempo real."); }
+        catch { toast("Não foi possível copiar o link.", "error"); }
+      };
+      const abrirLink = el("button", { class: "btn btn--outline btn--sm", type: "button" }, "Abrir link");
+      abrirLink.onclick = () => window.open(link, "_blank", "noopener");
+      clientLinkRow.append(copiarLink, abrirLink);
+    } else {
+      clientLinkRow.append(el("span", { class: "text-muted", style: "font-size:12.5px" }, "Salve o orçamento para gerar o link do cliente."));
+    }
+
+    const tabEditar = el("button", { class: "chip is-active no-print", type: "button" }, "Editar itens");
+    const tabPreview = el("button", { class: "chip no-print", type: "button" }, "Pré-visualização");
+    const tabs = el("div", { class: "filter-chips" }, [tabEditar, tabPreview]);
+    const previewArea = el("div", { style: "display:none" }, [clientLinkRow, previewHost]);
+    tabEditar.onclick = () => {
+      editArea.style.display = "";
+      previewArea.style.display = "none";
+      tabEditar.classList.add("is-active");
+      tabPreview.classList.remove("is-active");
+    };
+    tabPreview.onclick = () => {
+      renderPreview();
+      editArea.style.display = "none";
+      previewArea.style.display = "";
+      tabPreview.classList.add("is-active");
+      tabEditar.classList.remove("is-active");
+    };
 
     // ----- Ações -----
     const voltar = el("button", { class: "btn btn--ghost", html: `${icon("x", 15)}<span>Voltar</span>` });
@@ -188,6 +257,24 @@ export async function renderOrcamentos() {
       actions.unshift(excluir);
     }
 
+    const editArea = el("div", { class: "grid", style: "grid-template-columns:2fr 1fr;align-items:start" }, [
+      el("div", { class: "card card--pad" }, [
+        el("h2", { style: "font-size:14px;font-weight:600;margin-bottom:12px" }, "Itens"),
+        el("table", { class: "budget-items" }, [
+          el("thead", {}, [el("tr", {}, [
+            el("th", {}, "Descrição"), el("th", {}, "Qtd"), el("th", {}, "Preço un."),
+            el("th", { style: "text-align:right" }, "Total"), el("th", {}, ""),
+          ])]),
+          itemsBody,
+        ]),
+        el("div", { class: "flex items-center", style: "gap:8px;margin-top:14px;flex-wrap:wrap" }, [catSel, addCat, freeInput, addFree]),
+      ]),
+      el("div", { class: "card card--pad" }, [
+        el("h2", { style: "font-size:14px;font-weight:600;margin-bottom:12px" }, "Resumo"),
+        totalsBox,
+      ]),
+    ]);
+
     container.replaceChildren(
       el("div", { class: "page-header" }, [
         el("div", {}, [
@@ -197,23 +284,9 @@ export async function renderOrcamentos() {
         el("div", { class: "flex items-center gap-2" }, actions),
       ]),
       el("div", { class: "card card--pad", style: "margin-bottom:16px" }, [header]),
-      el("div", { class: "grid", style: "grid-template-columns:2fr 1fr;align-items:start" }, [
-        el("div", { class: "card card--pad" }, [
-          el("h2", { style: "font-size:14px;font-weight:600;margin-bottom:12px" }, "Itens"),
-          el("table", { class: "budget-items" }, [
-            el("thead", {}, [el("tr", {}, [
-              el("th", {}, "Descrição"), el("th", {}, "Qtd"), el("th", {}, "Preço un."),
-              el("th", { style: "text-align:right" }, "Total"), el("th", {}, ""),
-            ])]),
-            itemsBody,
-          ]),
-          el("div", { class: "flex items-center", style: "gap:8px;margin-top:14px;flex-wrap:wrap" }, [catSel, addCat, freeInput, addFree]),
-        ]),
-        el("div", { class: "card card--pad" }, [
-          el("h2", { style: "font-size:14px;font-weight:600;margin-bottom:12px" }, "Resumo"),
-          totalsBox,
-        ]),
-      ]),
+      tabs,
+      editArea,
+      previewArea,
     );
   }
 

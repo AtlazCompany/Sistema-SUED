@@ -59,6 +59,30 @@ contratosRouter.get(
   }),
 );
 
+// GET /api/contratos/evento/:eventId/orcamento — orçamento vigente do
+// evento (achado: visualização do orçamento a partir do Contrato). Mesmo
+// formato "público" (sem custo/margem) da rota de orcamentos.js, mas com o
+// papel de Contratos — que inclui FINANCEIRO, sem acesso ao módulo de
+// Orçamentos em si. Rota de 3 segmentos: nunca colide com GET "/:id" abaixo.
+contratosRouter.get(
+  "/evento/:eventId/orcamento",
+  asyncHandler(async (req, res) => {
+    const [budget] = await sql`
+      select b.id, b.number, b.status, b."validUntil", b.notes, b."discountCents", b."updatedAt",
+        c.name as "clientName", e.title as "eventTitle"
+      from "Budget" b
+      left join "Client" c on c.id = b."clientId"
+      left join "Event" e on e.id = b."eventId"
+      where b."eventId" = ${req.params.eventId} and b.vigente = true
+      limit 1`;
+    if (!budget) throw new HttpError(404, "Nenhum orçamento vigente para este evento.");
+    const items = await sql`
+      select description, quantity, "unitPriceCents" from "BudgetItem"
+      where "budgetId" = ${budget.id} order by "id" asc`;
+    res.json({ ...budget, items });
+  }),
+);
+
 // GET /api/contratos/:id
 contratosRouter.get(
   "/:id",

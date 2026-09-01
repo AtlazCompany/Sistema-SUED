@@ -5,6 +5,8 @@ import { icon } from "../components/icons.js";
 import { renderTable } from "../components/table.js";
 import { toast } from "../components/toast.js";
 import { field } from "../components/form.js";
+import { openModal } from "../components/modal.js";
+import { renderOrcamentoDocumento } from "../components/orcamento-doc.js";
 
 const STATUS = {
   RASCUNHO: { label: "Rascunho", cls: "badge--muted" },
@@ -100,6 +102,46 @@ export async function renderContratos() {
       content.value = minuta(clientName, eventTitle, val);
     };
 
+    // Achado: visualização do orçamento vigente do evento a partir do
+    // Contrato — mesmo documento com identidade SUED usado no editor de
+    // Orçamentos e no link enviado ao cliente.
+    const verOrcamento = el("button", { class: "btn btn--outline btn--sm", type: "button" }, "Ver orçamento");
+    verOrcamento.onclick = async () => {
+      const eventId = header.querySelector("[name=eventId]").value;
+      if (!eventId) return toast("Selecione um evento primeiro.", "error");
+      verOrcamento.disabled = true;
+      try {
+        const budget = await api.get(`/contratos/evento/${eventId}/orcamento`);
+        openOrcamentoModal(budget);
+      } catch (err) {
+        toast(err.message, "error");
+      }
+      verOrcamento.disabled = false;
+    };
+
+    function openOrcamentoModal(budget) {
+      const link = `${window.location.origin}/orcamento/${budget.id}`;
+      const copiar = el("button", { class: "btn btn--outline btn--sm", type: "button" }, "Copiar link do cliente");
+      copiar.onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(link);
+          toast("Link copiado.");
+        } catch {
+          toast("Não foi possível copiar o link.", "error");
+        }
+      };
+      const abrir = el("button", { class: "btn btn--outline btn--sm", type: "button" }, "Abrir para impressão");
+      abrir.onclick = () => window.open(link, "_blank", "noopener");
+      const fechar = el("button", { class: "btn btn--primary", type: "button" }, "Fechar");
+      const modal = openModal({
+        title: `Orçamento ${budget.number}`,
+        body: renderOrcamentoDocumento(budget),
+        footer: [copiar, abrir, fechar],
+        wide: true,
+      });
+      fechar.onclick = modal.close;
+    }
+
     const voltar = el("button", { class: "btn btn--ghost", html: `${icon("x", 15)}<span>Voltar</span>` });
     voltar.onclick = loadList;
     const salvar = el("button", { class: "btn btn--primary" }, isEdit ? "Salvar contrato" : "Criar contrato");
@@ -129,7 +171,8 @@ export async function renderContratos() {
       el("div", { class: "card card--pad", style: "margin-bottom:16px" }, [header]),
       el("div", { class: "card card--pad" }, [
         el("div", { class: "flex items-center justify-between", style: "margin-bottom:10px" }, [
-          el("h2", { style: "font-size:14px;font-weight:600" }, "Condições do contrato"), gerar,
+          el("h2", { style: "font-size:14px;font-weight:600" }, "Condições do contrato"),
+          el("div", { class: "flex gap-2" }, [verOrcamento, gerar]),
         ]),
         content,
       ]),
