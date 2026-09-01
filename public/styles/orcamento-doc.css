@@ -32,7 +32,8 @@
 .doc-orcamento__brandcap { font-size: 11px; color: var(--sued-muted); letter-spacing: 0.04em; margin: 2px 0 0; }
 .doc-orcamento__id { text-align: right; }
 .doc-orcamento__kicker { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--sued-gold-dark); font-weight: 700; margin: 0; }
-.doc-orcamento__number { font-family: var(--font-display); font-size: 24px; font-weight: 600; margin: 2px 0 6px; }
+.doc-orcamento__number { font-family: var(--font-display); font-size: 24px; font-weight: 600; margin: 2px 0 4px; }
+.doc-orcamento__date { font-size: 12px; color: var(--sued-muted); margin: 0 0 8px; }
 .doc-orcamento__status {
   display: inline-flex;
   padding: 3px 12px;
@@ -82,11 +83,33 @@ table.doc-orcamento__items { width: 100%; border-collapse: collapse; margin-bott
 
 /* Impressão / "Baixar PDF": só o documento aparece na página, não importa
    se ele está numa aba do editor, num modal de Contratos ou na página
-   pública — o resto (menu, barra, backdrop do modal) some. */
+   pública — o resto (menu, barra, backdrop do modal) some.
+   Margem da folha controlada aqui (@page), não pela configuração de
+   impressão do navegador — fica igual em qualquer máquina. */
+@page {
+  size: A4;
+  margin: 16mm 14mm;
+}
 @media print {
   body * { visibility: hidden; }
   .doc-orcamento, .doc-orcamento * { visibility: visible; }
-  .doc-orcamento { position: absolute; top: 0; left: 0; width: 100%; box-shadow: none; border: none; padding: 0; }
+  .doc-orcamento {
+    /* left:0 + right:0 (em vez de só width:100%) é o que de fato estica a
+       caixa pela largura inteira da folha quando ela vira position:absolute
+       — width:100% sozinho respeitava o max-width:760px de tela e ficava
+       "encolhida" do lado esquerdo. */
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    width: auto;
+    max-width: none;
+    margin: 0;
+    box-shadow: none;
+    border: none;
+    padding: 0;
+    background: none;
+  }
   .no-print { display: none !important; }
 }
 

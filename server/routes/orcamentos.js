@@ -252,7 +252,7 @@ orcamentoPublicoRouter.get(
   publicRateLimit,
   asyncHandler(async (req, res) => {
     const [budget] = await sql`
-      select b.id, b.number, b.status, b."validUntil", b.notes, b."discountCents", b."updatedAt",
+      select b.id, b.number, b.status, b."validUntil", b.notes, b."discountCents", b."createdAt", b."updatedAt",
         c.name as "clientName", e.title as "eventTitle"
       from "Budget" b
       left join "Client" c on c.id = b."clientId"

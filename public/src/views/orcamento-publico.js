@@ -42,6 +42,11 @@ export async function renderOrcamentoPublico(id) {
     return root;
   }
 
+  // O que o navegador imprime como cabeçalho/rodapé da página (se a opção
+  // "Cabeçalhos e rodapés" do diálogo de impressão estiver ligada) usa o
+  // title da aba — deixamos algo útil em vez do genérico "SUED · ERP".
+  document.title = `Orçamento ${data.number || "SUED"}${data.clientName ? " — " + data.clientName : ""}`;
+
   const liveDot = el("span", { class: "doc-public__livedot" });
   const printBtn = el("button", { class: "btn btn--primary btn--sm no-print" }, "Baixar PDF");
   printBtn.onclick = () => window.print();

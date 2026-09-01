@@ -178,6 +178,7 @@ export async function renderOrcamentos() {
       const eventId = fd.get("eventId");
       return {
         number: budget.number,
+        createdAt: budget.createdAt,
         status: fd.get("status") || "RASCUNHO",
         clientName: opts.clients.find((c) => c.id === clientId)?.name || "",
         eventTitle: opts.events.find((e) => e.id === eventId)?.title || "",
@@ -196,7 +197,17 @@ export async function renderOrcamentos() {
     renderPreview();
 
     const printBtn = el("button", { class: "btn btn--outline btn--sm", type: "button" }, "Baixar PDF");
-    printBtn.onclick = () => window.print();
+    printBtn.onclick = () => {
+      // O cabeçalho/rodapé que o navegador imprime por cima da página (data,
+      // título, URL, número da página) usa o title da aba — não dá para
+      // removê-lo por CSS, só trocar por algo útil enquanto o diálogo de
+      // impressão está aberto ("Cabeçalhos e rodapés" é uma opção do
+      // próprio navegador, fora do nosso controle).
+      const originalTitle = document.title;
+      document.title = `Orçamento ${budget.number || "novo"} — SUED`;
+      window.addEventListener("afterprint", () => { document.title = originalTitle; }, { once: true });
+      window.print();
+    };
 
     const clientLinkRow = el("div", { class: "flex items-center gap-2 no-print", style: "margin-bottom:14px;flex-wrap:wrap" }, [printBtn]);
     if (isEdit) {

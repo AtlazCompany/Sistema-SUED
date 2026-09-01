@@ -48,6 +48,7 @@ export function renderOrcamentoDocumento(data) {
       el("div", { class: "doc-orcamento__id" }, [
         el("p", { class: "doc-orcamento__kicker" }, "Proposta de orçamento"),
         el("p", { class: "doc-orcamento__number" }, data.number || "Rascunho"),
+        el("p", { class: "doc-orcamento__date" }, formatDate(data.createdAt || new Date())),
         el("span", { class: `doc-orcamento__status doc-orcamento__status--${(data.status || "").toLowerCase()}` }, statusLabel),
       ]),
     ]),
