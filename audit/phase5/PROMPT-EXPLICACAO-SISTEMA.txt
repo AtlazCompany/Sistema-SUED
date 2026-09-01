@@ -1,0 +1,78 @@
+PROMPT PARA NOVA JANELA — EXPLICAÇÃO COMPLETA DO SUED SYSTEM
+======================================================================
+Copie e cole isto como a PRIMEIRA mensagem de uma conversa nova.
+
+--------------------------------------------------------------------
+
+Quero que você me explique o SUED SYSTEM de cabo a rabo — o projeto
+inteiro, em C:\Users\hardf\Desktop\SUED SYSTEM. Antes de explicar
+qualquer coisa, leia o código de verdade (não presuma nada a partir de
+nomes de arquivo) — comece por AGENTS.md e pela pasta audit/phase5/
+(especialmente CHECKPOINT.md, que tem o histórico completo de tudo
+que já foi auditado e corrigido).
+
+Não sou desenvolvedor experiente, então explique em português claro,
+sem jargão técnico desnecessário — quando precisar usar um termo
+técnico, explique o que ele significa na primeira vez.
+
+Quero que a explicação cubra, nesta ordem:
+
+1. VISÃO GERAL
+   - O que o sistema faz, pra quem, e qual problema ele resolve.
+   - As "peças" principais: o que é o backend, o que é o frontend, o
+     que é o banco de dados, como eles conversam entre si.
+   - Onde cada peça roda hoje (hospedagem, banco).
+
+2. COMO ENTRAR E QUEM PODE FAZER O QUÊ
+   - Como funciona o login.
+   - Os papéis de usuário que existem (Admin, Sócio, Comercial,
+     Operacional, Financeiro) e o que cada um pode ou não acessar.
+   - O que acontece se a senha for esquecida.
+
+3. CADA TELA DO SISTEMA, UMA POR UMA
+   Para cada uma: pra que serve, o que dá pra fazer nela, e qualquer
+   comportamento especial que valha a pena saber.
+   - Dashboard
+   - Leads
+   - Clientes (e os contatos de cada cliente)
+   - Funil (oportunidades comerciais)
+   - Eventos (explique por que é chamado de "hub" do sistema)
+   - Locais
+   - Fornecedores
+   - Catálogo (produtos/serviços)
+   - Orçamentos
+   - Operacional (tarefas, checklists, cronograma)
+   - Financeiro (contas a pagar/receber, fluxo de caixa)
+   - Contratos
+   - Relatórios
+   - Usuários
+
+4. REGRAS DE NEGÓCIO IMPORTANTES
+   Explique com exemplos concretos (não só a regra em abstrato):
+   - As regras de avanço de status (evento, oportunidade, orçamento,
+     contrato) — o que pode e o que não pode mudar.
+   - Por que um cliente não pode ter documento duplicado.
+   - Por que valores financeiros não podem ser negativos.
+   - Por que um desconto não pode ser maior que o orçamento.
+   - O que é o marcador de "vigente" em orçamentos/contratos.
+   - A trilha de auditoria (quem fez o quê, e onde ver isso).
+
+5. SEGURANÇA — O QUE JÁ FOI VERIFICADO
+   Resuma, em linguagem simples, o que já foi auditado e corrigido ao
+   longo do projeto (proteção de senha, sessão, permissões, etc.) —
+   não precisa repetir cada detalhe técnico, só o panorama de que
+   áreas já foram verificadas e estão OK.
+
+6. O QUE ACONTECE SE ALGO DER ERRADO
+   - Existe backup? Como funciona hoje (é manual).
+   - Existe como reverter uma mudança de código (Git)?
+   - O que fazer se o site cair.
+
+7. O QUE AINDA FALTA / DECISÕES PENDENTES
+   Liste com honestidade o que ainda não foi resolvido ou depende de
+   uma decisão minha (ex.: monitoramento do site, domínio de e-mail
+   próprio, upgrade do banco de dados).
+
+Ao final, se fizer sentido, sugira (sem implementar nada ainda) o que
+você acha que seria o próximo passo mais valioso pro sistema — mas
+deixe claro que é uma sugestão, não uma decisão já tomada.

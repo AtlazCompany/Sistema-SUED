@@ -831,9 +831,123 @@ novos — **275/275 PASS** (inalterado). `node --check`: 100% OK.
 resíduo confirmado (24 tabelas). Admin real intacto. Servidor de
 teste encerrado, porta 4000 livre.
 
-## 43. Próximo passo
+## 44. Checklist de lançamento e deploy real
 
-Com B1–B22, B2/B3/B4/B5/B10/B18, uma releitura completa sem achados
-novos, e agora a checagem de performance pré-lançamento concluída, não
-resta nenhuma pendência conhecida. Parado aqui — aguardando novo
-pedido do usuário.
+Levantamento pré-lançamento (fora do backlog B1–B22): variáveis de
+ambiente obrigatórias, backup do Supabase, monitoramento, HTTPS/CORS/
+CSP para o domínio real, credenciais com valor de dev, e processo de
+rollback.
+
+**Achado crítico encontrado e corrigido**: nada do projeto tinha sido
+commitado no Git desde 18/07/2026 (só existia 1 commit inicial) — todo
+o trabalho das Fases 2–5 (72+ arquivos) só existia no diretório local,
+sem nenhuma forma de rollback. Corrigido: commit único (`ef2f9aa`)
+abrangendo tudo, com `graphify-out/` (cache de ferramenta local, não é
+parte do projeto) adicionado ao `.gitignore` antes de commitar. O
+`origin` antigo (`GR-SUED/Sistema-da-SUED-CO`) não existia mais
+(404) — usuário criou um repositório novo
+(`AtlazCompany/Sistema-SUED`), remote atualizado e push confirmado (a
+troca de `git remote set-url` foi bloqueada pelo classificador do
+ambiente, executada pelo próprio usuário).
+
+**Deploy real realizado** (Render, plano gratuito):
+- Web Service criado a partir do repositório novo, Root Directory
+  `server`, Build `npm install`.
+- **Comando de start ajustado**: `npm start` usa
+  `node --env-file=.env index.js` — confirmado por teste direto que o
+  Node RECUSA iniciar se `.env` não existir (erro fatal, não um aviso).
+  Como o Render injeta variáveis direto no processo (sem arquivo
+  `.env`), o Start Command no painel do Render foi configurado como
+  `node index.js` — nenhuma alteração no `package.json`/código, só
+  configuração no painel.
+- Variáveis configuradas no painel do Render: `DATABASE_URL`,
+  `JWT_SECRET`, `RESEND_API_KEY` (mesmos valores do `.env` local),
+  `NODE_ENV=production`, `APP_BASE_URL=https://sistema-sued.onrender.com`
+  (domínio definido só depois da criação do serviço, adicionado depois
+  — Render redeploya sozinho ao mudar uma variável).
+- `PORT` não precisou ser configurada — `config.js` já lê
+  `process.env.PORT`, e o Render injeta a sua própria automaticamente.
+
+**Validação real do deploy**:
+- `https://sistema-sued.onrender.com` → HTTP 200, título `SUED · ERP`
+  confirmado (não é página de erro).
+- Headers de segurança presentes (CSP, X-Frame-Options,
+  X-Content-Type-Options); HTTPS confirmado via Cloudflare na frente
+  do Render.
+- **Conexão real com o Supabase confirmada em produção**: login com
+  credencial inexistente → 401 "E-mail ou senha inválidos." (prova que
+  o backend consultou o banco de verdade, não é erro de conexão).
+- Fluxo de "esqueci senha" testado contra o deploy real (conta de
+  teste temporária, removida ao final) — token gerado corretamente no
+  banco. O texto exato do link não foi confirmado por e-mail real
+  desta vez (endereço de teste usado não é um domínio válido para
+  entrega) — usuário decidiu que a confirmação indireta já é
+  suficiente (mesmo mecanismo de variável de ambiente já confirmado
+  funcionando para `DATABASE_URL`/`JWT_SECRET`), sem exigir um novo
+  teste com e-mail real.
+- Observação: a chave `RESEND_API_KEY` já é usada para outros e-mails
+  de negócio fora do SUED (visto no histórico da conta Resend) — não é
+  um problema, só uma nota de contexto.
+- Achado opcional, não corrigido: header `x-powered-by: Express`
+  exposto (informação de framework, risco baixíssimo) — fica registrado
+  para uma limpeza futura se quiserem.
+
+**Itens do checklist original que ainda dependem do usuário** (não
+resolvidos nesta etapa):
+- **Backup automático do Supabase**: usuário ainda não confirmou o
+  plano/retenção atual no painel do Supabase.
+- **Monitoramento/alerta**: nenhum configurado; sugestão dada
+  (UptimeRobot/Better Stack, gratuitos) mas não implementada — decisão
+  do usuário.
+- **`MAIL_FROM`**: continua usando o domínio de sandbox da Resend
+  (`onboarding@resend.dev`) em vez de um domínio próprio verificado —
+  funciona, mas não é a identidade de marca ideal para produção.
+
+## 45. Backup manual (Supabase Free não inclui backup automático)
+
+Usuário confirmou no painel do Supabase: **plano Free, sem backup
+automático** ("Free Plan does not include project backups"). Decisão
+do usuário: backup manual/script gratuito por enquanto, em vez de
+upgrade pago imediato — decisão dele, não escolhida por mim.
+
+`server/backup-db.mjs` (novo): exporta todas as linhas de todas as
+tabelas do schema public para um JSON único e timestamped, em
+`server/backups/` (já coberto por `.gitignore` — nunca commitado,
+pode conter dado real de cliente). Testado contra produção — funciona.
+Não é um backup formal (não é `pg_dump`, que não está instalado nesta
+máquina), mas é suficiente pra recuperar dado se algo der errado, dado
+o volume atual pequeno. Rodar manualmente antes de mudanças arriscadas
+ou numa rotina periódica — não é automático.
+
+**Achado real encontrado ao gerar o backup**: `"AuditLog"` tinha
+**242 registros de resíduo de teste** dos Lotes 4–8 — nunca detectados
+pelas varreduras de resíduo anteriores desta auditoria porque elas só
+checavam colunas `text`/`character varying`, e `before`/`after` (onde
+o resíduo estava) são `jsonb`. Confirmado com precisão que os 242 eram
+100% resíduo (todos com `userId` nulo — só acontece quando o ator já
+foi excluído; a única conta jamais excluída no projeto é o admin real,
+que nunca aparece entre eles) — removidos. Backup regerado limpo (1
+linha total: o admin real).
+
+**Correção de metodologia**: `server/check-residue.mjs` (novo,
+reutilizável) — mesma varredura de sempre, agora incluindo colunas
+`jsonb`/`json`. Testado: zero resíduo confirmado nas 24 tabelas,
+incluindo JSONB, depois da limpeza. Deve substituir os scripts
+inline ad-hoc usados nos lotes anteriores para essa checagem.
+
+**Reavaliação honesta**: os relatórios de "zero resíduo" dos Lotes
+4 a 8 (CHECKPOINT.md, seções anteriores) estavam tecnicamente
+incompletos nesse ponto específico — a conclusão final (zero resíduo)
+continua verdadeira agora, mas não era garantida por aquelas
+varreduras à época. Registrado aqui para transparência do histórico.
+
+## 46. Próximo passo
+
+Backlog B1–B22 e as 6 regras de negócio fechados; performance
+validada; deploy real em produção (Render) confirmado funcionando,
+com rollback via Git; backup manual disponível
+(`server/backup-db.mjs`); resíduo histórico de `AuditLog` encontrado e
+limpo; metodologia de varredura corrigida (`server/check-residue.mjs`).
+Restam 2 itens que só o usuário pode decidir (monitoramento, domínio
+de e-mail próprio) — nenhum bloqueia o uso atual. Parado aqui —
+aguardando novo pedido do usuário.

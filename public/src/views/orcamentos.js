@@ -147,13 +147,17 @@ export async function renderOrcamentos() {
       items.push({ productServiceId: p.id, description: p.name, quantity: 1, unitPriceCents: p.suggestedPriceCents, unitCostCents: p.referenceCostCents });
       catSel.value = ""; renderItems(); recalc();
     };
-    const addFree = el("button", { class: "btn btn--outline btn--sm", type: "button" }, "Item avulso");
-    addFree.onclick = () => {
-      const desc = prompt("Descrição do item avulso:");
-      if (!desc?.trim()) return;
-      items.push({ productServiceId: "", description: desc.trim(), quantity: 1, unitPriceCents: 0, unitCostCents: 0 });
+    const freeInput = el("input", { class: "input input--mini", placeholder: "Descrição do item avulso", style: "flex:1;min-width:160px" });
+    const addFree = el("button", { class: "btn btn--outline btn--sm", type: "button" }, "Adicionar avulso");
+    const submitFree = () => {
+      const desc = freeInput.value.trim();
+      if (!desc) return toast("Informe a descrição do item avulso.", "error");
+      items.push({ productServiceId: "", description: desc, quantity: 1, unitPriceCents: 0, unitCostCents: 0 });
+      freeInput.value = "";
       renderItems(); recalc();
     };
+    addFree.onclick = submitFree;
+    freeInput.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); submitFree(); } };
 
     header.querySelector("[name=discount]").oninput = recalc;
     recalc();
@@ -173,6 +177,16 @@ export async function renderOrcamentos() {
         loadList();
       } catch (err) { toast(err.message, "error"); salvar.disabled = false; }
     };
+    const actions = [voltar, salvar];
+    if (isEdit) {
+      const excluir = el("button", { class: "btn btn--danger" }, "Excluir");
+      excluir.onclick = async () => {
+        if (!confirm(`Excluir o orçamento ${budget.number}?`)) return;
+        try { await api.del(`/orcamentos/${id}`); toast("Orçamento excluído."); loadList(); }
+        catch (e) { toast(e.message, "error"); }
+      };
+      actions.unshift(excluir);
+    }
 
     container.replaceChildren(
       el("div", { class: "page-header" }, [
@@ -180,7 +194,7 @@ export async function renderOrcamentos() {
           el("h1", {}, isEdit ? `Orçamento ${budget.number}` : "Novo orçamento"),
           el("p", {}, "Cliente, itens e condições."),
         ]),
-        el("div", { class: "flex items-center gap-2" }, [voltar, salvar]),
+        el("div", { class: "flex items-center gap-2" }, actions),
       ]),
       el("div", { class: "card card--pad", style: "margin-bottom:16px" }, [header]),
       el("div", { class: "grid", style: "grid-template-columns:2fr 1fr;align-items:start" }, [
@@ -193,7 +207,7 @@ export async function renderOrcamentos() {
             ])]),
             itemsBody,
           ]),
-          el("div", { class: "flex items-center", style: "gap:8px;margin-top:14px;flex-wrap:wrap" }, [catSel, addCat, addFree]),
+          el("div", { class: "flex items-center", style: "gap:8px;margin-top:14px;flex-wrap:wrap" }, [catSel, addCat, freeInput, addFree]),
         ]),
         el("div", { class: "card card--pad" }, [
           el("h2", { style: "font-size:14px;font-weight:600;margin-bottom:12px" }, "Resumo"),
