@@ -1,0 +1,362 @@
+﻿
+===== PRIMARY KEYS / UNIQUE / FOREIGN KEYS =====
+AccountPayable | CHECK | 2200_17756_10_not_null | - | -
+AccountPayable | CHECK | 2200_17756_1_not_null | - | -
+AccountPayable | CHECK | 2200_17756_2_not_null | - | -
+AccountPayable | CHECK | 2200_17756_5_not_null | - | -
+AccountPayable | CHECK | 2200_17756_7_not_null | - | -
+AccountPayable | CHECK | 2200_17756_9_not_null | - | -
+AccountPayable | FOREIGN KEY | AccountPayable_eventId_fkey | eventId | Event.id
+AccountPayable | FOREIGN KEY | AccountPayable_supplierId_fkey | supplierId | Supplier.id
+AccountPayable | PRIMARY KEY | AccountPayable_pkey | id | AccountPayable.id
+AccountReceivable | CHECK | 2200_17740_1_not_null | - | -
+AccountReceivable | CHECK | 2200_17740_2_not_null | - | -
+AccountReceivable | CHECK | 2200_17740_4_not_null | - | -
+AccountReceivable | CHECK | 2200_17740_6_not_null | - | -
+AccountReceivable | CHECK | 2200_17740_8_not_null | - | -
+AccountReceivable | CHECK | 2200_17740_9_not_null | - | -
+AccountReceivable | FOREIGN KEY | AccountReceivable_eventId_fkey | eventId | Event.id
+AccountReceivable | PRIMARY KEY | AccountReceivable_pkey | id | AccountReceivable.id
+Budget | CHECK | 2200_17695_10_not_null | - | -
+Budget | CHECK | 2200_17695_11_not_null | - | -
+Budget | CHECK | 2200_17695_1_not_null | - | -
+Budget | CHECK | 2200_17695_2_not_null | - | -
+Budget | CHECK | 2200_17695_6_not_null | - | -
+Budget | CHECK | 2200_17695_8_not_null | - | -
+Budget | FOREIGN KEY | Budget_clientId_fkey | clientId | Client.id
+Budget | FOREIGN KEY | Budget_eventId_fkey | eventId | Event.id
+Budget | FOREIGN KEY | Budget_opportunityId_fkey | opportunityId | Opportunity.id
+Budget | PRIMARY KEY | Budget_pkey | id | Budget.id
+BudgetItem | CHECK | 2200_17719_1_not_null | - | -
+BudgetItem | CHECK | 2200_17719_2_not_null | - | -
+BudgetItem | CHECK | 2200_17719_4_not_null | - | -
+BudgetItem | CHECK | 2200_17719_5_not_null | - | -
+BudgetItem | CHECK | 2200_17719_6_not_null | - | -
+BudgetItem | CHECK | 2200_17719_7_not_null | - | -
+BudgetItem | FOREIGN KEY | BudgetItem_budgetId_fkey | budgetId | Budget.id
+BudgetItem | FOREIGN KEY | BudgetItem_productServiceId_fkey | productServiceId | ProductService.id
+BudgetItem | PRIMARY KEY | BudgetItem_pkey | id | BudgetItem.id
+Category | CHECK | 2200_17648_1_not_null | - | -
+Category | CHECK | 2200_17648_2_not_null | - | -
+Category | PRIMARY KEY | Category_pkey | id | Category.id
+Category | UNIQUE | Category_name_key | name | Category.name
+Checklist | CHECK | 2200_17829_1_not_null | - | -
+Checklist | CHECK | 2200_17829_2_not_null | - | -
+Checklist | CHECK | 2200_17829_3_not_null | - | -
+Checklist | FOREIGN KEY | Checklist_eventId_fkey | eventId | Event.id
+Checklist | PRIMARY KEY | Checklist_pkey | id | Checklist.id
+ChecklistItem | CHECK | 2200_17841_1_not_null | - | -
+ChecklistItem | CHECK | 2200_17841_2_not_null | - | -
+ChecklistItem | CHECK | 2200_17841_3_not_null | - | -
+ChecklistItem | CHECK | 2200_17841_4_not_null | - | -
+ChecklistItem | FOREIGN KEY | ChecklistItem_checklistId_fkey | checklistId | Checklist.id
+ChecklistItem | PRIMARY KEY | ChecklistItem_pkey | id | ChecklistItem.id
+Client | CHECK | 2200_17485_16_not_null | - | -
+Client | CHECK | 2200_17485_17_not_null | - | -
+Client | CHECK | 2200_17485_1_not_null | - | -
+Client | CHECK | 2200_17485_2_not_null | - | -
+Client | CHECK | 2200_17485_3_not_null | - | -
+Client | PRIMARY KEY | Client_pkey | id | Client.id
+Contact | CHECK | 2200_17507_1_not_null | - | -
+Contact | CHECK | 2200_17507_2_not_null | - | -
+Contact | CHECK | 2200_17507_3_not_null | - | -
+Contact | CHECK | 2200_17507_4_not_null | - | -
+Contact | FOREIGN KEY | Contact_clientId_fkey | clientId | Client.id
+Contact | PRIMARY KEY | Contact_pkey | id | Contact.id
+Contract | CHECK | 2200_17789_10_not_null | - | -
+Contract | CHECK | 2200_17789_1_not_null | - | -
+Contract | CHECK | 2200_17789_2_not_null | - | -
+Contract | CHECK | 2200_17789_5_not_null | - | -
+Contract | CHECK | 2200_17789_6_not_null | - | -
+Contract | CHECK | 2200_17789_9_not_null | - | -
+Contract | FOREIGN KEY | Contract_clientId_fkey | clientId | Client.id
+Contract | FOREIGN KEY | Contract_eventId_fkey | eventId | Event.id
+Contract | PRIMARY KEY | Contract_pkey | id | Contract.id
+Event | CHECK | 2200_17591_15_not_null | - | -
+Event | CHECK | 2200_17591_16_not_null | - | -
+Event | CHECK | 2200_17591_17_not_null | - | -
+Event | CHECK | 2200_17591_18_not_null | - | -
+Event | CHECK | 2200_17591_1_not_null | - | -
+Event | CHECK | 2200_17591_20_not_null | - | -
+Event | CHECK | 2200_17591_21_not_null | - | -
+Event | CHECK | 2200_17591_2_not_null | - | -
+Event | CHECK | 2200_17591_3_not_null | - | -
+Event | CHECK | 2200_17591_4_not_null | - | -
+Event | FOREIGN KEY | Event_clientId_fkey | clientId | Client.id
+Event | FOREIGN KEY | Event_commercialId_fkey | commercialId | User.id
+Event | FOREIGN KEY | Event_eventTypeId_fkey | eventTypeId | EventType.id
+Event | FOREIGN KEY | Event_operationalId_fkey | operationalId | User.id
+Event | FOREIGN KEY | Event_opportunityId_fkey | opportunityId | Opportunity.id
+Event | FOREIGN KEY | Event_venueId_fkey | venueId | Venue.id
+Event | PRIMARY KEY | Event_pkey | id | Event.id
+Event | UNIQUE | Event_code_key | code | Event.code
+Event | UNIQUE | Event_opportunityId_key | opportunityId | Event.opportunityId
+EventType | CHECK | 2200_17576_1_not_null | - | -
+EventType | CHECK | 2200_17576_2_not_null | - | -
+EventType | PRIMARY KEY | EventType_pkey | id | EventType.id
+Interaction | CHECK | 2200_17557_1_not_null | - | -
+Interaction | CHECK | 2200_17557_2_not_null | - | -
+Interaction | CHECK | 2200_17557_3_not_null | - | -
+Interaction | CHECK | 2200_17557_4_not_null | - | -
+Interaction | CHECK | 2200_17557_5_not_null | - | -
+Interaction | CHECK | 2200_17557_6_not_null | - | -
+Interaction | FOREIGN KEY | Interaction_opportunityId_fkey | opportunityId | Opportunity.id
+Interaction | FOREIGN KEY | Interaction_userId_fkey | userId | User.id
+Interaction | PRIMARY KEY | Interaction_pkey | id | Interaction.id
+Lead | CHECK | 2200_17521_10_not_null | - | -
+Lead | CHECK | 2200_17521_11_not_null | - | -
+Lead | CHECK | 2200_17521_1_not_null | - | -
+Lead | CHECK | 2200_17521_2_not_null | - | -
+Lead | CHECK | 2200_17521_7_not_null | - | -
+Lead | FOREIGN KEY | Lead_clientId_fkey | clientId | Client.id
+Lead | PRIMARY KEY | Lead_pkey | id | Lead.id
+Opportunity | CHECK | 2200_17536_10_not_null | - | -
+Opportunity | CHECK | 2200_17536_1_not_null | - | -
+Opportunity | CHECK | 2200_17536_2_not_null | - | -
+Opportunity | CHECK | 2200_17536_3_not_null | - | -
+Opportunity | CHECK | 2200_17536_5_not_null | - | -
+Opportunity | CHECK | 2200_17536_6_not_null | - | -
+Opportunity | CHECK | 2200_17536_9_not_null | - | -
+Opportunity | FOREIGN KEY | Opportunity_clientId_fkey | clientId | Client.id
+Opportunity | FOREIGN KEY | Opportunity_ownerId_fkey | ownerId | User.id
+Opportunity | PRIMARY KEY | Opportunity_pkey | id | Opportunity.id
+ProductService | CHECK | 2200_17657_10_not_null | - | -
+ProductService | CHECK | 2200_17657_1_not_null | - | -
+ProductService | CHECK | 2200_17657_2_not_null | - | -
+ProductService | CHECK | 2200_17657_6_not_null | - | -
+ProductService | CHECK | 2200_17657_7_not_null | - | -
+ProductService | CHECK | 2200_17657_8_not_null | - | -
+ProductService | CHECK | 2200_17657_9_not_null | - | -
+ProductService | FOREIGN KEY | ProductService_categoryId_fkey | categoryId | Category.id
+ProductService | PRIMARY KEY | ProductService_pkey | id | ProductService.id
+ScheduleItem | CHECK | 2200_17855_1_not_null | - | -
+ScheduleItem | CHECK | 2200_17855_2_not_null | - | -
+ScheduleItem | CHECK | 2200_17855_3_not_null | - | -
+ScheduleItem | CHECK | 2200_17855_4_not_null | - | -
+ScheduleItem | FOREIGN KEY | ScheduleItem_eventId_fkey | eventId | Event.id
+ScheduleItem | PRIMARY KEY | ScheduleItem_pkey | id | ScheduleItem.id
+Supplier | CHECK | 2200_17641_1_not_null | - | -
+Supplier | CHECK | 2200_17641_2_not_null | - | -
+Supplier | CHECK | 2200_17641_8_not_null | - | -
+Supplier | CHECK | 2200_17641_9_not_null | - | -
+Supplier | PRIMARY KEY | Supplier_pkey | id | Supplier.id
+SupplierProduct | CHECK | 2200_17674_1_not_null | - | -
+SupplierProduct | CHECK | 2200_17674_2_not_null | - | -
+SupplierProduct | CHECK | 2200_17674_3_not_null | - | -
+SupplierProduct | CHECK | 2200_17674_4_not_null | - | -
+SupplierProduct | CHECK | 2200_17674_5_not_null | - | -
+SupplierProduct | FOREIGN KEY | SupplierProduct_productServiceId_fkey | productServiceId | ProductService.id
+SupplierProduct | FOREIGN KEY | SupplierProduct_supplierId_fkey | supplierId | Supplier.id
+SupplierProduct | PRIMARY KEY | SupplierProduct_pkey | id | SupplierProduct.id
+SupplierProduct | UNIQUE | SupplierProduct_productServiceId_supplierId_key | productServiceId | SupplierProduct.supplierId
+SupplierProduct | UNIQUE | SupplierProduct_productServiceId_supplierId_key | productServiceId | SupplierProduct.productServiceId
+SupplierProduct | UNIQUE | SupplierProduct_productServiceId_supplierId_key | supplierId | SupplierProduct.supplierId
+SupplierProduct | UNIQUE | SupplierProduct_productServiceId_supplierId_key | supplierId | SupplierProduct.productServiceId
+Task | CHECK | 2200_17808_10_not_null | - | -
+Task | CHECK | 2200_17808_1_not_null | - | -
+Task | CHECK | 2200_17808_2_not_null | - | -
+Task | CHECK | 2200_17808_3_not_null | - | -
+Task | CHECK | 2200_17808_6_not_null | - | -
+Task | CHECK | 2200_17808_7_not_null | - | -
+Task | CHECK | 2200_17808_9_not_null | - | -
+Task | FOREIGN KEY | Task_assigneeId_fkey | assigneeId | User.id
+Task | FOREIGN KEY | Task_eventId_fkey | eventId | Event.id
+Task | PRIMARY KEY | Task_pkey | id | Task.id
+Transaction | CHECK | 2200_17775_1_not_null | - | -
+Transaction | CHECK | 2200_17775_2_not_null | - | -
+Transaction | CHECK | 2200_17775_3_not_null | - | -
+Transaction | CHECK | 2200_17775_4_not_null | - | -
+Transaction | CHECK | 2200_17775_5_not_null | - | -
+Transaction | FOREIGN KEY | Transaction_eventId_fkey | eventId | Event.id
+Transaction | PRIMARY KEY | Transaction_pkey | id | Transaction.id
+User | CHECK | 2200_17496_1_not_null | - | -
+User | CHECK | 2200_17496_2_not_null | - | -
+User | CHECK | 2200_17496_3_not_null | - | -
+User | CHECK | 2200_17496_4_not_null | - | -
+User | CHECK | 2200_17496_5_not_null | - | -
+User | CHECK | 2200_17496_6_not_null | - | -
+User | PRIMARY KEY | User_pkey | id | User.id
+User | UNIQUE | User_email_key | email | User.email
+Venue | CHECK | 2200_17583_1_not_null | - | -
+Venue | CHECK | 2200_17583_2_not_null | - | -
+Venue | CHECK | 2200_17583_7_not_null | - | -
+Venue | CHECK | 2200_17583_9_not_null | - | -
+Venue | PRIMARY KEY | Venue_pkey | id | Venue.id
+
+===== CHECK CONSTRAINTS =====
+AccountPayable | 2200_17756_10_not_null | updatedAt IS NOT NULL
+AccountPayable | 2200_17756_1_not_null | id IS NOT NULL
+AccountPayable | 2200_17756_2_not_null | description IS NOT NULL
+AccountPayable | 2200_17756_5_not_null | amountCents IS NOT NULL
+AccountPayable | 2200_17756_7_not_null | status IS NOT NULL
+AccountPayable | 2200_17756_9_not_null | createdAt IS NOT NULL
+AccountReceivable | 2200_17740_1_not_null | id IS NOT NULL
+AccountReceivable | 2200_17740_2_not_null | description IS NOT NULL
+AccountReceivable | 2200_17740_4_not_null | amountCents IS NOT NULL
+AccountReceivable | 2200_17740_6_not_null | status IS NOT NULL
+AccountReceivable | 2200_17740_8_not_null | createdAt IS NOT NULL
+AccountReceivable | 2200_17740_9_not_null | updatedAt IS NOT NULL
+Budget | 2200_17695_10_not_null | createdAt IS NOT NULL
+Budget | 2200_17695_11_not_null | updatedAt IS NOT NULL
+Budget | 2200_17695_1_not_null | id IS NOT NULL
+Budget | 2200_17695_2_not_null | number IS NOT NULL
+Budget | 2200_17695_6_not_null | status IS NOT NULL
+Budget | 2200_17695_8_not_null | discountCents IS NOT NULL
+BudgetItem | 2200_17719_1_not_null | id IS NOT NULL
+BudgetItem | 2200_17719_2_not_null | budgetId IS NOT NULL
+BudgetItem | 2200_17719_4_not_null | description IS NOT NULL
+BudgetItem | 2200_17719_5_not_null | quantity IS NOT NULL
+BudgetItem | 2200_17719_6_not_null | unitPriceCents IS NOT NULL
+BudgetItem | 2200_17719_7_not_null | unitCostCents IS NOT NULL
+Category | 2200_17648_1_not_null | id IS NOT NULL
+Category | 2200_17648_2_not_null | name IS NOT NULL
+Checklist | 2200_17829_1_not_null | id IS NOT NULL
+Checklist | 2200_17829_2_not_null | eventId IS NOT NULL
+Checklist | 2200_17829_3_not_null | title IS NOT NULL
+ChecklistItem | 2200_17841_1_not_null | id IS NOT NULL
+ChecklistItem | 2200_17841_2_not_null | checklistId IS NOT NULL
+ChecklistItem | 2200_17841_3_not_null | label IS NOT NULL
+ChecklistItem | 2200_17841_4_not_null | done IS NOT NULL
+Client | 2200_17485_16_not_null | createdAt IS NOT NULL
+Client | 2200_17485_17_not_null | updatedAt IS NOT NULL
+Client | 2200_17485_1_not_null | id IS NOT NULL
+Client | 2200_17485_2_not_null | personType IS NOT NULL
+Client | 2200_17485_3_not_null | name IS NOT NULL
+Contact | 2200_17507_1_not_null | id IS NOT NULL
+Contact | 2200_17507_2_not_null | clientId IS NOT NULL
+Contact | 2200_17507_3_not_null | name IS NOT NULL
+Contact | 2200_17507_4_not_null | primary IS NOT NULL
+Contract | 2200_17789_10_not_null | updatedAt IS NOT NULL
+Contract | 2200_17789_1_not_null | id IS NOT NULL
+Contract | 2200_17789_2_not_null | number IS NOT NULL
+Contract | 2200_17789_5_not_null | status IS NOT NULL
+Contract | 2200_17789_6_not_null | valueCents IS NOT NULL
+Contract | 2200_17789_9_not_null | createdAt IS NOT NULL
+Event | 2200_17591_15_not_null | plannedRevenueCents IS NOT NULL
+Event | 2200_17591_16_not_null | actualRevenueCents IS NOT NULL
+Event | 2200_17591_17_not_null | plannedCostCents IS NOT NULL
+Event | 2200_17591_18_not_null | actualCostCents IS NOT NULL
+Event | 2200_17591_1_not_null | id IS NOT NULL
+Event | 2200_17591_20_not_null | createdAt IS NOT NULL
+Event | 2200_17591_21_not_null | updatedAt IS NOT NULL
+Event | 2200_17591_2_not_null | code IS NOT NULL
+Event | 2200_17591_3_not_null | title IS NOT NULL
+Event | 2200_17591_4_not_null | status IS NOT NULL
+EventType | 2200_17576_1_not_null | id IS NOT NULL
+EventType | 2200_17576_2_not_null | name IS NOT NULL
+Interaction | 2200_17557_1_not_null | id IS NOT NULL
+Interaction | 2200_17557_2_not_null | type IS NOT NULL
+Interaction | 2200_17557_3_not_null | content IS NOT NULL
+Interaction | 2200_17557_4_not_null | opportunityId IS NOT NULL
+Interaction | 2200_17557_5_not_null | userId IS NOT NULL
+Interaction | 2200_17557_6_not_null | createdAt IS NOT NULL
+Lead | 2200_17521_10_not_null | createdAt IS NOT NULL
+Lead | 2200_17521_11_not_null | updatedAt IS NOT NULL
+Lead | 2200_17521_1_not_null | id IS NOT NULL
+Lead | 2200_17521_2_not_null | name IS NOT NULL
+Lead | 2200_17521_7_not_null | status IS NOT NULL
+Opportunity | 2200_17536_10_not_null | updatedAt IS NOT NULL
+Opportunity | 2200_17536_1_not_null | id IS NOT NULL
+Opportunity | 2200_17536_2_not_null | title IS NOT NULL
+Opportunity | 2200_17536_3_not_null | clientId IS NOT NULL
+Opportunity | 2200_17536_5_not_null | stage IS NOT NULL
+Opportunity | 2200_17536_6_not_null | estimatedCents IS NOT NULL
+Opportunity | 2200_17536_9_not_null | createdAt IS NOT NULL
+ProductService | 2200_17657_10_not_null | updatedAt IS NOT NULL
+ProductService | 2200_17657_1_not_null | id IS NOT NULL
+ProductService | 2200_17657_2_not_null | name IS NOT NULL
+ProductService | 2200_17657_6_not_null | referenceCostCents IS NOT NULL
+ProductService | 2200_17657_7_not_null | suggestedPriceCents IS NOT NULL
+ProductService | 2200_17657_8_not_null | active IS NOT NULL
+ProductService | 2200_17657_9_not_null | createdAt IS NOT NULL
+ScheduleItem | 2200_17855_1_not_null | id IS NOT NULL
+ScheduleItem | 2200_17855_2_not_null | eventId IS NOT NULL
+ScheduleItem | 2200_17855_3_not_null | title IS NOT NULL
+ScheduleItem | 2200_17855_4_not_null | startsAt IS NOT NULL
+Supplier | 2200_17641_1_not_null | id IS NOT NULL
+Supplier | 2200_17641_2_not_null | name IS NOT NULL
+Supplier | 2200_17641_8_not_null | createdAt IS NOT NULL
+Supplier | 2200_17641_9_not_null | updatedAt IS NOT NULL
+SupplierProduct | 2200_17674_1_not_null | id IS NOT NULL
+SupplierProduct | 2200_17674_2_not_null | productServiceId IS NOT NULL
+SupplierProduct | 2200_17674_3_not_null | supplierId IS NOT NULL
+SupplierProduct | 2200_17674_4_not_null | costCents IS NOT NULL
+SupplierProduct | 2200_17674_5_not_null | isDefault IS NOT NULL
+Task | 2200_17808_10_not_null | updatedAt IS NOT NULL
+Task | 2200_17808_1_not_null | id IS NOT NULL
+Task | 2200_17808_2_not_null | eventId IS NOT NULL
+Task | 2200_17808_3_not_null | title IS NOT NULL
+Task | 2200_17808_6_not_null | status IS NOT NULL
+Task | 2200_17808_7_not_null | priority IS NOT NULL
+Task | 2200_17808_9_not_null | createdAt IS NOT NULL
+Transaction | 2200_17775_1_not_null | id IS NOT NULL
+Transaction | 2200_17775_2_not_null | kind IS NOT NULL
+Transaction | 2200_17775_3_not_null | description IS NOT NULL
+Transaction | 2200_17775_4_not_null | amountCents IS NOT NULL
+Transaction | 2200_17775_5_not_null | date IS NOT NULL
+User | 2200_17496_1_not_null | id IS NOT NULL
+User | 2200_17496_2_not_null | name IS NOT NULL
+User | 2200_17496_3_not_null | email IS NOT NULL
+User | 2200_17496_4_not_null | role IS NOT NULL
+User | 2200_17496_5_not_null | active IS NOT NULL
+User | 2200_17496_6_not_null | passwordHash IS NOT NULL
+Venue | 2200_17583_1_not_null | id IS NOT NULL
+Venue | 2200_17583_2_not_null | name IS NOT NULL
+Venue | 2200_17583_7_not_null | isOwn IS NOT NULL
+Venue | 2200_17583_9_not_null | createdAt IS NOT NULL
+
+===== INDEXES =====
+AccountPayable | AccountPayable_pkey | CREATE UNIQUE INDEX "AccountPayable_pkey" ON public."AccountPayable" USING btree (id)
+AccountReceivable | AccountReceivable_dueDate_idx | CREATE INDEX "AccountReceivable_dueDate_idx" ON public."AccountReceivable" USING btree ("dueDate")
+AccountReceivable | AccountReceivable_pkey | CREATE UNIQUE INDEX "AccountReceivable_pkey" ON public."AccountReceivable" USING btree (id)
+AccountReceivable | AccountReceivable_status_idx | CREATE INDEX "AccountReceivable_status_idx" ON public."AccountReceivable" USING btree (status)
+Budget | Budget_pkey | CREATE UNIQUE INDEX "Budget_pkey" ON public."Budget" USING btree (id)
+BudgetItem | BudgetItem_budgetId_idx | CREATE INDEX "BudgetItem_budgetId_idx" ON public."BudgetItem" USING btree ("budgetId")
+BudgetItem | BudgetItem_pkey | CREATE UNIQUE INDEX "BudgetItem_pkey" ON public."BudgetItem" USING btree (id)
+Category | Category_name_key | CREATE UNIQUE INDEX "Category_name_key" ON public."Category" USING btree (name)
+Category | Category_pkey | CREATE UNIQUE INDEX "Category_pkey" ON public."Category" USING btree (id)
+Checklist | Checklist_pkey | CREATE UNIQUE INDEX "Checklist_pkey" ON public."Checklist" USING btree (id)
+ChecklistItem | ChecklistItem_pkey | CREATE UNIQUE INDEX "ChecklistItem_pkey" ON public."ChecklistItem" USING btree (id)
+Client | Client_document_idx | CREATE INDEX "Client_document_idx" ON public."Client" USING btree (document)
+Client | Client_email_idx | CREATE INDEX "Client_email_idx" ON public."Client" USING btree (email)
+Client | Client_name_idx | CREATE INDEX "Client_name_idx" ON public."Client" USING btree (name)
+Client | Client_pkey | CREATE UNIQUE INDEX "Client_pkey" ON public."Client" USING btree (id)
+Contact | Contact_clientId_idx | CREATE INDEX "Contact_clientId_idx" ON public."Contact" USING btree ("clientId")
+Contact | Contact_pkey | CREATE UNIQUE INDEX "Contact_pkey" ON public."Contact" USING btree (id)
+Contract | Contract_pkey | CREATE UNIQUE INDEX "Contract_pkey" ON public."Contract" USING btree (id)
+Event | Event_clientId_idx | CREATE INDEX "Event_clientId_idx" ON public."Event" USING btree ("clientId")
+Event | Event_code_key | CREATE UNIQUE INDEX "Event_code_key" ON public."Event" USING btree (code)
+Event | Event_eventDate_idx | CREATE INDEX "Event_eventDate_idx" ON public."Event" USING btree ("eventDate")
+Event | Event_opportunityId_key | CREATE UNIQUE INDEX "Event_opportunityId_key" ON public."Event" USING btree ("opportunityId")
+Event | Event_pkey | CREATE UNIQUE INDEX "Event_pkey" ON public."Event" USING btree (id)
+Event | Event_status_idx | CREATE INDEX "Event_status_idx" ON public."Event" USING btree (status)
+Event | Event_venueId_idx | CREATE INDEX "Event_venueId_idx" ON public."Event" USING btree ("venueId")
+EventType | EventType_pkey | CREATE UNIQUE INDEX "EventType_pkey" ON public."EventType" USING btree (id)
+Interaction | Interaction_opportunityId_idx | CREATE INDEX "Interaction_opportunityId_idx" ON public."Interaction" USING btree ("opportunityId")
+Interaction | Interaction_pkey | CREATE UNIQUE INDEX "Interaction_pkey" ON public."Interaction" USING btree (id)
+Lead | Lead_clientId_idx | CREATE INDEX "Lead_clientId_idx" ON public."Lead" USING btree ("clientId")
+Lead | Lead_pkey | CREATE UNIQUE INDEX "Lead_pkey" ON public."Lead" USING btree (id)
+Lead | Lead_status_idx | CREATE INDEX "Lead_status_idx" ON public."Lead" USING btree (status)
+Opportunity | Opportunity_clientId_idx | CREATE INDEX "Opportunity_clientId_idx" ON public."Opportunity" USING btree ("clientId")
+Opportunity | Opportunity_pkey | CREATE UNIQUE INDEX "Opportunity_pkey" ON public."Opportunity" USING btree (id)
+Opportunity | Opportunity_stage_idx | CREATE INDEX "Opportunity_stage_idx" ON public."Opportunity" USING btree (stage)
+ProductService | ProductService_active_idx | CREATE INDEX "ProductService_active_idx" ON public."ProductService" USING btree (active)
+ProductService | ProductService_categoryId_idx | CREATE INDEX "ProductService_categoryId_idx" ON public."ProductService" USING btree ("categoryId")
+ProductService | ProductService_pkey | CREATE UNIQUE INDEX "ProductService_pkey" ON public."ProductService" USING btree (id)
+ScheduleItem | ScheduleItem_pkey | CREATE UNIQUE INDEX "ScheduleItem_pkey" ON public."ScheduleItem" USING btree (id)
+ScheduleItem | ScheduleItem_startsAt_idx | CREATE INDEX "ScheduleItem_startsAt_idx" ON public."ScheduleItem" USING btree ("startsAt")
+Supplier | Supplier_pkey | CREATE UNIQUE INDEX "Supplier_pkey" ON public."Supplier" USING btree (id)
+SupplierProduct | SupplierProduct_pkey | CREATE UNIQUE INDEX "SupplierProduct_pkey" ON public."SupplierProduct" USING btree (id)
+SupplierProduct | SupplierProduct_productServiceId_idx | CREATE INDEX "SupplierProduct_productServiceId_idx" ON public."SupplierProduct" USING btree ("productServiceId")
+SupplierProduct | SupplierProduct_productServiceId_supplierId_key | CREATE UNIQUE INDEX "SupplierProduct_productServiceId_supplierId_key" ON public."SupplierProduct" USING btree ("productServiceId", "supplierId")
+SupplierProduct | SupplierProduct_supplierId_idx | CREATE INDEX "SupplierProduct_supplierId_idx" ON public."SupplierProduct" USING btree ("supplierId")
+Task | Task_eventId_idx | CREATE INDEX "Task_eventId_idx" ON public."Task" USING btree ("eventId")
+Task | Task_pkey | CREATE UNIQUE INDEX "Task_pkey" ON public."Task" USING btree (id)
+Task | Task_status_idx | CREATE INDEX "Task_status_idx" ON public."Task" USING btree (status)
+Transaction | Transaction_date_idx | CREATE INDEX "Transaction_date_idx" ON public."Transaction" USING btree (date)
+Transaction | Transaction_kind_idx | CREATE INDEX "Transaction_kind_idx" ON public."Transaction" USING btree (kind)
+Transaction | Transaction_pkey | CREATE UNIQUE INDEX "Transaction_pkey" ON public."Transaction" USING btree (id)
+User | User_active_idx | CREATE INDEX "User_active_idx" ON public."User" USING btree (active)
+User | User_email_key | CREATE UNIQUE INDEX "User_email_key" ON public."User" USING btree (email)
+User | User_pkey | CREATE UNIQUE INDEX "User_pkey" ON public."User" USING btree (id)
+Venue | Venue_pkey | CREATE UNIQUE INDEX "Venue_pkey" ON public."Venue" USING btree (id)

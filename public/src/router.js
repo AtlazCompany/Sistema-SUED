@@ -40,12 +40,16 @@ async function render() {
     container.scrollTop = 0;
   } catch (err) {
     if (err.message === "unauthorized") return; // tratado globalmente
-    container.replaceChildren(
-      Object.assign(document.createElement("div"), {
-        className: "empty",
-        innerHTML: `<p class="empty__title">Não foi possível carregar</p><p class="empty__desc">${err.message}</p>`,
-      }),
-    );
+    const empty = document.createElement("div");
+    empty.className = "empty";
+    const title = document.createElement("p");
+    title.className = "empty__title";
+    title.textContent = "Não foi possível carregar";
+    const desc = document.createElement("p");
+    desc.className = "empty__desc";
+    desc.textContent = err.message;
+    empty.append(title, desc);
+    container.replaceChildren(empty);
   }
 }
 

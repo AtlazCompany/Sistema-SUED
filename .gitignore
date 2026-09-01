@@ -155,3 +155,7 @@ config.local.json
 # -------------------------
 .claude/settings.local.json
 .claude/*.local.json
+# -------------------------
+# Ferramentas locais (nao fazem parte do projeto)
+# -------------------------
+graphify-out/

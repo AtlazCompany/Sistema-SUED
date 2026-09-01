@@ -5,13 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "node --env-file=.env --watch index.js",
-    "start": "node --env-file=.env index.js"
+    "start": "node --env-file=.env index.js",
+    "test": "node --env-file=.env --experimental-test-module-mocks --test tests/*.test.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
     "cookie-parser": "^1.4.7",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
-    "postgres": "^3.4.7"
+    "postgres": "^3.4.7",
+    "resend": "^6.25.0"
   }
 }

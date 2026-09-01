@@ -1,0 +1,223 @@
+FASE 5 / LOTE 8 — B2 + B3 + B4 + B5 + B10 + B18
+(REGRAS DE NEGÓCIO — DECIDIDAS PELO USUÁRIO/CONSULTOR)
+======================================================================
+Os 6 itens que estavam congelados desde o início da Fase 5, aguardando
+decisão do consultor, foram trazidos e decididos pelo usuário nesta
+janela. Nenhuma regra foi inventada — cada uma foi esclarecida com
+perguntas pontuais antes de qualquer código.
+
+--------------------------------------------------------------------
+DECISÕES DO USUÁRIO (verbatim, resumidas)
+--------------------------------------------------------------------
+
+B2: "Depois de realizado só pode ser cancelado e os demais é no mesmo
+sentido." → esclarecido em 2 pontos antes de implementar: Evento
+REALIZADO→POS_EVENTO continua permitido; Contrato ASSINADO também
+passa a ser definitivo (só CANCELADO depois).
+
+B3: "Todo cliente só pode ter um CPF... se for para mudar alguma
+informação, faça um Editar." → documento único, com edição continuando
+livre (a checagem é só contra OUTROS clientes).
+
+B4: "Não permitir com negativo, se for uma despesa, coloque em outra
+aba." → contas a pagar/receber exigem valor positivo.
+
+B5: "Bloquear o desconto maior que o subtotal." → literal.
+
+B10: "Pode colocar para não puxar, o orçamento pode ser feito, mas
+pode ter um desconto por ser para fornecedor ou mesmo um desconto
+falado entre as partes." → confirma o comportamento JÁ EXISTENTE
+(valor do Contrato digitado manualmente, sem ligação automática com o
+Orçamento). Nenhuma alteração de código.
+
+B18: "Faça esse marcador de vigente." → automático (confirmado por
+pergunta): aprovar/assinar desmarca os outros do mesmo evento sem
+ação manual.
+
+--------------------------------------------------------------------
+IMPLEMENTAÇÃO
+--------------------------------------------------------------------
+
+### B2 — transição de status/estágio
+
+Novo helper genérico em `server/utils.js`:
+
+  assertValidTransition(current, next, { order, terminal })
+
+`order` é a sequência normal (avançar é sempre permitido, inclusive
+pulando etapas; voltar nunca é); `terminal` são status definitivos,
+alcançáveis como saída a partir de qualquer estado não-terminal da
+sequência, sem nenhuma saída depois deles. Ficar no mesmo status nunca
+é bloqueado (não é uma "transição").
+
+Aplicado em 4 módulos:
+
+  Evento (eventos.js, PUT /:id):
+    order: RASCUNHO→ORCAMENTO→PROPOSTA→CONFIRMADO→EM_PLANEJAMENTO→
+           EM_EXECUCAO→REALIZADO→POS_EVENTO
+    terminal: POS_EVENTO, CANCELADO
+
+  Oportunidade (oportunidades.js, PATCH /:id/estagio E PUT /:id):
+    order: PROSPECCAO→QUALIFICACAO→PROPOSTA→NEGOCIACAO
+    terminal: GANHO, PERDIDO
+    (a mesma checagem foi aplicada nos dois endpoints que podem mudar
+    o estágio — só travar o PATCH deixaria o PUT geral como brecha)
+
+  Orçamento (orcamentos.js, PUT /:id):
+    order: RASCUNHO→ENVIADO
+    terminal: APROVADO, REJEITADO, EXPIRADO
+
+  Contrato (contratos.js, PUT /:id):
+    order: RASCUNHO→ENVIADO→ASSINADO
+    terminal: CANCELADO
+    (ASSINADO é o último item de `order` — sem alvo mais à frente,
+    só resta a saída terminal CANCELADO; a reversão ASSINADO→RASCUNHO
+    que o código antigo permitia via `signedAt` deixou de ser
+    possível)
+
+### B3 — documento único
+
+Schema (aditivo, autorizado explicitamente pelo usuário):
+  CREATE UNIQUE INDEX "Client_document_unique_idx"
+    ON "Client" ("document") WHERE "document" IS NOT NULL;
+
+Índice CONDICIONAL — Postgres, por padrão, já trata múltiplos NULLs
+como não-conflitantes num índice único comum, mas o `WHERE` explícito
+deixa a intenção clara e documentada. `clientes.js` POST e PUT
+capturam `23505` → 400 "Já existe um cliente com esse CPF/CNPJ."
+Escolhido no banco (não só validação em código) porque é a única forma
+de garantir a regra mesmo sob dois cadastros simultâneos.
+
+### B4 — valor não pode ser negativo nem zero
+
+`financeiro.js`: `POST /receber` e `POST /pagar` validam
+`amountCents > 0` antes de montar os dados de inserção — 400 "O valor
+deve ser maior que zero." se violado.
+
+### B5 — desconto não pode passar do subtotal
+
+`orcamentos.js`: `assertDiscountWithinSubtotal(items, discountCents)`
+calcula o subtotal a partir dos ITENS SENDO SALVOS (mesma fórmula já
+usada na subquery `totalsSelect` da listagem) e rejeita com 400 se o
+desconto for maior. Desconto IGUAL ao subtotal é permitido (o total
+fica zero, não negativo — não viola a regra). Aplicado em POST e PUT.
+
+### B10 — sem alteração de código
+
+Confirmado que "não puxar automaticamente" já era o comportamento
+existente — `Contract.valueCents` sempre foi um campo digitado
+manualmente. Decisão registrada, nada implementado.
+
+### B18 — marcador de "vigente", automático
+
+Schema (aditivo, autorizado): colunas `"vigente"` (boolean, not null,
+default false) em `"Budget"` e `"Contract"`.
+
+Em `orcamentos.js` (POST e PUT) e `contratos.js` (POST e PUT):
+`header.vigente`/`data.vigente` é calculado como `status === "APROVADO"`
+(ou `"ASSINADO"`, no caso de Contrato) e gravado junto com o resto da
+linha. Dentro da mesma transação, se `vigente === true` e há
+`eventId`, todos os OUTROS Orçamentos/Contratos do mesmo evento têm
+`vigente` desmarcado — nunca mais de um vigente por evento, sem
+precisar de ação manual. Sem `eventId`, não há grupo pra desmarcar.
+
+--------------------------------------------------------------------
+TESTES
+--------------------------------------------------------------------
+
+Novo arquivo `server/tests/regras-negocio-b2-b3-b4-b5-b18.test.js` —
+**20 subtestes**, banco real:
+
+  B2 Evento (5): avançar pulando etapa; voltar bloqueado; REALIZADO→
+    POS_EVENTO permitido; POS_EVENTO definitivo; CANCELADO a partir de
+    ativo.
+  B2 Oportunidade (4): avançar pulando; voltar via PATCH bloqueado;
+    voltar via PUT geral também bloqueado (confirma que não é uma
+    brecha); GANHO definitivo.
+  B2 Orçamento (1): ENVIADO→RASCUNHO bloqueado; APROVADO definitivo.
+  B2 Contrato (1): ASSINADO→RASCUNHO bloqueado; ASSINADO→CANCELADO
+    permitido.
+  B3 (2): documento duplicado bloqueado; múltiplos clientes sem
+    documento continuam permitidos.
+  B4 (2): valor negativo/zero bloqueado em receber e pagar; valor
+    válido aceito.
+  B5 (1): desconto maior que subtotal bloqueado; desconto IGUAL ao
+    subtotal permitido (caso-limite).
+  B18 (2): aprovar novo Orçamento desmarca o anterior do mesmo evento;
+    assinar novo Contrato desmarca o anterior do mesmo evento.
+  limpeza (1): zero resíduo confirmado ao final do próprio arquivo.
+
+Resultado: **20/20 PASS** isolado; suíte completa reexecutada, isolada
+(sem nenhum outro processo tocando o banco em paralelo, lição do Lote
+6/7) — **275/275 PASS, 0 FAIL** (255 anteriores + 20 novos, nenhuma
+regressão).
+
+`node --check`: 100% OK em toda a árvore.
+`inspect-db.mjs`: 24 tabelas — `Budget`/`Contract` com a coluna
+`vigente` nova, `Client_document_unique_idx` confirmado, nenhuma
+migration destrutiva.
+
+--------------------------------------------------------------------
+VALIDAÇÃO REAL E VISUAL
+--------------------------------------------------------------------
+
+A própria suíte de 20 testes já valida os 6 achados via HTTP real
+(servidor + Supabase reais, não mockado).
+
+Validação visual adicional (Browser real, admin temporário
+`AUDIT-FASE5-LOTE8-UI`): tela "Novo orçamento" → cliente selecionado,
+desconto de R$100 sem nenhum item (subtotal R$0) → `Criar orçamento` →
+confirmado via inspeção de rede que `POST /api/orcamentos` devolveu
+**400** com a mensagem exata "O desconto não pode ser maior que o
+subtotal do orçamento."; o formulário permaneceu na tela (create
+rejeitado, sem navegação de sucesso) — confirma que o mecanismo de
+erro já existente no frontend (`toast(err.message, "error")`) exibe a
+nova regra sem precisar de nenhuma alteração de UI.
+
+--------------------------------------------------------------------
+LIMPEZA E INTEGRIDADE
+--------------------------------------------------------------------
+
+Todo dado de teste e de validação (`AUDIT-FASE5-LOTE8*`,
+`audit.fase5.lote8*`, `AUDIT-FASE5-B2B18-*`) removido. Varredura
+exaustiva (`information_schema`, todas as colunas de texto, todas as
+24 tabelas) confirma **zero resíduo**. `"User"` com exatamente 1
+registro — o admin real (`contato.atlazcompany@gmail.com`,
+`active=true`, `tokenVersion=0`), nunca tocado. Servidor de validação
+encerrado (PID real via `netstat`/`taskkill`), porta 4000 livre.
+
+--------------------------------------------------------------------
+ARQUIVOS ALTERADOS
+--------------------------------------------------------------------
+
+Backend: `server/utils.js` (novo `assertValidTransition`),
+`server/routes/eventos.js`, `oportunidades.js`, `orcamentos.js`,
+`contratos.js`, `clientes.js`, `financeiro.js`.
+Schema: `server/setup-status-rules.mjs` (novo, idempotente).
+Teste novo: `server/tests/regras-negocio-b2-b3-b4-b5-b18.test.js`
+(20 testes).
+Documentação: `audit/phase5/12-lote8-b2-b3-b4-b5-b10-b18.txt` (este
+arquivo), `CHECKPOINT.md` (atualizado).
+
+--------------------------------------------------------------------
+AMBIGUIDADES ESCLARECIDAS ANTES DE CODIFICAR
+--------------------------------------------------------------------
+
+Todas as 4 perguntas feitas ao usuário antes de implementar (Evento
+REALIZADO→POS_EVENTO; Contrato ASSINADO reversível ou não; B18
+automático ou manual; autorização de schema) foram respondidas
+explicitamente antes de qualquer linha de código ser escrita — nenhuma
+suposição foi feita silenciosamente sobre regra de negócio.
+
+--------------------------------------------------------------------
+PENDÊNCIAS RESTANTES
+--------------------------------------------------------------------
+
+Nenhuma regra de negócio pendente de decisão — B2 a B18 estão todas
+fechadas. Único item em aberto: `RESEND_API_KEY` (B14) para o envio
+real de e-mail — decisão/custo do usuário, sistema já funciona sem
+isso (modo desenvolvimento).
+
+--------------------------------------------------------------------
+FIM DO LOTE 8
+--------------------------------------------------------------------

@@ -1,0 +1,179 @@
+FASE 5 — PROPOSTA DE ESCOPO: B9 (TRILHA DE AUDITORIA)
+=========================================================
+NÃO IMPLEMENTADO — proposta para aprovação do usuário antes de
+qualquer código ou alteração de banco.
+
+--------------------------------------------------------------------
+1. QUAIS AÇÕES REGISTRAR
+--------------------------------------------------------------------
+
+Candidato natural: toda operação que MUDA estado persistente
+(create/update/delete) — não leituras (GET). Duas opções de amplitude:
+
+  (A) Tudo desde o início — todo POST/PUT/PATCH/DELETE de todo módulo
+      de negócio. Cobertura completa, mas maior volume de linhas desde
+      o dia 1 e mais pontos de código a instrumentar.
+  (B) Começar pelo que já é sensível por natureza — Financeiro
+      (contas a pagar/receber, transações), Contratos, Usuários
+      (criar/editar/desativar/redefinir senha) — e expandir depois
+      para os demais módulos conforme a necessidade real aparecer.
+
+Login/logout/tentativas de senha já têm seu próprio controle (rate
+limit, Fases 2/5) — não preciso, a princípio, duplicar isso na trilha
+de auditoria, mas poderia ser incluído se o interesse for "quem
+acessou o sistema quando", não só "quem mudou o quê".
+
+**Decisão do usuário**: (A), (B), ou outro recorte.
+
+--------------------------------------------------------------------
+2. QUAIS MÓDULOS
+--------------------------------------------------------------------
+
+Se (A) da seção 1: os 12 módulos com escrita (Clientes/Contatos,
+Leads, Oportunidades, Eventos, Locais, Fornecedores, Catálogo,
+Orçamentos, Operacional, Financeiro, Contratos, Usuários).
+Se (B): só os 3 citados, com expansão futura por pedido.
+
+--------------------------------------------------------------------
+3. QUAIS CAMPOS (estrutura de cada registro de log)
+--------------------------------------------------------------------
+
+Proposta mínima e genérica (uma tabela só, serve para todos os
+módulos, sem precisar de uma tabela de log por entidade):
+  - `id`
+  - `table` (ex.: "Event", "Contract")
+  - `recordId` (id do registro afetado)
+  - `action` ("CREATE" | "UPDATE" | "DELETE")
+  - `userId` + `userName` (nome congelado no momento da ação — não só
+    uma FK para `User`, para o log continuar legível mesmo que o
+    usuário seja excluído depois)
+  - `before` (estado anterior, ou `null` em CREATE)
+  - `after` (estado novo, ou `null` em DELETE)
+  - `createdAt` (timestamp do servidor)
+
+--------------------------------------------------------------------
+4. QUEM REALIZOU
+--------------------------------------------------------------------
+
+`req.user.id` + `req.user.name` no momento da ação (não `req.user.role`,
+que pode mudar depois e não é relevante para "quem fez").
+
+--------------------------------------------------------------------
+5. QUANDO
+--------------------------------------------------------------------
+
+Timestamp gerado pelo servidor (`now()` do Postgres ou `new Date()` no
+Node, mesmo padrão já usado em todo o resto do projeto) — nunca
+confiar em horário vindo do cliente.
+
+--------------------------------------------------------------------
+6. ANTES/DEPOIS
+--------------------------------------------------------------------
+
+Duas formas possíveis:
+  (A) Snapshot completo do registro antes e depois (JSON) — simples de
+      implementar e de auditar (dá pra ver o registro inteiro em
+      qualquer ponto do tempo), mas ocupa mais espaço por linha.
+  (B) Só o diff dos campos que mudaram — mais compacto, mas exige
+      lógica extra para calcular o diff e é menos direto de ler
+      ("o que era o registro inteiro nesse momento?" fica mais difícil
+      de responder sem reconstruir a partir de vários diffs).
+
+Recomendação técnica (não uma decisão de negócio): (A) é mais simples
+e mais robusto para uma primeira versão — mas fica com o usuário.
+
+**Importante em qualquer uma das opções**: `passwordHash` NUNCA deve
+entrar em `before`/`after` — precisa de uma lista explícita de campos
+a excluir por tabela (pelo menos `User.passwordHash`).
+
+--------------------------------------------------------------------
+7. RETENÇÃO
+--------------------------------------------------------------------
+
+Decisão pura de produto/compliance, não posso escolher:
+  - Retenção indefinida (nunca apagar) — mais fiel para auditoria real,
+    mas a tabela só cresce.
+  - Retenção com prazo (ex.: 1, 2, 5 anos) com expurgo automático
+    periódico.
+  - Sem expurgo automático agora, decidir depois quando o volume real
+    for conhecido.
+
+--------------------------------------------------------------------
+8. IMPACTO NO BANCO
+--------------------------------------------------------------------
+
+Uma tabela nova (ex.: `"AuditLog"`) — **alteração de schema**, mesma
+categoria de decisão do achado B7 (`tokenVersion`): só seria criada
+com aprovação explícita, do mesmo jeito. Aditiva, não toca nenhuma
+tabela existente. Crescimento: uma linha por escrita registrada: com o
+volume de uso atual (poucos usuários, banco de produção
+praticamente vazio), crescimento lento no curto prazo — mas sem
+retenção definida (seção 7), cresce indefinidamente.
+
+--------------------------------------------------------------------
+9. IMPACTO DE DESEMPENHO
+--------------------------------------------------------------------
+
+Um INSERT a mais por operação de escrita registrada — mesma ordem de
+grandeza de qualquer INSERT que o sistema já faz hoje, impacto
+individual desprezível na escala atual. Duas estratégias de execução:
+  - **Síncrona, na mesma transação** da operação principal (já existe
+    infraestrutura de transação em Orçamentos, `sql.begin`) — garante
+    que o log nunca "perde" um evento, mas atrasa a resposta em uma
+    fração de milissegundo.
+  - **Melhor esforço, fora de transação** — resposta um pouco mais
+    rápida, mas um log poderia teoricamente não ser gravado se algo
+    falhar exatamente entre a operação principal e a gravação do log
+    (janela muito pequena, mas existe).
+Recomendação técnica: síncrona — para algo cujo propósito é confiança
+("isso realmente aconteceu, tenho certeza"), vale a fração de
+milissegundo extra.
+
+--------------------------------------------------------------------
+10. RISCOS DE PRIVACIDADE
+--------------------------------------------------------------------
+
+- `before`/`after` incluem dados pessoais reais de clientes (CPF,
+  e-mail, telefone) — normal para uma trilha de ERP/CRM, mas significa
+  que a PRÓPRIA trilha vira um lugar que precisa de controle de
+  acesso: proponho restringir a leitura da trilha a ADMIN/SOCIO (mesmo
+  padrão de paridade já usado em todo o resto do sistema), sujeito à
+  sua confirmação.
+- `passwordHash` (e qualquer segredo futuro) precisa estar numa lista
+  de exclusão explícita, nunca gravado em `before`/`after` — sem
+  exceção.
+- Se a LGPD/política interna exigir "direito ao esquecimento" de um
+  cliente excluído, uma trilha com retenção indefinida guardaria os
+  dados dele mesmo depois — ponto que deveria ser considerado junto
+  com a decisão de retenção (seção 7).
+
+--------------------------------------------------------------------
+11. ESTRATÉGIA DE CONSULTA
+--------------------------------------------------------------------
+
+Duas opções de escopo de entrega:
+  (A) Só a tabela + consulta técnica direta (SQL/script), sem tela —
+      menor esforço, atende "preciso investigar o que aconteceu" sob
+      demanda, mas não é autoatendimento para o usuário final.
+  (B) Uma tela simples de "Histórico"/"Auditoria" (só ADMIN/SOCIO),
+      reaproveitando o componente de tabela já usado em todo o
+      sistema, com filtro básico por módulo/usuário/período — mais
+      valor de produto, mais código.
+
+**Decisão do usuário**: (A) para começar (mais rápido, menos risco) ou
+já ir direto para (B)?
+
+--------------------------------------------------------------------
+RESUMO DAS DECISÕES QUE PRECISO DE VOCÊ ANTES DE IMPLEMENTAR
+--------------------------------------------------------------------
+
+1. Amplitude: todos os módulos desde já, ou começar por
+   Financeiro/Contratos/Usuários?
+2. Antes/depois: snapshot completo ou só diff?
+3. Retenção: indefinida, com prazo, ou decidir depois?
+4. Quem pode ler a trilha: só ADMIN/SOCIO (sugestão) ou outra regra?
+5. Entrega: só tabela + consulta técnica, ou já com uma tela própria?
+6. Autorização explícita para a alteração de schema (nova tabela
+   `AuditLog`), sujeita ao mesmo cuidado já usado no achado B7.
+
+Nenhum código ou schema foi alterado nesta etapa.

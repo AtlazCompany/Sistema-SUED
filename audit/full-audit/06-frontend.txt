@@ -1,0 +1,89 @@
+=== VIEWS ===
+
+
+Name            Length
+----            ------
+catalogo.js      11360
+clientes.js       4696
+contratos.js      6805
+dashboard.js      4029
+eventos.js       10386
+financeiro.js     8212
+fornecedores.js   5614
+leads.js          5239
+locais.js         4272
+login.js          9136
+operacional.js   10116
+orcamentos.js    10191
+pipeline.js       9908
+relatorios.js     5589
+
+
+
+=== COMPONENTS ===
+
+
+Name         Length
+----         ------
+decor.js       3219
+form.js        1098
+icons.js       3255
+modal.js        961
+shell.js       2784
+sued-wall.js   4481
+table.js       1196
+toast.js        432
+
+
+
+=== CSS ===
+
+
+Name           Length
+----           ------
+base.css         1859
+components.css  11255
+decor.css        5443
+layout.css       2772
+login.css       10305
+variables.css    2468
+
+
+
+=== JAVASCRIPT ===
+
+
+FullName                                                              Length
+--------                                                              ------
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\api.js                    1365
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\app.js                    3047
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\auth.js                    591
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\config.js                 1744
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\roles.js                  1046
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\router.js                 2201
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\state.js                   560
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\utils.js                  2461
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\components\decor.js       3219
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\components\form.js        1098
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\components\icons.js       3255
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\components\modal.js        961
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\components\shell.js       2784
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\components\sued-wall.js   4481
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\components\table.js       1196
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\components\toast.js        432
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\views\catalogo.js        11360
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\views\clientes.js         4696
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\views\contratos.js        6805
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\views\dashboard.js        4029
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\views\eventos.js         10386
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\views\financeiro.js       8212
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\views\fornecedores.js     5614
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\views\leads.js            5239
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\views\locais.js           4272
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\views\login.js            9136
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\views\operacional.js     10116
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\views\orcamentos.js      10191
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\views\pipeline.js         9908
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\views\relatorios.js       5589
+
+

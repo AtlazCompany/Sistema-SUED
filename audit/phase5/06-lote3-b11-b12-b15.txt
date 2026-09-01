@@ -1,0 +1,199 @@
+FASE 5 / LOTE 3 — B11 (TIPOS DE EVENTO) + B12 (EDIÇÃO DE LOCAIS) +
+B15 (MODAIS EMPILHADOS)
+======================================================================
+B2/B3/B4/B5/B10/B18 permanecem CONGELADOS (nenhuma alteração). B9 não
+implementado. Nenhuma alteração de schema/banco nesta etapa — as duas
+tabelas usadas (`EventType`, `Venue`) já existiam.
+
+--------------------------------------------------------------------
+INVENTÁRIO (confirmado antes de alterar qualquer arquivo)
+--------------------------------------------------------------------
+
+`EventType`: só `id`+`name` (idêntico a `Category`, sem `UNIQUE` em
+`name` diferente de `Category_name_key` — não adicionada, por não
+poder alterar schema; por isso B11 não replica a checagem de
+duplicidade de `Category`, só o que foi pedido: criar + excluir).
+`Venue`: `id, name, address, city, state, capacity, isOwn, notes,
+createdAt` (sem `updatedAt`) — já tinha criar/listar/excluir, faltava
+só editar.
+
+Arquivos a alterar, confirmados por leitura:
+  - `server/routes/eventos.js` — novo router `tiposEventoRouter`
+    (GET/POST/DELETE); novo `PUT /:id` em `locaisRouter`.
+  - `server/index.js` — montar `tiposEventoRouter` em
+    `/api/tipos-evento` (rota própria, fora de `/api/eventos`, para não
+    colidir com `eventosRouter.get("/:id")`/`delete("/:id")`, que já
+    capturam qualquer segmento único).
+  - `public/src/views/eventos.js` — botão "Tipos de evento" + modal
+    (mesmo padrão de `categoriesModal`, Catálogo).
+  - `public/src/views/locais.js` — botão "Editar" + `venueForm`
+    (mesmo padrão de `clientForm`/`productForm`).
+  - `public/src/components/modal.js` — B15.
+
+--------------------------------------------------------------------
+IMPLEMENTAÇÃO
+--------------------------------------------------------------------
+
+**B11**: `tiposEventoRouter` — `GET /` (lista com contagem de eventos
+por tipo, mesmo padrão de `categoriesModal`), `POST /` (nome
+obrigatório), `DELETE /:id` (23503 → 409 "Não é possível excluir:
+existem eventos com este tipo."). RBAC: mesmo módulo `eventos` já
+usado por `eventosRouter`/`locaisRouter` — nenhuma permissão nova.
+
+**B12**: `locaisRouter.put("/:id")` — mesmos campos do `POST`
+existente, sem tocar `updatedAt` (coluna não existe). 404 se o local
+não existir. Frontend: botão "Editar" por linha abre modal pré-
+preenchido, `PUT /api/locais/:id` ao salvar.
+
+**B15**: `public/src/components/modal.js` — variável de módulo
+`currentModal`; `openModal()` fecha o modal atual (se houver) antes de
+abrir o novo. Sem redesign — só a função `close()` passou a ser
+rastreada e reaproveitada.
+
+--------------------------------------------------------------------
+BUGS ENCONTRADOS E CORRIGIDOS DURANTE A IMPLEMENTAÇÃO (fora do pedido
+original, mas na mesma classe/arquivo já em edição)
+--------------------------------------------------------------------
+
+1. **Nome só-com-espaços aceito em `POST /tipos-evento` e
+   `POST`/`PUT /locais`** — `nn()` só normaliza string vazia (`""`),
+   não faz `trim()`; um nome `"   "` passava a checagem `if (!name)`.
+   Encontrado pelo próprio teste automatizado escrito para B11/B12
+   (não por inspeção manual). Corrigido com `.trim()` explícito nos 3
+   pontos (2 deles já existiam antes desta fase, não foram criados por
+   mim). Chegou a gravar uma linha `EventType` com nome `"   "` durante
+   a validação HTTP real — encontrada e removida manualmente antes da
+   limpeza final (documentado para transparência, não ficou no estado
+   final do banco).
+
+2. **`isOwn` (checkbox "Local próprio") nunca funcionava ao CRIAR um
+   local pela tela — bug pré-existente, não introduzido nesta fase.**
+   `add.onclick` fazia `form.querySelector("[name=isOwn]")`, mas o
+   checkbox é irmão do `<form>`, não filho dele — a busca sempre
+   devolvia `null`, e `.checked` num `null` lançava `TypeError` ANTES
+   de qualquer requisição à API. Ou seja: clicar em "Adicionar local"
+   na tela sempre quebrava silenciosamente (erro só visível no console
+   do navegador), a criação de local pela UI nunca funcionou até agora.
+   Encontrado ao testar B12 no navegador real (não havia teste
+   automatizado de frontend que pudesse pegar isso — este projeto não
+   tem infraestrutura de teste de frontend). Corrigido trocando para
+   `form.parentElement.querySelector(...)` — mesmo padrão já usado
+   corretamente em `clientForm`/`productForm` para o mesmo tipo de
+   checkbox fora do `<form>`. Confirmado corrigido com um teste real no
+   navegador (criar local com "Local próprio" marcado → sucesso).
+
+Nenhum dos dois exigiu decisão de regra de negócio — ambos são bugs
+técnicos objetivos (dado que deveria ser rejeitado passava; ação que
+deveria funcionar sempre falhava).
+
+--------------------------------------------------------------------
+TESTES
+--------------------------------------------------------------------
+
+Antes deste lote: 189/189 PASS. Depois: **203/203 PASS, 0 FAIL**
+(+14, todos em `server/tests/tipos-evento-e-locais.test.js`, novo
+arquivo, banco real): acesso sem autenticação → 401; nome vazio → 400
+(prova o bug #1 corrigido); criar com sucesso; listagem com contagem
+correta; UUID inválido → 400; exclusão com vínculo → 409 amigável;
+exclusão sem vínculo → 200; edição de Local com sucesso (nome vazio
+→ 400; UUID inválido → 400; inexistente → 404; sucesso, com
+confirmação de que os dados editados aparecem na listagem).
+
+Durante a primeira execução da suíte completa, um `CONNECT_TIMEOUT`
+transitório do Postgres interrompeu a limpeza de `fk-delete-guards.test.js`
+(arquivo da Fase 4, não tocado nesta fase) e deixou um usuário de teste
+órfão (`audit.fase4.bootstrap-admin@sued.local`) — identificado,
+removido manualmente, e a suíte inteira reexecutada com sucesso total
+(203/203) para confirmar que não era uma regressão real. Não há
+nenhuma alteração de código relacionada a isso — foi só instabilidade
+de rede momentânea com o Supabase.
+
+`node --check`: 100% OK em `server/` e `public/`. `inspect-db.mjs`: 23
+tabelas, schema íntegro — nenhuma migration.
+
+--------------------------------------------------------------------
+VALIDAÇÃO HTTP REAL
+--------------------------------------------------------------------
+
+Usuário temporário `AUDIT-FASE5-LOTE3`. Criar Tipo de Evento → listar
+→ vincular a um Evento de teste (SQL direto) → tentar excluir → 409
+amigável → desvincular → excluir → 200. Criar Local → editar (nome,
+cidade, UF, capacidade, "próprio") → confirmar valores atualizados na
+resposta e na listagem.
+
+Nota técnica: uma tentativa inicial de editar o campo "cidade" com
+acento ("Parnaíba") via `curl` na linha de comando (Git Bash/Windows)
+mostrou o valor corrompido na resposta — investigado e confirmado
+como um artefato de codificação do TERMINAL ao passar acentos como
+argumento de linha de comando no Windows, não um bug da aplicação:
+repetido o mesmo teste via `fetch` (Node, UTF-8 correto) e o valor
+gravou e voltou perfeito. Documentado para não gerar falsa alarme em
+validações futuras que usem `curl` com acentos neste ambiente.
+
+--------------------------------------------------------------------
+VALIDAÇÃO VISUAL (navegador real)
+--------------------------------------------------------------------
+
+Usuário temporário `AUDIT-FASE5-LOTE3UI`, login pela tela real.
+  - Tela Eventos: botão "Tipos de evento" ao lado de "Novo evento".    OK
+  - Abrir o modal de Tipos de Evento → estado vazio → adicionar
+    "AUDIT-FASE5-LOTE3UI Casamento" → aparece na lista do modal.       OK
+  - **B15**: com o modal de Tipos de Evento ainda aberto, clicar em
+    "Novo evento" → confirmado por inspeção do DOM: só 1
+    `.modal-backdrop` presente, com o título "Novo evento" — o modal
+    anterior foi removido do DOM automaticamente, não empilhado.       OK
+  - Tela Locais: criar local "AUDIT-FASE5-LOTE3UI Local" com "Local
+    próprio" marcado → **reproduziu o bug #2 antes da correção** (erro
+    no console, local não criado) → corrigido → recarregado → criação
+    funcionou (`POST /api/locais → 201`), badge "Espaço próprio"
+    aparece na lista.                                                  OK
+  - Botão "Editar" no local → modal "Editar local" abre pré-preenchido
+    (nome, "Local próprio" já marcado) → alterar cidade para
+    "Parnaiba" → Salvar → lista atualizada mostrando "Parnaiba".       OK
+
+Breakpoints: a verificação visual usou a exibição padrão do navegador
+da sessão (pane não exibido visualmente durante esta sessão — a
+interação foi feita via inspeção/eventos DOM diretos, que reproduzem
+fielmente os mesmos manipuladores de evento que um clique real
+dispara). Não foram testados os breakpoints móveis (375/390/768px)
+nesta rodada especificamente — as três telas alteradas (Eventos,
+Locais, e o componente de modal genérico) não mudaram nenhum CSS de
+layout responsivo, só adicionaram elementos que já usam as mesmas
+classes/componentes (`btn`, `field`, `modal`) usados em todas as outras
+telas já validadas em breakpoints móveis nas fases anteriores.
+
+--------------------------------------------------------------------
+LIMPEZA E INTEGRIDADE
+--------------------------------------------------------------------
+
+Todo dado temporário (`AUDIT-FASE5-LOTE3*`, `audit.fase5.lote3*`,
+incluindo o `EventType` órfão com nome em branco e o usuário órfão da
+Fase 4) removido e confirmado por contagem — zero resíduo. Admin real
+de produção confirmado intacto (`active=true`, `tokenVersion=0`,
+nunca tocado). Servidor de validação encerrado corretamente (PID real
+via `netstat` antes do `taskkill`). Porta 4000 livre ao final.
+
+--------------------------------------------------------------------
+ARQUIVOS ALTERADOS
+--------------------------------------------------------------------
+
+Backend: `server/routes/eventos.js` (B11 novo router + B12 novo PUT +
+correção do bug #1), `server/index.js` (montagem do novo router).
+Frontend: `public/src/views/eventos.js` (B11), `public/src/views/
+locais.js` (B12 + correção do bug #2), `public/src/components/
+modal.js` (B15).
+Testes novos: `server/tests/tipos-evento-e-locais.test.js` (14 testes).
+Documentação: `audit/phase5/06-lote3-b11-b12-b15.txt` (este arquivo),
+`CHECKPOINT.md` (atualizado).
+
+--------------------------------------------------------------------
+AMBIGUIDADES DE REGRA DE NEGÓCIO
+--------------------------------------------------------------------
+
+Nenhuma. Os dois bugs encontrados são técnicos e objetivos (validação
+ausente; seletor DOM errado) — corrigidos dentro do espírito de
+"menor alteração possível" já estabelecido nas fases anteriores.
+
+--------------------------------------------------------------------
+FIM DO LOTE 3 — NÃO AVANÇANDO PARA B13/B14/B16/B17
+--------------------------------------------------------------------

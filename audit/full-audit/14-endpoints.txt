@@ -1,0 +1,121 @@
+﻿
+import { requireAuth, requireRole } from "../auth.js";
+catalogoRouter.use(requireAuth);
+catalogoRouter.use(requireRole(...rolesForModule("fornecedores")));
+catalogoRouter.get(
+catalogoRouter.get(
+catalogoRouter.post(
+catalogoRouter.delete(
+catalogoRouter.get(
+catalogoRouter.post(
+catalogoRouter.put(
+catalogoRouter.delete(
+catalogoRouter.post(
+catalogoRouter.delete(
+import { requireAuth, requireRole } from "../auth.js";
+clientesRouter.use(requireAuth);
+clientesRouter.use(requireRole(...rolesForModule("crm")));
+clientesRouter.get(
+clientesRouter.get(
+clientesRouter.post(
+clientesRouter.put(
+clientesRouter.delete(
+import { requireAuth, requireRole } from "../auth.js";
+contratosRouter.use(requireAuth);
+contratosRouter.use(requireRole(...rolesForModule("contratos")));
+contratosRouter.get(
+contratosRouter.get(
+contratosRouter.get(
+contratosRouter.post(
+contratosRouter.put(
+contratosRouter.delete(
+import { requireAuth, requireRole } from "../auth.js";
+dashboardRouter.use(requireAuth);
+dashboardRouter.use(requireRole(...rolesForModule("dashboard")));
+dashboardRouter.get(
+import { requireAuth, requireRole } from "../auth.js";
+eventosRouter.use(requireAuth);
+eventosRouter.use(requireRole(...rolesForModule("eventos")));
+eventosRouter.get(
+eventosRouter.get(
+eventosRouter.get(
+eventosRouter.post(
+eventosRouter.put(
+eventosRouter.delete(
+locaisRouter.use(requireAuth);
+locaisRouter.use(requireRole(...rolesForModule("eventos")));
+locaisRouter.get(
+locaisRouter.post(
+locaisRouter.delete(
+import { requireAuth, requireRole } from "../auth.js";
+financeiroRouter.use(requireAuth);
+financeiroRouter.use(requireRole(...rolesForModule("financeiro")));
+financeiroRouter.get(
+financeiroRouter.get(
+financeiroRouter.get(
+financeiroRouter.post(
+financeiroRouter.post(
+financeiroRouter.delete(
+financeiroRouter.get(
+financeiroRouter.post(
+financeiroRouter.post(
+financeiroRouter.delete(
+financeiroRouter.get(
+import { requireAuth, requireRole } from "../auth.js";
+fornecedoresRouter.use(requireAuth);
+fornecedoresRouter.use(requireRole(...rolesForModule("fornecedores")));
+fornecedoresRouter.get(
+fornecedoresRouter.get(
+fornecedoresRouter.post(
+fornecedoresRouter.put(
+fornecedoresRouter.delete(
+import { requireAuth, requireRole } from "../auth.js";
+leadsRouter.use(requireAuth);
+leadsRouter.use(requireRole(...rolesForModule("crm")));
+leadsRouter.get(
+leadsRouter.post(
+leadsRouter.put(
+leadsRouter.delete(
+leadsRouter.post(
+import { requireAuth, requireRole } from "../auth.js";
+operacionalRouter.use(requireAuth);
+operacionalRouter.use(requireRole(...rolesForModule("operacional")));
+operacionalRouter.get(
+operacionalRouter.get(
+operacionalRouter.post(
+operacionalRouter.patch(
+operacionalRouter.delete(
+operacionalRouter.post(
+operacionalRouter.delete(
+operacionalRouter.post(
+operacionalRouter.patch(
+operacionalRouter.delete(
+operacionalRouter.post(
+operacionalRouter.delete(
+import { requireAuth, requireRole } from "../auth.js";
+oportunidadesRouter.use(requireAuth);
+oportunidadesRouter.use(requireRole(...rolesForModule("crm")));
+oportunidadesRouter.get(
+oportunidadesRouter.get(
+oportunidadesRouter.post(
+oportunidadesRouter.put(
+oportunidadesRouter.patch(
+oportunidadesRouter.delete(
+oportunidadesRouter.post(
+import { requireAuth, requireRole } from "../auth.js";
+orcamentosRouter.use(requireAuth);
+orcamentosRouter.use(requireRole(...rolesForModule("orcamentos")));
+orcamentosRouter.get(
+orcamentosRouter.get(
+orcamentosRouter.get(
+orcamentosRouter.post(
+orcamentosRouter.put(
+orcamentosRouter.delete(
+import { requireAuth, requireRole } from "../auth.js";
+relatoriosRouter.use(requireAuth);
+relatoriosRouter.use(requireRole(...rolesForModule("relatorios")));
+relatoriosRouter.get(
+usuariosRouter.use(requireAuth);
+usuariosRouter.get(
+
+

@@ -19,6 +19,19 @@ export async function logout() {
   store.set({ user: null });
 }
 
+export async function changePassword(currentPassword, newPassword, confirmNewPassword) {
+  await api.put("/auth/senha", { currentPassword, newPassword, confirmNewPassword });
+}
+
+// Achado B14 (Fase 5): recuperação de senha por e-mail.
+export async function requestPasswordReset(email) {
+  return api.post("/auth/esqueci-senha", { email });
+}
+
+export async function resetPassword(token, newPassword, confirmNewPassword) {
+  await api.post("/auth/redefinir-senha", { token, newPassword, confirmNewPassword });
+}
+
 export function currentUser() {
   return store.get("user");
 }

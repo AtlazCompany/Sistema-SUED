@@ -1,0 +1,33 @@
+﻿
+FullName                                                              Length LastWriteTime      
+--------                                                              ------ -------------      
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\views\catalogo.js        11360 22/08/2026 10:23:37
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\views\clientes.js         4696 22/08/2026 10:23:37
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\views\contratos.js        6805 22/08/2026 10:23:37
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\views\dashboard.js        4029 22/08/2026 10:23:37
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\views\eventos.js         10386 22/08/2026 10:23:37
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\views\financeiro.js       8212 22/08/2026 10:23:37
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\views\fornecedores.js     5614 22/08/2026 10:23:37
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\views\leads.js            5239 22/08/2026 10:23:37
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\views\locais.js           4272 22/08/2026 10:23:37
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\views\login.js            9136 22/08/2026 10:23:37
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\views\operacional.js     10116 22/08/2026 10:23:37
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\views\orcamentos.js      10191 22/08/2026 10:23:37
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\views\pipeline.js         9908 22/08/2026 10:23:37
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\views\relatorios.js       5589 22/08/2026 10:23:37
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\components\decor.js       3219 22/08/2026 10:23:37
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\components\form.js        1098 22/08/2026 10:23:37
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\components\icons.js       3255 22/08/2026 10:23:37
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\components\modal.js        961 22/08/2026 10:23:37
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\components\shell.js       2784 22/08/2026 10:23:37
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\components\sued-wall.js   4481 22/08/2026 10:23:37
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\components\table.js       1196 22/08/2026 10:23:37
+C:\Users\hardf\Desktop\SUED SYSTEM\public\src\components\toast.js        432 22/08/2026 10:23:37
+C:\Users\hardf\Desktop\SUED SYSTEM\public\styles\base.css               1859 22/08/2026 10:23:37
+C:\Users\hardf\Desktop\SUED SYSTEM\public\styles\components.css        11255 22/08/2026 10:23:37
+C:\Users\hardf\Desktop\SUED SYSTEM\public\styles\decor.css              5443 22/08/2026 10:23:37
+C:\Users\hardf\Desktop\SUED SYSTEM\public\styles\layout.css             2772 22/08/2026 10:23:37
+C:\Users\hardf\Desktop\SUED SYSTEM\public\styles\login.css             10305 22/08/2026 10:23:37
+C:\Users\hardf\Desktop\SUED SYSTEM\public\styles\variables.css          2468 22/08/2026 10:23:37
+
+

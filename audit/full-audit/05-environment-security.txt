@@ -1,0 +1,17 @@
+=== SERVER/.ENV ===
+
+PORT = [CONFIGURADO] JWT_SECRET = [CONFIGURADO] DATABASE_URL = [CONFIGURADO]
+
+=== SERVER/.ENV.BACKUP ===
+
+PORT = [CONFIGURADO] JWT_SECRET = [CONFIGURADO] DATABASE_URL = [CONFIGURADO]
+
+=== POSSÍVEIS ARQUIVOS SENSÍVEIS ===
+
+
+FullName
+--------
+C:\Users\hardf\Desktop\SUED SYSTEM\server\.env
+C:\Users\hardf\Desktop\SUED SYSTEM\server\.env.backup
+
+

@@ -1,0 +1,239 @@
+FASE 4 — AUDITORIA FUNCIONAL COMPLETA DO SUED SYSTEM
+=======================================================
+
+--------------------------------------------------------------------
+RESUMO
+--------------------------------------------------------------------
+
+Módulos auditados (14, na ordem pedida): Dashboard, Leads, Clientes,
+Funil/Oportunidades, Eventos, Locais, Tipos de Evento, Fornecedores,
+Catálogo, Orçamentos, Operacional, Financeiro, Contratos, Relatórios.
+
+Método: reaproveitamento do harness já validado na Fase 2
+(`server/audit-phase2-run.mjs`), estendido para
+`server/audit-phase4-run.mjs` com o que a Fase 4 pede a mais —
+verificação matemática de Dashboard/Orçamento/Financeiro/Relatórios
+contra o banco real, RBAC funcional POST/PUT/DELETE (não só GET),
+numeração de Contrato com 2 criações, mais casos de erro — rodado
+contra o servidor Express real e o Supabase real, com dados
+`AUDIT-FASE4-*`. Complementado por: suíte automatizada (`npm test`),
+e uma sessão real no navegador cobrindo os 14 módulos em 4 larguras.
+
+Módulos aprovados (sem achado que exigisse correção): Dashboard, Leads,
+Clientes (exceto o achado A2 abaixo, não corrigido por ser regra de
+negócio), Funil/Oportunidades, Locais (exceto lacuna já conhecida),
+Fornecedores, Catálogo, Orçamentos, Operacional, Financeiro (exceto
+achado A3, não corrigido), Contratos, Relatórios.
+
+Módulos com problema CORRIGIDO nesta fase: Clientes, Fornecedores,
+Catálogo, Eventos, Locais, Oportunidades — todos pelo MESMO achado
+(A1, abaixo): DELETE sem tratamento de violação de FK.
+
+Problemas corrigidos: 1 classe de bug (A1), aplicada em 7 rotas DELETE.
+Problemas NÃO corrigidos (documentados, por serem regra de negócio ou
+achado de baixo impacto sem reprodução de dano — ver critério na seção
+"REGRA PRINCIPAL DE SEGURANÇA" do pedido): A2 (duplicidade de
+documento em Cliente), A3 (valor negativo em conta a pagar), A4/A5
+(EventType e edição de Venue sem CRUD — lacunas já conhecidas desde a
+Fase 2, reconfirmadas, não são bugs).
+
+--------------------------------------------------------------------
+ACHADO A1 (CORRIGIDO) — DELETE sem tratamento de FK vazava erro SQL cru
+--------------------------------------------------------------------
+
+Reproduzido ANTES de corrigir (isolado, sem servidor): criar um Client
+de teste + um Lead apontando pra ele, tentar `DELETE FROM "Client"` →
+Postgres devolve erro 23503 com a mensagem crua "update or delete on
+table \"Client\" violates foreign key constraint...". Como as rotas
+DELETE de Clientes, Fornecedores, Catálogo (produto e categoria),
+Eventos e Locais não capturavam esse código de erro (diferente de
+`server/routes/usuarios.js`, que já tratava isso desde a Fase 2), esse
+texto cru — incluindo nome de tabela e de constraint interna — ia
+direto pro handler central de erro, que devolve `err.message` como
+está. Resultado: 500 com detalhe de infraestrutura vazando pro
+cliente HTTP, exatamente o que a Fase 4 proíbe explicitamente
+("Nenhum erro interno deve vazar: ... SQL").
+
+Causa: o padrão de captura (`try/catch` no `e.code === "23503"` → 409
+amigável) só tinha sido aplicado em `usuarios.js` até agora; as outras
+rotas com FKs de entrada (Client, Supplier, ProductService, Category,
+Event, Venue, Opportunity) nunca tinham sido auditadas por esse ângulo
+especificamente.
+
+Correção: mesmo padrão já validado, aplicado em:
+  - `server/routes/clientes.js` — DELETE /:id (Client)
+  - `server/routes/fornecedores.js` — DELETE /:id (Supplier)
+  - `server/routes/catalogo.js` — DELETE /:id (ProductService) e
+    DELETE /categorias/:id (Category)
+  - `server/routes/eventos.js` — DELETE /:id (Event) e
+    locaisRouter DELETE /:id (Venue)
+  - `server/routes/oportunidades.js` — DELETE /:id (Opportunity)
+
+Cada uma com mensagem amigável específica da entidade (ex.: "este
+cliente está vinculado a outros registros (leads, oportunidades,
+eventos, orçamentos ou contratos)"), sempre 409, nunca mais 500 com
+detalhe interno.
+
+NÃO alteradas (confirmado que não precisam, por não terem FK de
+entrada apontando pra elas): Lead, Budget (já limpa BudgetItem antes),
+Contract, Task, Checklist (já limpa ChecklistItem antes),
+ChecklistItem, ScheduleItem, AccountReceivable, AccountPayable.
+
+Teste de regressão criado: `server/tests/fk-delete-guards.test.js` (7
+subtestes, banco real, dados `AUDIT-FASE4-*`) — cria cada par
+entidade+dependência via SQL direto, confirma 409 amigável, desvincula,
+confirma que a exclusão passa a funcionar. Reconfirmado também pelo
+harness `audit-phase4-run.mjs` (rotas reais, servidor real).
+
+--------------------------------------------------------------------
+ACHADO A2 (REGISTRADO, NÃO CORRIGIDO) — Cliente sem checagem de
+documento duplicado
+--------------------------------------------------------------------
+
+Criar dois clientes com o MESMO `document` (CPF/CNPJ) é aceito sem
+aviso — não há `UNIQUE` na coluna `Client.document` nem checagem no
+código (`server/routes/clientes.js`). Reproduzido no harness: 2º
+cliente com documento idêntico ao 1º → 201, sem erro.
+
+Por que NÃO foi corrigido: a Fase 4 pede para só corrigir problemas com
+"vulnerabilidade comprovada" ou "validação ausente que permita estado
+inválido" — mas se documento duplicado é de fato um "estado inválido"
+é uma decisão de REGRA DE NEGÓCIO do produto (pode ser intencional
+permitir múltiplos registros para o mesmo documento, ex.: contatos
+diferentes da mesma empresa), não um bug técnico. Corrigir isso exigiria
+decidir uma regra nova sem input do usuário — registrado aqui para
+decisão futura, não implementado.
+
+--------------------------------------------------------------------
+ACHADO A3 (REGISTRADO, NÃO CORRIGIDO) — Valor negativo aceito em conta
+a pagar/receber
+--------------------------------------------------------------------
+
+`toCents()` (`server/utils.js`) não rejeita números negativos — uma
+conta a pagar criada com `amount: "-50,00"` é aceita (201) e gravada
+como -5000 centavos. Reproduzido no harness.
+
+Por que NÃO foi corrigido: não há reprodução de dano/inconsistência
+além do próprio valor armazenado — o valor só entra em cálculos
+(soma no `actualCostCents`/`actualRevenueCents` do evento, soma no
+resumo financeiro) quando a conta é explicitamente "paga"/"recebida"
+(ação manual do usuário), e nenhum desses cálculos "quebra"
+matematicamente com um valor negativo (ainda soma corretamente,
+resultando numa dedução, o que tecnicamente até poderia ser um caso de
+uso real — ex.: estorno). Como o critério da Fase 4 é corrigir só o que
+tem "vulnerabilidade comprovada" ou "quebra funcional" reproduzida, e
+aqui não houve quebra (a soma continua matematicamente correta, só
+questionável se um valor negativo é um dado de negócio válido),
+registrado como sugestão futura em vez de correção — decisão de
+política de dados, mesma categoria do achado A2.
+
+--------------------------------------------------------------------
+ACHADOS A4/A5 (RECONFIRMADOS, JÁ CONHECIDOS DESDE A FASE 2 — NÃO SÃO
+NOVOS, NÃO SÃO BUGS)
+--------------------------------------------------------------------
+
+A4. Tipos de Evento (`EventType`) não têm nenhuma tela nem rota de
+    CRUD no sistema — confirmado por leitura de `server/index.js` (não
+    há router registrado para isso) e por teste real (não existe
+    `/api/event-types` nem equivalente). Campo `eventTypeId` em Evento
+    é opcional e o formulário de evento lida bem com a lista vazia
+    (testado: `/eventos/opcoes` devolve `types: []` sem quebrar).
+    Já era um achado conhecido da Fase 2 ("Catálogos de apoio vazios");
+    esta fase apenas reconfirma que continua sendo uma lacuna
+    funcional deliberada, não implementada por instrução explícita de
+    "não inventar uma tela nova".
+
+A5. `Venue` (Locais) não tem rota `PUT` — só criar, listar e excluir.
+    Confirmado tanto por leitura de código quanto por teste real
+    (PUT /locais/:id → 404, rota não existe). Já documentado desde a
+    Fase 2 ("Venue sem rota PUT/editar"); reconfirmado aqui, não
+    corrigido por ser ausência de funcionalidade (não um bug) e fora
+    do pedido explícito desta fase.
+
+--------------------------------------------------------------------
+VERIFICAÇÃO MATEMÁTICA (o que a Fase 4 pediu com atenção especial)
+--------------------------------------------------------------------
+
+Todos os cálculos abaixo foram conferidos comparando a resposta da API
+com uma consulta direta e independente ao banco (não just "parece
+certo" — reproduzido com números reais):
+
+- Dashboard: KPI `clients` bate com `count(*)` real de `Client` (antes
+  E depois de criar dados de teste); KPI `activeEvents` bate com
+  `count(*)` filtrado por status ativo.
+- Orçamento: `subtotal` = quantidade × preço unitário; `costTotal` =
+  quantidade × custo unitário; `discountCents` gravado corretamente.
+  A API NÃO devolve `total`/`margem` prontos — são calculados só no
+  frontend a partir desses 3 valores (confirmado no código do
+  frontend: "Monte orçamentos... com totais e margem automáticos").
+  Não é uma falha: os dados-base estão corretos e completos para esse
+  cálculo.
+- Financeiro: ao "pagar"/"receber" uma conta, o valor exato é somado a
+  `Event.actualCostCents`/`actualRevenueCents` (conferido por delta
+  antes/depois) E uma `Transaction` é gravada com o MESMO valor exato
+  (conferido direto na tabela, não só pela resposta HTTP).
+  `resumo.aReceberCents` bate com `sum(amountCents)` real de
+  `AccountReceivable` com status PENDENTE.
+- Relatórios: `totais.totalEventos`/`totalClientes` batem com
+  `count(*)` real; soma de `eventosPorStatus` bate com o total real de
+  eventos; `lucro = receita - custo` conferido no relatório por evento
+  quando o evento de teste apareceu no top 10.
+
+Nenhuma divergência matemática encontrada em nenhum dos cálculos acima.
+
+--------------------------------------------------------------------
+FLUXO DE INTEGRAÇÃO COMPLETO (mapeado, não inventado)
+--------------------------------------------------------------------
+
+Lead → Cliente (conversão real, `clientId` persistido, status vira
+CONVERTIDO) → Oportunidade (vinculada ao cliente) → Evento (vinculado a
+cliente + oportunidade + local; UNIQUE em `opportunityId` impede 2
+eventos na mesma oportunidade) → Orçamento (vinculado a cliente +
+evento + oportunidade, com item do catálogo) → Contrato (vinculado a
+cliente + evento) → Operacional (Task/Checklist/ChecklistItem/
+ScheduleItem, todos vinculados ao evento, consistentes no painel) →
+Financeiro (conta a pagar vinculada a evento+fornecedor, conta a
+receber vinculada a evento; liquidar gera Transaction e atualiza o
+realizado do evento) → Relatório (números batem com o banco).
+
+Todo o fluxo foi executado de ponta a ponta com os MESMOS IDs
+encadeados de verdade (não dados soltos), via HTTP real contra
+servidor e banco reais. Nenhuma etapa inventada — o que existe no
+sistema foi mapeado exatamente como está.
+
+--------------------------------------------------------------------
+RBAC FUNCIONAL (GET completo + amostra de escrita)
+--------------------------------------------------------------------
+
+Matriz completa (5 papéis × 9 módulos, GET real via HTTP): idêntica à
+matriz esperada, sem autenticação → 401. RBAC de escrita (POST/PUT/
+DELETE direto pela API, não pelo menu): 6 combinações papel-sem-acesso
+× método-de-escrita testadas explicitamente — todas 403, nenhuma
+conseguiu escrever fora do seu módulo digitando a URL/chamando a API
+diretamente.
+
+--------------------------------------------------------------------
+TESTES DE ERRO (casos propositais)
+--------------------------------------------------------------------
+
+UUID inválido (várias rotas) → 400 "ID inválido." (nunca 500). Registro
+inexistente (UUID válido) → 404. Campo obrigatório vazio (nome de
+lead/cliente/evento, clientId de oportunidade, descrição de conta) →
+400. Data inválida (evento, oportunidade, cronograma) → 400 amigável
+(nunca "Invalid time value"). Estágio de oportunidade inválido → 400.
+Vínculo duplicado (categoria, fornecedor+produto, oportunidade+evento)
+→ 400/409. Sem autenticação → 401. Sem permissão → 403. Nenhum erro
+devolveu stack trace, SQL cru (depois da correção A1), passwordHash,
+DATABASE_URL ou JWT_SECRET — confirmado por inspeção de cada resposta.
+
+--------------------------------------------------------------------
+ESTADOS VAZIOS
+--------------------------------------------------------------------
+
+Banco de produção real está genuinamente vazio em todas as tabelas de
+negócio (Client=0, Event=0, Budget=0, etc. — só `User`=1, o admin
+real). Isso permitiu testar o estado vazio de verdade, não simulado,
+nos 14 módulos, via navegador real: todos mostram mensagem amigável
+("Nenhum X cadastrado", "Sem dados ainda.", "Crie o primeiro..."),
+nenhum `undefined`, `NaN` ou `Invalid Date` visível, nenhum erro de
+console em nenhuma das 14 telas.

@@ -67,23 +67,7 @@
   overflow: hidden;
 }
 
-/* Camada decorativa SUED — rachaduras douradas atrás do conteúdo */
-.app-decor {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-.app-decor .gold-cracks {
-  position: absolute;
-  right: -60px;
-  bottom: -50px;
-  width: 44%;
-  min-width: 360px;
-  height: 78%;
-  opacity: 0.1;
-}
+/* .app-decor: ver styles/decor.css (camada de identidade) */
 
 .app-header {
   position: relative;
@@ -146,8 +130,30 @@
 /* ---- Grids utilitários ---- */
 .grid { display: grid; gap: 16px; }
 .grid-kpis { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+
+/* Botão de abrir/fechar o menu no header — só existe visualmente no mobile.
+   Fica escondido em telas maiores (a sidebar já aparece fixa ali).
+   Especificidade ".app-header .menu-toggle" (2 classes) é necessária para
+   vencer ".btn { display:inline-flex }" de components.css, que é carregado
+   DEPOIS deste arquivo e empataria em especificidade com só ".menu-toggle". */
+.app-header .menu-toggle { display: none; }
+
+/* Sobreposição atrás da sidebar quando aberta no mobile. */
+.sidebar-backdrop { display: none; }
+
 @media (max-width: 640px) {
   .app-content { padding: 16px; }
   .sidebar { position: fixed; z-index: 40; height: 100%; transform: translateX(-100%); transition: transform 0.2s; }
   .sidebar.is-open { transform: translateX(0); }
+
+  .app-header .menu-toggle { display: inline-flex; }
+
+  .sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 39;
+    background: rgba(20, 17, 14, 0.45);
+  }
+  .sidebar.is-open ~ .sidebar-backdrop { display: block; }
 }

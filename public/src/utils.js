@@ -48,9 +48,15 @@ export function centsToReais(cents) {
   return cents ? ((Number(cents) || 0) / 100).toFixed(2).replace(".", ",") : "";
 }
 
-/** Data (ISO/Date) → "15 de nov. de 2026" (em UTC, para datas só-dia). */
-export function formatDate(date) {
+/** Data (ISO/Date) → "15 de nov. de 2026" (em UTC, para datas só-dia).
+ *  Com withTime=true, formata como timestamp local: "15 de nov., 14:32". */
+export function formatDate(date, withTime = false) {
   if (!date) return "—";
+  if (withTime) {
+    return new Intl.DateTimeFormat("pt-BR", {
+      day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
+    }).format(new Date(date));
+  }
   return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit", month: "short", year: "numeric", timeZone: "UTC",
   }).format(new Date(date));

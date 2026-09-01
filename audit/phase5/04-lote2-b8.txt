@@ -1,0 +1,152 @@
+FASE 5 / LOTE 2 — IMPLEMENTAÇÃO DO ACHADO B8 (CRUD DE CONTACT)
+==================================================================
+
+--------------------------------------------------------------------
+INVENTÁRIO (antes de alterar qualquer arquivo)
+--------------------------------------------------------------------
+
+Schema (`Contact`, confirmado via `inspect-db.mjs`): só 4 colunas —
+`id`, `clientId` (FK NOT NULL → `Client.id`), `name` (NOT NULL),
+`primary` (boolean NOT NULL, default `false`). Sem `email`/`phone`/
+`notes` próprios — o cadastro de contato aqui é deliberadamente
+mínimo (nome + "é o principal?"), o e-mail/telefone de contato geral
+já vive no próprio `Client`.
+
+Relação com o resto do sistema: só existe UMA leitura hoje —
+`GET /api/clientes/:id` ([server/routes/clientes.js](server/routes/clientes.js),
+já existente) devolve `contacts` embutido (`select * from "Contact"
+where "clientId" = ... order by "primary" desc, name asc`). Nada mais
+no backend nem no frontend lê, cria, edita ou exclui `Contact` — nem
+mesmo uma tela que MOSTRE o cliente em detalhe existia
+(`public/src/views/clientes.js` era só lista + criar/editar/excluir,
+sem drill-down nenhum).
+
+Padrão análogo já existente no mesmo projeto para "marcador único por
+grupo" — `SupplierProduct.isDefault` (`server/routes/catalogo.js`):
+ao marcar um vínculo fornecedor↔item como padrão, os outros do mesmo
+item são desmarcados. Usado aqui como precedente direto para o
+significado de `Contact.primary` (no máximo um principal por
+cliente) — decisão técnica de consistência, não uma regra de negócio
+nova (o nome da coluna já implica isso).
+
+Lacuna exata: nenhuma rota `POST`/`PUT`/`DELETE` para `Contact`;
+nenhuma UI para gerenciar contatos.
+
+--------------------------------------------------------------------
+PLANO
+--------------------------------------------------------------------
+
+Backend, em `server/routes/clientes.js` (mesmo arquivo — `Contact` é
+sempre acessado através de um `Client`, mesmo padrão de
+`catalogo.js` gerenciar `SupplierProduct` no seu próprio arquivo):
+  - `POST /api/clientes/:clientId/contatos`
+  - `PUT /api/clientes/contatos/:id`
+  - `DELETE /api/clientes/contatos/:id`
+  - Mesmo módulo RBAC já usado por Cliente (`crm`) — nenhuma
+    permissão nova precisou ser criada.
+  - Mesmo tratamento de FK do achado B1 (23503 → 400 amigável) na
+    criação, para `clientId` inexistente.
+
+Frontend, em `public/src/views/clientes.js`: em vez de uma tela de
+detalhe nova (seria redesign, fora do pedido de "CRUD mínimo"), um
+botão "Contatos" por linha da lista abre um modal — mesmo padrão já
+usado em `categoriesModal()` (`public/src/views/catalogo.js`): lista +
+adicionar inline + excluir, aqui com um botão extra "Tornar
+principal" por contato não-principal.
+
+--------------------------------------------------------------------
+IMPLEMENTAÇÃO
+--------------------------------------------------------------------
+
+`server/routes/clientes.js`:
+  - `pickContact(body)` — nome obrigatório (trim), `primary` booleano.
+  - `clearOtherPrimaryContacts(clientId, exceptId)` — desmarca os
+    outros contatos do mesmo cliente quando um novo é marcado como
+    principal (só roda quando `primary: true` é enviado).
+  - As 3 rotas novas, com o mesmo tratamento de FK (`23503` → 400) já
+    usado desde o Lote 1.
+
+`public/src/views/clientes.js`:
+  - `contactsModal(client, onChanged)` — nova função, mesmo padrão de
+    `categoriesModal`.
+  - Botão "Contatos" (ícone `userPlus`, reaproveitado — nenhum ícone
+    novo criado) adicionado à coluna de ações da tabela de clientes.
+
+Nenhuma rota/tela existente foi redesenhada. Nenhuma dependência nova.
+
+--------------------------------------------------------------------
+TESTES
+--------------------------------------------------------------------
+
+Antes deste lote: 176/176 PASS. Depois: **189/189 PASS, 0 FAIL**
+(+13, todos em `server/tests/contatos.test.js`, novo arquivo, banco
+real): nome vazio → 400; `clientId` inexistente → 400 (não 500);
+criação com sucesso; leitura embutida em `GET /clientes/:id`; segundo
+contato marcado como principal desmarca o primeiro; renomear +
+remarcar principal; contato inexistente → 404; UUID inválido → 400;
+RBAC (COMERCIAL acessa, OPERACIONAL não); exclusão; e — reconfirmação
+cruzada do achado A1 (Fase 4) — excluir um Cliente que tem um contato
+vinculado → 409 (o guard de FK do `DELETE /clientes/:id` já cobria
+isso automaticamente, sem precisar de nenhuma alteração, mas era
+importante confirmar que a nova relação também cai nele).
+
+`node --check`: 100% OK. `inspect-db.mjs`: 23 tabelas, sem mudança de
+schema (Contact já existia).
+
+--------------------------------------------------------------------
+VALIDAÇÃO HTTP REAL
+--------------------------------------------------------------------
+
+Usuário temporário `AUDIT-FASE5-B8`. Criar cliente → criar contato →
+confirmar embutido em `GET /clientes/:id` → renomear via `PUT` →
+excluir contato → excluir cliente. Todos os passos com o resultado
+esperado.
+
+--------------------------------------------------------------------
+VALIDAÇÃO VISUAL (navegador real)
+--------------------------------------------------------------------
+
+Usuário temporário `AUDIT-FASE5-B8UI`, login pela tela real, em
+`http://localhost:4000`.
+  - Criar cliente pela UI → aparece na lista.                       OK
+  - Botão "Contatos" (ícone) aparece na linha, ao lado de
+    Editar/Excluir.                                                  OK
+  - Modal abre com o nome do cliente no título, estado vazio
+    ("Nenhum contato cadastrado.").                                  OK
+  - Adicionar contato "Fulano de Tal" marcado como Principal →
+    aparece na lista com o selo "Principal".                         OK
+  - Adicionar "Ciclana Segunda" também como Principal → Ciclana
+    ganha o selo, Fulano PERDE o selo e passa a mostrar o botão
+    "Tornar principal" (confirma visualmente a exclusividade).       OK
+  - Clicar "Tornar principal" em Fulano → o selo volta para ele e
+    some de Ciclana (confirma o toggle nos dois sentidos).           OK
+  - Botão "Excluir" dispara `confirm()` nativo do navegador — a
+    automação não confirma diálogos nativos, então a exclusão pela UI
+    não foi concluída nesta sessão (comportamento esperado da
+    proteção, não uma falha); limpeza dos dados de teste feita via
+    SQL direto, como já é o padrão desta fase para os demais lotes.
+
+--------------------------------------------------------------------
+LIMPEZA E INTEGRIDADE
+--------------------------------------------------------------------
+
+Todo dado temporário (`AUDIT-FASE5-*`, `audit.fase5.*`, incluindo os
+contatos "Fulano de Tal"/"Ciclana Segunda" criados na validação
+visual) removido e confirmado por contagem — zero resíduo. Admin real
+de produção confirmado intacto (`active=true`, `tokenVersion=0`,
+nunca tocado).
+
+--------------------------------------------------------------------
+AMBIGUIDADES / DECISÕES DE REGRA DE NEGÓCIO
+--------------------------------------------------------------------
+
+Nenhuma exigiu parar. A única escolha de design foi técnica: reusar o
+padrão já existente de "um marcador exclusivo por grupo"
+(`isDefault`/`primary`) em vez de inventar um comportamento novo —
+consistência com o que o próprio schema e o restante do código já
+estabeleciam, não uma decisão de processo de negócio.
+
+--------------------------------------------------------------------
+FIM DO B8 — PROSSEGUINDO PARA A PROPOSTA DE ESCOPO DO B9 (SEM
+IMPLEMENTAR)
+--------------------------------------------------------------------

@@ -1,0 +1,19 @@
+=== STATUS ===
+
+ M .claude/launch.json  M public/index.html  M public/src/api.js  M public/src/app.js  M public/src/components/decor.js  M public/src/components/icons.js  M public/src/components/modal.js  M public/src/components/shell.js  M public/src/config.js  M public/src/utils.js  M public/src/views/clientes.js  M public/src/views/dashboard.js  M public/src/views/login.js  D public/src/views/placeholder.js  M public/styles/components.css  M public/styles/layout.css  M public/styles/login.css  M server/index.js  M server/routes/clientes.js  M server/routes/dashboard.js  M server/utils.js ?? audit/ ?? graphify-out/ ?? public/src/components/form.js ?? public/src/components/sued-wall.js ?? public/src/roles.js ?? public/src/views/catalogo.js ?? public/src/views/contratos.js ?? public/src/views/eventos.js ?? public/src/views/financeiro.js ?? public/src/views/fornecedores.js ?? public/src/views/leads.js ?? public/src/views/locais.js ?? public/src/views/operacional.js ?? public/src/views/orcamentos.js ?? public/src/views/pipeline.js ?? public/src/views/relatorios.js ?? public/styles/decor.css ?? server/audit-db.mjs ?? server/inspect-db-rules.mjs ?? server/inspect-db.mjs ?? server/routes/catalogo.js ?? server/routes/contratos.js ?? server/routes/eventos.js ?? server/routes/financeiro.js ?? server/routes/fornecedores.js ?? server/routes/leads.js ?? server/routes/operacional.js ?? server/routes/oportunidades.js ?? server/routes/orcamentos.js ?? server/routes/relatorios.js ?? server/routes/usuarios.js ?? server/test-db.mjs
+
+=== TRACKED FILES ===
+
+.claude/launch.json .gitignore AGENTS.md ARQUITETURA.md CLAUDE.md README.md public/index.html public/src/api.js public/src/app.js public/src/auth.js public/src/components/decor.js public/src/components/icons.js public/src/components/modal.js public/src/components/shell.js public/src/components/table.js public/src/components/toast.js public/src/config.js public/src/router.js public/src/state.js public/src/utils.js public/src/views/clientes.js public/src/views/dashboard.js public/src/views/login.js public/src/views/placeholder.js public/styles/base.css public/styles/components.css public/styles/layout.css public/styles/login.css public/styles/variables.css server/auth.js server/config.js server/db/README.md server/index.js server/package-lock.json server/package.json server/routes/clientes.js server/routes/dashboard.js server/supabaseClient.js server/utils.js
+
+=== TRACKED ENV ===
+
+
+
+=== RECENT COMMITS ===
+
+7f03ed5 Vers├úo inicial completa do sistema SUED
+
+=== BRANCH ===
+
+main

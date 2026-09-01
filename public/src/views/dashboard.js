@@ -3,6 +3,7 @@ import { api } from "../api.js";
 import { el, formatBRL, formatDate } from "../utils.js";
 import { store } from "../state.js";
 import { canAccess } from "../config.js";
+import { suedWall } from "../components/sued-wall.js";
 
 const STAGE_LABELS = {
   PROSPECCAO: "Prospecção", QUALIFICACAO: "Qualificação",
@@ -77,14 +78,16 @@ export async function renderDashboard() {
 
   const grid = el("div", { class: "grid", style: "grid-template-columns:2fr 1fr;margin-top:24px" }, [upcomingCard, funnelCard]);
 
-  return el("div", {}, [
+  // Painel institucional "Parede SUED" (mármore + curvas luminosas + veios)
+  const hero = suedWall([
     el("div", { class: "page-header" }, [
       el("div", {}, [
         el("h1", {}, `Olá, ${firstName}`),
         el("p", {}, "Visão executiva da operação de eventos da SUED."),
       ]),
     ]),
-    kpis,
-    grid,
   ]);
+  hero.style.marginBottom = "24px";
+
+  return el("div", {}, [hero, kpis, grid]);
 }

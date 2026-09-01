@@ -1,0 +1,177 @@
+FASE 3 — AUDITORIA: GESTÃO DE USUÁRIOS + SEGURANÇA DE CREDENCIAIS
+====================================================================
+
+Auditoria feita ANTES de qualquer alteração desta fase, lendo o estado
+real dos arquivos (não presumindo a partir de checkpoints anteriores).
+Fases 1 e 2 já entregaram um módulo de usuários funcional — esta seção
+documenta o que já existe/já está protegido, o que faltava, e o que foi
+corrigido nesta fase (ver `02-alteracoes.txt` para o detalhe de cada
+correção).
+
+--------------------------------------------------------------------
+1. SCHEMA REAL DE "User" (reconfirmado via inspect-db-rules.mjs)
+--------------------------------------------------------------------
+
+  id            uuid    NOT NULL (PK)
+  name          text    NOT NULL
+  email         text    NOT NULL (UNIQUE — User_email_key)
+  role          text    NOT NULL
+  active        boolean NOT NULL (índice User_active_idx)
+  passwordHash  text    NOT NULL
+
+Confirmado: SEM `createdAt`/`updatedAt` — exatamente como documentado nas
+fases anteriores. Nenhuma alteração de schema foi feita ou é necessária
+nesta fase.
+
+FKs reais que referenciam `User.id` (reconfirmado):
+  Event.commercialId, Event.operationalId, Task.assigneeId,
+  Interaction.userId, Opportunity.ownerId — todas NULLABLE, todas sem
+  ON DELETE CASCADE (comportamento padrão RESTRICT/NO ACTION) — por
+  isso uma exclusão de usuário vinculado bate em erro 23503, tratado
+  explicitamente (ver seção 4).
+
+--------------------------------------------------------------------
+2. ENDPOINTS EXISTENTES (server/routes/usuarios.js + server/auth.js)
+--------------------------------------------------------------------
+
+  GET    /api/usuarios/opcoes           — lista leve (id,name,role),
+                                           qualquer papel autenticado
+  GET    /api/usuarios                  — lista completa, só ADMIN/SOCIO
+  POST   /api/usuarios                  — criar, só ADMIN/SOCIO
+  PUT    /api/usuarios/:id              — editar, só ADMIN/SOCIO
+  POST   /api/usuarios/:id/redefinir-senha — admin redefine senha de outro
+  DELETE /api/usuarios/:id              — excluir, só ADMIN/SOCIO
+  POST   /api/auth/login                — público (rate limit)
+  POST   /api/auth/logout               — público
+  GET    /api/auth/me                   — público (retorna user:null se
+                                           não autenticado/inativo)
+  PUT    /api/auth/senha                — troca a própria senha, exige
+                                           senha atual
+
+Todos os endpoints de gestão (exceto /opcoes) passam por `requireAuth`
+(revalida contra o banco a cada requisição — corrigido na Fase 2) e
+`requireRole(...rolesForModule("usuarios"))` → só ADMIN/SOCIO.
+
+--------------------------------------------------------------------
+3. O QUE JÁ ESTAVA CORRETO E PROTEGIDO (confirmado, não presumido)
+--------------------------------------------------------------------
+
+- `GET /api/usuarios` seleciona explicitamente `id, name, email, role,
+  active` — nunca `select *`, nunca `passwordHash`.
+- Todos os JOINs de outras tabelas com `"User"` (Event, Opportunity,
+  Interaction, Task, Operacional) selecionam só `.name` da linha de
+  User (ex.: `u.name as "ownerName"`) — nunca `u.*`. Busca global por
+  `passwordHash` em todo `server/` confirma: só aparece em
+  `server/auth.js` (login, troca de senha, resolveSession — nas 3 vezes
+  de forma controlada, nunca repassado ao cliente) e
+  `server/routes/usuarios.js` (criação/redefinição, nunca no SELECT de
+  listagem). Nenhum vazamento direto ou indireto encontrado.
+- E-mail já normalizado (`trim().toLowerCase()`) em criação, edição e
+  login — `pick()` em usuarios.js é compartilhada por criar/editar.
+- Duplicidade de e-mail → 409 amigável (via `UNIQUE User_email_key` +
+  catch do código `23505`), tanto na criação quanto na edição.
+  Uniqueness fica correta mesmo variando maiúsculas/espaços porque toda
+  escrita já normaliza antes de gravar.
+- Senha: bcrypt (`bcryptjs`), custo 12 na criação/redefinição/troca,
+  nunca texto puro, nunca hash devolvido em resposta alguma.
+- `PUT /api/auth/senha`: exige senha atual + nova (>= 8 caracteres),
+  reemite cookie da sessão atual. FALTAVA confirmação da nova senha
+  (ver seção 6, achado A1).
+- UUID malformado → 400 "ID inválido." (tratamento central em
+  `server/index.js`, erro Postgres `22P02`) — corrigido na Fase 2,
+  reconfirmado intacto nesta auditoria, cobre TODAS as rotas com `:id`
+  automaticamente (não precisa duplicar por rota).
+- Exclusão de usuário vinculado a outro registro → 409 com mensagem
+  amigável sugerindo desativar em vez de excluir (catch do código
+  `23503`) — genérico o bastante para cobrir qualquer uma das 5 FKs
+  listadas na seção 1, sem precisar de tratamento por tabela.
+- Exclusão de usuário inexistente → 404 (já checa `if (!current) throw
+  404` ANTES de tentar o DELETE — não é um bug, apesar de a Fase 3 ter
+  pedido para verificar isso especificamente).
+- Autoproteção: usuário não pode alterar o próprio papel, não pode se
+  autodesativar, não pode se autoexcluir — bloqueio ABSOLUTO (vale
+  mesmo que existam outros administradores ativos), implementado e já
+  testado nas fases anteriores.
+- Trava de "último administrador/sócio ativo" (`countOtherActiveAdmins`)
+  — existe para o caminho "outro admin tenta desativar/rebaixar/excluir
+  um admin diferente". Ver achado A2 (seção 6) sobre o alcance real
+  dessa trava após a correção de sessão da Fase 2.
+- RBAC: `usuarios` só para ADMIN/SOCIO (paridade já existente em toda a
+  matriz) — `requireRole` já usa o papel atualizado do banco (efeito
+  colateral correto da correção de sessão da Fase 2, sem precisar
+  alterar `requireRole` em si).
+- Frontend: `public/src/views/usuarios.js` já existe e é completo
+  (listar, criar, editar, ativar/desativar, redefinir senha
+  administrativa, excluir), usa `public/src/api.js` (nenhum `fetch()`
+  direto), respeita `roles.js`/`config.js`/`router.js`. Botão "Alterar
+  minha senha" já existe no `shell.js`. FALTAVA o campo de confirmação
+  no formulário de troca da própria senha (ver achado A1).
+
+--------------------------------------------------------------------
+4. COBERTURA DE TESTES JÁ EXISTENTE (antes desta fase)
+--------------------------------------------------------------------
+
+server/tests/usuarios.test.js (banco real, dados prefixados
+`audit.fase2.*`) já cobria: criar (sucesso, e-mail duplicado, senha
+curta, papel inválido), listar sem passwordHash, editar papel,
+autoproteção (papel/desativação/exclusão), redefinir senha de outro,
+excluir sem vínculo, excluir vinculado (FK real), papel não autorizado
+(só COMERCIAL) → 403, troca da própria senha (senha errada, curta,
+sucesso), e o subteste de "trava de último administrador" (adicionado
+na continuação da Fase 2, redesenhado depois da correção de sessão).
+
+server/tests/auth-login.test.js, middleware.test.js, error-handling.test.js,
+rbac-matrix.test.js cobrem login/sessão/RBAC-lógico/erros amigáveis
+(UUID e data), mas NENHUM contra as rotas de `/api/usuarios`
+especificamente para: e-mail com espaços/maiúsculas na CRIAÇÃO (só
+havia para login), nome vazio, alteração de nome/e-mail na edição,
+reativação, e-mail duplicado NA EDIÇÃO, acesso não autenticado a
+`/api/usuarios`, SOCIO/OPERACIONAL/FINANCEIRO contra `/api/usuarios`
+via HTTP real, UUID inválido nas rotas de usuários especificamente,
+os 3 sub-cenários "2 admins → reduz para 1" (só desativação estava
+coberta), confirmação de senha diferente, e formato do hash gravado.
+
+--------------------------------------------------------------------
+5. ACHADOS DESTA AUDITORIA (o que estava faltando de verdade)
+--------------------------------------------------------------------
+
+A1. Confirmação da nova senha — FALTAVA.
+    `PUT /api/auth/senha` aceitava só `currentPassword`+`newPassword`;
+    o formulário de "Alterar minha senha" (shell.js) também não pedia
+    confirmação. A Fase 3 pede explicitamente essa confirmação no fluxo
+    de troca da PRÓPRIA senha. Corrigido — ver relatório 02.
+
+A2. E-mail sem validação de formato — FALTAVA validação mínima.
+    Só havia checagem de presença (`Informe o e-mail.`), sem checar se
+    o valor parece um e-mail (`nome@dominio`). A Fase 3 pede
+    explicitamente "e-mail válido" como critério de criação. Corrigido
+    com uma regex simples (não uma biblioteca nova) — ver relatório 02.
+
+A3. (Achado de análise, NÃO é um bug — documentado para registro)
+    Depois da correção de sessão da Fase 2 (`requireAuth` revalida
+    `active`/`role` a cada requisição), o caminho "cross-actor" da
+    trava de último administrador (`countOtherActiveAdmins(alvo) === 0`
+    dentro de PUT/DELETE `/api/usuarios/:id`) ficou estruturalmente
+    inalcançável em condições normais via API:
+      - quem aciona a rota precisa ser ADMIN/SOCIO ativo, revalidado a
+        cada requisição (correção da Fase 2);
+      - quem aciona nunca pode ser o próprio alvo (autoproteção
+        absoluta, sempre bloqueia, independente da contagem);
+      - logo, quem aciona SEMPRE conta como "outro admin ativo"
+        distinto do alvo no momento exato da contagem — o resultado da
+        contagem nunca pode chegar a zero por essa via.
+    Isso NÃO é uma falha de segurança (o sistema continua
+    estruturalmente incapaz de ficar com zero administradores, porque a
+    autoproteção absoluta já impede isso em qualquer cenário de "admin
+    único agindo sozinho") — é a trava numérica (`countOtherActiveAdmins`)
+    que, hoje, é uma rede de segurança adicional que nunca dispara na
+    prática, e não um caminho de ataque real. Mantida como
+    defesa-em-profundidade (custo desprezível, sem motivo para remover).
+    Os testes desta fase cobrem o que É alcançável de verdade: os 3
+    cenários de autoproteção absoluta (equivalente a "admin único, ele
+    mesmo tentando se remover") e os 3 cenários "2 admins → reduz para
+    1" (permitido). Detalhado em `03-testes.txt`.
+
+Nenhum outro problema de segurança, RBAC, FK, ou schema foi encontrado.
+Nada exigiu mudança arquitetural ou de schema — os dois achados (A1, A2)
+são correções pontuais, sem risco, dentro do escopo desta fase.

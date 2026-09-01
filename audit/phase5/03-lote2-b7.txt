@@ -1,0 +1,153 @@
+FASE 5 / LOTE 2 — IMPLEMENTAÇÃO DO ACHADO B7 (REVOGAÇÃO DE SESSÃO)
+======================================================================
+(Autorização explícita do usuário, incluindo a alteração de schema —
+única desta fase — depois de análise de impacto apresentada e aprovada
+separadamente.)
+
+--------------------------------------------------------------------
+DIAGNÓSTICO (resumo — análise completa apresentada e aprovada antes da
+implementação, reproduzida aqui por completude do relatório)
+--------------------------------------------------------------------
+
+Trocar a senha (própria, via `PUT /api/auth/senha`, ou administrativa,
+via `POST /api/usuarios/:id/redefinir-senha`) reemitia cookie só para
+a sessão que fez a ação — sessões antigas (outro dispositivo/aba, ou a
+sessão que a pessoa já tinha aberta quando um admin redefine a senha
+dela) continuavam válidas até o JWT expirar sozinho (até 8h). Já
+documentado desde a Fase 2, avaliado e não implementado nas Fases 2 e
+3 por exigir alteração de schema sem aprovação explícita.
+
+--------------------------------------------------------------------
+ALTERAÇÃO DE SCHEMA (a única desta fase, autorizada explicitamente)
+--------------------------------------------------------------------
+
+`server/setup-token-version.mjs` — script único e idempotente (mesmo
+padrão de `server/setup-numbering.mjs`, já usado desde a Fase 1):
+  `ALTER TABLE "User" ADD COLUMN "tokenVersion" integer NOT NULL DEFAULT 0`
+
+Executado contra o Supabase real em 2026-08-26. Confirmado antes e
+depois: nenhuma linha existente foi alterada além do preenchimento
+automático do valor padrão (`0`) pelo próprio Postgres — o único
+usuário real (`contato.atlazcompany@gmail.com`) recebeu
+`tokenVersion = 0`, sem qualquer outro campo tocado.
+
+--------------------------------------------------------------------
+IMPLEMENTAÇÃO
+--------------------------------------------------------------------
+
+`server/auth.js`:
+  - `sign(user)` — payload do JWT ganhou `tokenVersion: user.tokenVersion ?? 0`.
+  - SELECT do login — passou a trazer `"tokenVersion"` também.
+  - `resolveSession()` — passou a comparar `(payload.tokenVersion ?? 0)`
+    contra `(user.tokenVersion ?? 0)` do banco; divergência → nova razão
+    `stale_token`, mensagem "Sua senha foi alterada. Faça login
+    novamente." (mesmo mecanismo de `SESSION_ERROR_MESSAGES` já usado
+    para `inactive`/`not_found`).
+  - `PUT /senha` — o UPDATE que grava o novo hash agora incrementa
+    `"tokenVersion" = "tokenVersion" + 1` na MESMA instrução; o cookie
+    reemitido para a aba atual já usa a nova versão (só essa sessão
+    continua sem precisar logar de novo).
+
+`server/routes/usuarios.js`:
+  - `POST /:id/redefinir-senha` — mesmo incremento de `tokenVersion` no
+    UPDATE, para que uma redefinição administrativa também derrube
+    qualquer sessão que a pessoa já tivesse aberta (o caso mais
+    importante do achado: normalmente é usado por suspeita de conta
+    comprometida).
+
+Uso de `?? 0` dos dois lados da comparação: garante que tokens já
+emitidos ANTES desta mudança (sem a claim `tokenVersion`) continuem
+válidos contra a coluna nova (que também começa em `0`) — ninguém foi
+deslogado à força pelo deploy desta correção.
+
+Nenhuma rota individual das 13 protegidas por `requireAuth` foi
+tocada — o efeito se propaga automaticamente pelo mesmo mecanismo
+central já usado desde a correção de sessão da Fase 2.
+
+--------------------------------------------------------------------
+BUG ENCONTRADO E CORRIGIDO DURANTE OS TESTES (não era conhecido antes)
+--------------------------------------------------------------------
+
+`server/tests/password-change-rate-limit.test.js` (Lote 1, banco
+mockado) quebrou ao rodar a suíte completa: seu dublê de `sql`
+assumia que o PRIMEIRO valor interpolado numa query era sempre a
+chave de busca do usuário (email no login, id no restante). O novo
+UPDATE de troca de senha interpola o HASH da nova senha antes do id
+na cláusula WHERE — o dublê pegava o hash como "chave", não achava
+usuário nenhum, e a query de `UPDATE ... RETURNING "tokenVersion"`
+devolvia um array vazio, que o código tentava desestruturar
+(`const [{ tokenVersion }] = ...`) e estourava um erro de runtime
+(500). Corrigido SÓ no dublê de teste (não é um bug de produção): a
+busca agora procura, entre TODOS os valores interpolados, um que bata
+com um usuário conhecido, em vez de assumir a posição.
+
+--------------------------------------------------------------------
+ARQUIVOS ALTERADOS
+--------------------------------------------------------------------
+
+Backend: `server/auth.js`, `server/routes/usuarios.js`.
+Schema: `server/setup-token-version.mjs` (novo, executado).
+Testes: `server/tests/middleware.test.js` (+2), `server/tests/
+auth-login.test.js` (+1), `server/tests/usuarios.test.js` (+2, banco
+real), `server/tests/password-change-rate-limit.test.js` (dublê
+corrigido, mesma contagem de testes).
+Documentação: `audit/phase5/03-lote2-b7.txt` (este arquivo),
+`CHECKPOINT.md` (atualizado).
+
+--------------------------------------------------------------------
+TESTES
+--------------------------------------------------------------------
+
+Antes deste lote: 171/171 PASS. Depois: **176/176 PASS, 0 FAIL**
+(+5 testes novos: 2 mockados em `middleware.test.js` — tokenVersion
+desatualizado bloqueia, tokenVersion igual e não-zero passa; 1
+mockado em `auth-login.test.js` — sessão emitida antes de uma troca de
+senha simulada deixa de ser reconhecida por `/me`; 2 com banco real em
+`usuarios.test.js` — troca da própria senha invalida outro
+dispositivo mas mantém a sessão atual; redefinição administrativa
+invalida a sessão que o alvo já tinha aberta).
+
+`node --check`: 100% OK em `server/` e `public/`.
+`inspect-db.mjs`: 23 tabelas, schema íntegro; `"User"` confirmado com
+a nova coluna `tokenVersion` (integer, not null, default 0).
+
+--------------------------------------------------------------------
+VALIDAÇÃO HTTP REAL (servidor + banco reais)
+--------------------------------------------------------------------
+
+Usuários temporários `AUDIT-FASE5-B7` (admin) e
+`AUDIT-FASE5-B7-TARGET` (comercial).
+
+  - Login em 2 "dispositivos" (2 cookies) com a mesma conta → ambos
+    válidos via `/me`.                                              OK
+  - Troca de senha usando o cookie do dispositivo A → 200; cookie
+    reemitido do dispositivo A continua funcionando (`/me` OK);
+    cookie do dispositivo B (nunca renovado) → `/me` retorna
+    `user: null`.                                                    OK
+  - Login do usuário-alvo → cookie válido; ADMIN (outra sessão)
+    redefine a senha do alvo via `POST /:id/redefinir-senha` → 200;
+    cookie ANTIGO do alvo → `/me` retorna `user: null`; login do alvo
+    com a senha nova → 200.                                          OK
+
+--------------------------------------------------------------------
+LIMPEZA E INTEGRIDADE
+--------------------------------------------------------------------
+
+Todo dado temporário (`AUDIT-FASE5-*`/`audit.fase5.*`) removido e
+confirmado por contagem — zero resíduo. Admin real de produção
+confirmado intacto antes e depois: `active=true`,
+`tokenVersion=0` (nunca incrementado — nenhum teste tocou a conta
+real), papel/senha inalterados. Servidor de validação encerrado
+corretamente (PID real via `netstat` antes do `taskkill`).
+
+--------------------------------------------------------------------
+AMBIGUIDADES / DECISÕES DE REGRA DE NEGÓCIO
+--------------------------------------------------------------------
+
+Nenhuma surgiu. B7 é puramente técnico — completa uma garantia de
+segurança já pretendida e documentada desde a Fase 2, sem tocar em
+B2/B3/B4/B5/B10/B18.
+
+--------------------------------------------------------------------
+FIM DO B7 — PROSSEGUINDO PARA O INVENTÁRIO DO B8
+--------------------------------------------------------------------

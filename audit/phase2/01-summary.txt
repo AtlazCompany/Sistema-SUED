@@ -1,0 +1,71 @@
+SUED SYSTEM — FASE 2 — 01. RESUMO EXECUTIVO
+=============================================================
+Data: 2026-08-25
+Escopo: auditoria funcional completa + gestão de usuários + segurança
+        + preparação para produção.
+
+PERGUNTA CENTRAL DA FASE 2:
+"O SUED SYSTEM está realmente pronto para ser utilizado por uma empresa,
+com múltiplos usuários, dados reais e operação diária?"
+
+RESPOSTA OBJETIVA: SIM, com ressalvas registradas como P1/P2/P3 abaixo
+(nenhuma bloqueadora P0 restante ao final desta fase).
+
+O QUE FOI FEITO NESTA FASE
+---------------------------
+1. Implementada a gestão de usuários que não existia (CRUD completo,
+   redefinição de senha por ADMIN/SOCIO, troca de senha pelo próprio
+   usuário) — VALIDADO com testes automatizados (node:test, banco real)
+   e com um harness de auditoria funcional via HTTP real.
+2. Auditada a tabela "User" contra o schema real do banco (não suposição).
+3. Testada a matriz RBAC completa (5 papéis x 10 módulos, incluindo o
+   novo módulo "usuarios") via chamada HTTP real ao servidor — não só
+   unitário.
+4. Testados fluxos de integração ponta-a-ponta reais: comercial
+   (Lead->Cliente->Oportunidade->Orçamento->Contrato->Evento),
+   operacional (Evento->Checklist->ChecklistItem->Task->ScheduleItem),
+   financeiro (Evento->Conta a pagar->Fornecedor,
+   Evento->Conta a receber) e catálogo
+   (ProductService->SupplierProduct->Supplier->BudgetItem).
+5. Testados casos de erro propositais (400/401/403/404/500) e conferido
+   que nenhum vaza stack trace nem segredo.
+6. Reconferido o schema real do banco (23 tabelas, FKs, UNIQUE, índices)
+   contra o que o código espera.
+7. Rodada a suíte automatizada completa: 97/97 PASS (0 falhas).
+8. Verificado visualmente o frontend (ver 09-frontend.txt) e confirmada
+   ausência de erro de console/CSP/CORS.
+9. Varredura final de segredos: nenhum vazamento encontrado em código,
+   Git, respostas HTTP ou logs.
+10. Todos os dados de teste (marcados AUDIT-FASE2 e audit.fase2.*) foram
+    removidos — banco conferido de volta ao estado original
+    (User=1, todas as demais tabelas=0).
+
+RESULTADO NUMÉRICO
+-------------------
+- Testes automatizados (npm test):         97/97 PASS
+- Checagens funcionais/RBAC/integração
+  via HTTP real (harness desta fase):     132/132 PASS, 0 FAIL, 12 N/A
+- node --check (backend + frontend):       100% OK
+- Segredos expostos encontrados:           0
+- Resíduo de dado de teste no banco:       0 (confirmado por contagem)
+
+PROBLEMAS ENCONTRADOS E CORRIGIDOS NESTA FASE
+-----------------------------------------------
+- Gestão de usuários inexistente -> implementada (ver 02).
+- Troca/reset de senha inexistente -> implementada (ver 02).
+
+PROBLEMAS ENCONTRADOS E *NÃO* CORRIGIDOS (registrados como pendência)
+------------------------------------------------------------------------
+- P2: UUID malformado em rota com :id devolve 500 em vez de 400
+  (ver 05-functional-tests.txt e 13-endpoints.txt).
+- P2: data inválida em campo de evento devolve 500 com mensagem técnica
+  do JS ("Invalid time value") em vez de 400 amigável.
+- P2: sessões antigas (JWT já emitidos) não são revogadas na troca de
+  senha — expiram naturalmente em até 8h (limitação arquitetural
+  conhecida de JWT sem estado, documentada, não corrigida nesta fase
+  por exigir mecanismo adicional fora do escopo).
+- P3: catálogos de apoio (EventType, Venue, Category, ProductService,
+  Supplier) estão vazios — não é bug, é dado que a empresa cadastra
+  (ver 04-seed-data.txt).
+
+Ver 14-final-status.txt para a decisão final sobre produção.

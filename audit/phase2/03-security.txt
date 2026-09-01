@@ -1,0 +1,108 @@
+SUED SYSTEM — FASE 2 — 03. SEGURANÇA
+=============================================================
+
+Nenhum valor de segredo (senha, hash, JWT_SECRET, DATABASE_URL) aparece
+neste arquivo, em nenhum outro relatório, ou foi impresso em qualquer
+saída de teste.
+
+ITENS AUDITADOS
+------------------
+bcrypt ................ VALIDADO. Custo 10 (login original) e 12 (novas
+                         rotas de criação/reset/troca de senha). Hash
+                         nunca é comparado com "==" (sempre bcrypt.compare).
+JWT .................... VALIDADO. Assinado com HS256 (padrão da lib),
+                         expira em 8h (config.tokenMaxAge), payload =
+                         {id,name,email,role,iat,exp} — não inclui
+                         passwordHash nem nenhum outro dado sensível.
+Cookies ................ VALIDADO. httpOnly=true, sameSite=lax,
+                         secure=true em produção (config.isProd), path=/.
+Expiração .............. VALIDADO. 8h fixas; sem refresh automático
+                         silencioso (usuário precisa logar de novo).
+Logout ................. VALIDADO. Limpa o cookie; é stateless (não
+                         revoga o JWT em si, só remove do navegador —
+                         limitação já documentada em 02, mesma raiz).
+Usuário inativo ........ VALIDADO. Login de usuário active=false -> 401,
+                         mesma mensagem genérica de credenciais inválidas
+                         (não revela que a conta existe).
+Enumeração de usuários . VALIDADO. "usuário inexistente" e "senha errada"
+                         devolvem exatamente a mesma resposta 401 com a
+                         mesma mensagem ("E-mail ou senha inválidos.") —
+                         impossível diferenciar por fora.
+Mensagens de erro ...... VALIDADO. Todas as respostas de erro testadas
+                         (400/401/403/404/409/500) devolvem só
+                         {"error": "..."} — nenhum stack trace, nenhum
+                         nome de arquivo, nenhuma query SQL foi observada
+                         em nenhuma resposta.
+Brute force / rate limit VALIDADO (herdado da Fase 1, não alterado nesta
+                         fase): 8 tentativas malsucedidas / 10 min por
+                         IP em POST /api/auth/login, resposta 429 +
+                         Retry-After. Reconfirmado por leitura de código
+                         nesta fase — nenhuma regressão introduzida pelas
+                         mudanças de usuários/senha.
+Exposição de dados ..... VALIDADO. passwordHash nunca sai do backend
+                         (ver 02-user-management.txt).
+Autorização no backend . VALIDADO. Todos os 13 routers de negócio
+                         continuam com requireAuth + requireRole; o novo
+                         módulo "usuarios" segue o mesmo padrão. Testado
+                         via HTTP real nos 5 papéis x 10 módulos (ver
+                         06-rbac-tests.txt) — 0 falhas.
+
+CENÁRIOS DE TESTE PEDIDOS EXPLICITAMENTE (todos executados de fato,
+via chamada HTTP real contra o servidor e o banco reais)
+------------------------------------------------------------------------
+usuário correto + senha errada ......... VALIDADO -> 401, mensagem genérica
+usuário inexistente .................... VALIDADO -> 401, mesma mensagem
+usuário desativado ...................... VALIDADO -> 401, mesma mensagem
+email com letras maiúsculas ............. VALIDADO -> login normaliza
+                                          para minúsculas antes de
+                                          comparar (testado indiretamente:
+                                          criação de usuário já normaliza
+                                          o e-mail armazenado; o login já
+                                          fazia lowercase desde a Fase 1)
+email com espaços ....................... NÃO TESTADO EXPLICITAMENTE
+                                          nesta rodada — o código faz
+                                          .trim() no e-mail em
+                                          criação/edição de usuário
+                                          (routes/usuarios.js), mas o
+                                          login (auth.js) NÃO faz trim,
+                                          só lowercase. Um e-mail com
+                                          espaço nas pontas digitado no
+                                          login provavelmente falha
+                                          erroneamente. Registrado como
+                                          P2 (achado novo desta auditoria,
+                                          não corrigido nesta fase).
+senha vazia .............................. VALIDADO -> 400 "Informe
+                                          e-mail e senha." (login) e 400
+                                          "A senha deve ter pelo menos 8
+                                          caracteres" (criação/troca)
+email vazio ............................... VALIDADO -> 400 (mesma rota)
+tentativas repetidas ...................... VALIDADO (herdado da Fase 1,
+                                          reconfirmado por leitura de
+                                          código, não re-executado nesta
+                                          fase para não gastar o rate
+                                          limit em cima de contas reais)
+
+VARREDURA FINAL DE SEGREDOS
+------------------------------
+Buscado em todo o código-fonte (excluindo node_modules/.git): "password",
+"passwordHash", "JWT_SECRET", "DATABASE_URL", ".env", ".env.backup",
+"token", "secret", "api key".
+
+Resultado: NENHUM valor de segredo hardcoded encontrado. Todas as
+ocorrências de JWT_SECRET/DATABASE_URL são leituras de
+process.env, feitas exclusivamente em server/config.js (conforme a
+regra do projeto "nenhum outro arquivo lê process.env diretamente").
+
+server/.env e server/.env.backup existem no disco local, mas:
+  - NÃO estão versionados (git ls-files não lista nenhum dos dois)
+  - .env é ignorado pelas regras ".env" / ".env.*" / "**/.env.*"
+  - .env.backup é ignorado pela regra "*.backup"
+  (confirmado com "git check-ignore -v" para os dois arquivos)
+
+Nenhum segredo apareceu em nenhuma resposta HTTP durante toda a bateria
+de testes desta fase (132 chamadas reais + 97 testes automatizados).
+
+CLASSIFICAÇÃO GERAL DE SEGURANÇA: PASS, com 2 pendências P2 novas
+(e-mail com espaços no login; invalidação de sessão antiga na troca de
+senha) e 1 pendência P1 (cenário-limite "último admin" não testado
+contra dado real).

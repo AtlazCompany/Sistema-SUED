@@ -1,0 +1,197 @@
+FASE 5 — RELEITURA TÉCNICA (SOMENTE LEITURA)
+==================================================
+Nova rodada de auditoria, feita a pedido do usuário, para achar
+problemas técnicos NOVOS (não decisões de regra de negócio) surgidos
+ou não cobertos desde a auditoria original (que foi feita ANTES do
+Lote 1). Nenhum arquivo foi alterado nesta etapa.
+
+--------------------------------------------------------------------
+ESCOPO LIDO INTEGRALMENTE NESTA RODADA
+--------------------------------------------------------------------
+
+Backend: `server/index.js`, `server/auth.js`, `server/utils.js`,
+`server/config.js`, e as 13 rotas em `server/routes/` (clientes,
+leads, oportunidades, eventos [+locais +tipos-evento], orcamentos,
+contratos, operacional, financeiro, catalogo, fornecedores, usuarios,
+dashboard, relatorios).
+
+Frontend: `public/src/api.js`, `app.js`, `router.js`, `auth.js`,
+`state.js`, `config.js`, `roles.js`, `utils.js`,
+`components/modal.js`, `components/shell.js`, `components/toast.js`;
+mais leitura direcionada (grep de padrões de risco já conhecidos —
+checkbox fora do form, `innerHTML` com dado dinâmico, falta de
+`.trim()`) em todas as 14 views de `public/src/views/`.
+
+--------------------------------------------------------------------
+ACHADOS NOVOS
+--------------------------------------------------------------------
+
+### B19 (P1) — `POST /:id/interacoes` não trata FK inexistente
+
+**Arquivo**: `server/routes/oportunidades.js`, rota
+`POST /api/oportunidades/:id/interacoes` (handler `oportunidadesRouter.post("/:id/interacoes", ...)`).
+
+**O que é**: exatamente a mesma classe de problema que o achado B1 já
+corrigiu em 15 outras rotas (Lote 1) — um INSERT com referência a
+outro registro (aqui, `opportunityId: req.params.id`, vindo da URL, não
+do corpo) sem tratamento do erro Postgres `23503`. Esta rota ficou de
+fora do inventário original do B1 porque a referência quebrada vem do
+PARÂMETRO DE ROTA, não de um campo do corpo — o grep que gerou aquele
+inventário procurava por campos de referência no corpo (`clientId`,
+`eventId` etc.), não nos parâmetros de rota.
+
+**Reprodução**: `POST /api/oportunidades/<uuid-de-uma-oportunidade-
+que-foi-excluída-ou-nunca-existiu>/interacoes` com um `content`
+válido → hoje cai direto no handler central de erro sem tratamento
+específico → **500** com a mensagem crua do driver Postgres (nome de
+tabela/constraint interna vazando), em vez de uma resposta amigável.
+
+**Cenário real**: um usuário com a tela de detalhe de uma Oportunidade
+aberta em outra aba, enquanto alguém exclui essa oportunidade; ou uma
+chamada direta à API com um id copiado errado/desatualizado.
+
+**Impacto**: mesmo raciocínio já usado para classificar B1 como P1 —
+não é bypass de segurança, mas é (a) experiência de erro ruim, (b)
+vazamento de detalhe de infraestrutura, (c) reproduzível em uso normal
+do sistema, não só por ataque.
+
+**Correção sugerida**: mesmo padrão já usado no restante do arquivo e
+em `POST /:clientId/contatos` (`clientes.js`, B8) para uma referência
+vinda da URL — `try/catch` no INSERT, mapeando `23503` para
+`HttpError(400, "Oportunidade selecionada não existe mais.")`. Escolha
+de 400 (não 404) é por consistência com o precedente já estabelecido
+em `clientes.js` para o mesmo padrão (FK de URL) — não é uma decisão
+nova.
+
+**Não é regra de negócio** — é puramente o mesmo tratamento técnico já
+aplicado 19 vezes no projeto.
+
+---
+
+### B20 (P3) — `innerHTML` com mensagem de erro interpolada sem escape
+
+**Arquivo**: `public/src/router.js`, linhas 43–48 (dentro de
+`render()`, branch de erro do `catch`).
+
+```js
+container.replaceChildren(
+  Object.assign(document.createElement("div"), {
+    className: "empty",
+    innerHTML: `<p class="empty__title">Não foi possível carregar</p><p class="empty__desc">${err.message}</p>`,
+  }),
+);
+```
+
+**O que é**: único ponto do frontend (confirmado por busca exaustiva
+de `.innerHTML =`/`insertAdjacentHTML` em todo `public/src/`) que
+interpola uma string dinâmica diretamente em `innerHTML`, sem passar
+pelo padrão seguro já estabelecido no projeto desde a Fase 2
+(`document.createTextNode` via `el()`, ou `toast()`, que usa
+`textContent`).
+
+**Explorável hoje?** Não, na prática: confirmado por busca exaustiva
+que TODA mensagem de erro que chega como `err.message` no frontend
+vem de uma `HttpError` do backend com texto **fixo, escrito pelo
+desenvolvedor** (nenhuma delas ecoa conteúdo digitado pelo usuário —
+os únicos dois `HttpError` com template string interpolam só o NOME
+de um campo fixo do código, ex. `` `${label} inválida.` `` — nunca
+dado de formulário). Então hoje isso não é um XSS reproduzível.
+
+**Por que ainda vale corrigir**: é uma inconsistência com o padrão de
+segurança já confirmado e documentado ("nenhum vetor de XSS
+encontrado" na auditoria original) — o único lugar do código que
+depende de "nenhuma mensagem de erro no backend jamais vai ecoar dado
+do usuário" continuando verdade para sempre, em vez de ser
+estruturalmente seguro como todo o resto do projeto. Uma futura
+mudança de rota que devolva uma mensagem de erro contendo dado do
+usuário (ex.: "Já existe um cliente com o documento X") passaria a ser
+XSS refletido nesse ponto específico, sem nenhum aviso.
+
+**Correção sugerida**: trocar `innerHTML` por construção via `el()`
+(mesmo padrão do resto do projeto) ou `textContent`, eliminando o
+`innerHTML` desse trecho.
+
+**Não é regra de negócio.**
+
+---
+
+### B21 (P3) — Maps de rate limit em memória nunca purgam entradas expiradas
+
+**Arquivo**: `server/auth.js`, `loginAttempts` e
+`passwordChangeAttempts` (Maps em memória usados por `loginRateLimit`/
+`registerFailedLogin` e `passwordChangeRateLimit`/
+`registerFailedPasswordChange` — achados B6/Lote 1).
+
+**O que é**: uma entrada só é removida do Map em caso de SUCESSO
+(`clearLoginAttempts`/`clearPasswordChangeAttempts`) ou sobrescrita se
+o MESMO IP/usuário errar de novo depois que a janela expirou. Uma
+tentativa de login malsucedida vinda de um IP que nunca mais volta (ou
+tenta de novo dentro de 10 minutos) deixa uma entrada órfã no Map para
+sempre — só é limpa reiniciando o processo Node.
+
+**Impacto real**: crescimento lento e não-limitado de memória ao
+longo da vida do processo, proporcional ao número de IPs/contas
+distintos que já erraram login/senha alguma vez. Cada entrada é
+pequena (~50–100 bytes) — não é um DoS prático por si só (levaria
+milhões de tentativas distintas para importar), mas é um vazamento de
+memória genuíno e tecnicamente incorreto, agravado pelo fato de o
+Node rodar continuamente sem GC automático desses dados.
+
+**Correção sugerida**: varredura periódica (`setInterval`) que remove
+entradas com `windowStart` mais antigo que a janela — mesmo mecanismo
+para os dois Maps, sem dependência nova.
+
+**Não é regra de negócio.**
+
+--------------------------------------------------------------------
+CONFIRMADO SEM PROBLEMA NESTA RODADA (verificado, não presumido)
+--------------------------------------------------------------------
+
+- Todas as 13 rotas de backend relidas linha a linha: RBAC
+  (`requireRole(...rolesForModule(...))`) presente e correto em cada
+  router; nenhuma rota de escrita faltando `requireAuth`.
+- B13 (paginação) e B16 (DELETE→404) confirmados consistentes em
+  todos os arquivos onde foram aplicados — nenhuma regressão.
+- B15 (modal único) confirmado ainda correto em `modal.js`.
+- O bug do checkbox fora do `<form>` (encontrado no Lote 3, em
+  `locais.js`) NÃO se repete em nenhum outro lugar — busca exaustiva
+  por `.checked` em todas as views confirma que `catalogo.js` e
+  `usuarios.js` já usam corretamente
+  `form.parentElement.querySelector(...)`, e `clientes.js` mantém
+  referência direta ao elemento (nunca precisa buscar no DOM).
+- Nenhum novo vetor de `innerHTML` com dado do usuário — busca
+  exaustiva confirma que todo uso de `html:`/`innerHTML` no projeto é
+  estático (ícones, rótulos fixos) ou, no único caso encontrado
+  (B20), depende de uma garantia indireta hoje verdadeira.
+- `server/index.js`: middlewares de segurança (CSP, X-Frame-Options,
+  X-Content-Type-Options, tratamento central de erro, `22P02`→400)
+  sem mudança e sem novo achado.
+- `dashboard.js` e `relatorios.js`: nenhuma rota de escrita, nenhum
+  campo de referência sem tratamento (não se aplica B1/B19 a
+  endpoints somente-leitura), RBAC correto.
+- `POST/PUT` de `usuarios.js`: sem campo de referência FK (papel é
+  enum, não FK) — B1 não se aplica aqui, confirmado.
+
+--------------------------------------------------------------------
+CLASSIFICAÇÃO
+--------------------------------------------------------------------
+
+P0: nenhum.
+P1: B19 (mesma classe de risco já usada para classificar B1).
+P2: nenhum novo.
+P3: B20, B21.
+
+Nenhum dos três achados é decisão de regra de negócio — todos são
+correções técnicas mecânicas, mesmo padrão já usado e validado em
+achados anteriores (B1, B8, B6). Nenhuma alteração de schema
+necessária para nenhum dos três.
+
+--------------------------------------------------------------------
+FIM DA RELEITURA — NENHUM ARQUIVO DE CÓDIGO FOI ALTERADO
+--------------------------------------------------------------------
+
+`git status` confirmado idêntico ao início desta rodada (nenhum
+arquivo tocado). Prosseguindo para a implementação de B19+B20+B21
+(baixo risco, sem regra de negócio, sem schema, sem serviço externo —
+dentro da autonomia explicitamente concedida pelo usuário nesta
+janela).

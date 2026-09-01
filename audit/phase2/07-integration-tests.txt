@@ -1,0 +1,111 @@
+SUED SYSTEM — FASE 2 — 07. TESTES DE INTEGRIDADE ENTRE MÓDULOS
+=============================================================
+Testados fluxos completos de ponta a ponta, não módulos isolados —
+usando os MESMOS IDs reais entre as chamadas, exatamente como um
+usuário faria na prática.
+
+FLUXO COMERCIAL: Lead -> Cliente -> Oportunidade -> Orçamento ->
+                 Contrato -> Evento
+------------------------------------------------------------------------
+1. Lead criado (POST /leads) .......................... VALIDADO
+2. Lead convertido em Cliente (POST /leads/:id/converter) VALIDADO —
+   Client criado com os dados copiados do Lead; Lead atualizado com
+   status=CONVERTIDO e clientId apontando para o Client novo.
+   CONSISTÊNCIA CONFIRMADA: relendo a lista de Leads depois da
+   conversão, o registro aparece com status CONVERTIDO e o clientId
+   correto.
+3. Oportunidade criada vinculada ao Cliente convertido (POST
+   /oportunidades com clientId=<id do cliente do lead>) ... VALIDADO
+4. Orçamento criado vinculado ao mesmo Cliente + à Oportunidade + a um
+   Evento (ver abaixo) ................................... VALIDADO
+5. Contrato criado vinculado ao mesmo Cliente + Evento .... VALIDADO
+6. Evento criado vinculado à mesma Oportunidade + Cliente + Local
+   ......................................................... VALIDADO
+   - REGRA DE INTEGRIDADE TESTADA: tentar criar um SEGUNDO evento
+     apontando para a MESMA oportunidade -> REJEITADO com 400
+     ("Essa oportunidade já está vinculada a outro evento"), a
+     constraint UNIQUE("opportunityId") do banco foi respeitada de
+     ponta a ponta (aplicação -> banco -> resposta amigável).
+
+Todos os IDs permaneceram consistentes entre as 6 etapas — nenhum
+relacionamento ficou órfão ou apontando para o registro errado.
+
+FLUXO OPERACIONAL: Evento -> Checklist -> ChecklistItem -> Task ->
+                    ScheduleItem
+------------------------------------------------------------------------
+1. Task criada vinculada ao Evento ......................... VALIDADO
+2. Checklist criado vinculado ao Evento .................... VALIDADO
+3. ChecklistItem criado vinculado ao Checklist .............. VALIDADO
+   - Marcado como concluído -> doneAt preenchido automaticamente
+     ........................................................ VALIDADO
+4. ScheduleItem criado vinculado ao Evento .................. VALIDADO
+5. CONSISTÊNCIA CONFIRMADA no painel consolidado (GET
+   /operacional/evento/:eventId): a Task, o Checklist (com seu
+   ChecklistItem aninhado) e o ScheduleItem todos apareceram
+   corretamente agrupados sob o mesmo evento, sem nenhum item perdido
+   ou duplicado.
+
+FLUXO FINANCEIRO: Evento -> Conta a pagar -> Fornecedor
+------------------------------------------------------------------------
+1. Fornecedor criado ......................................... VALIDADO
+2. Conta a pagar criada vinculada ao Evento + ao Fornecedor .. VALIDADO
+3. Conta liquidada (POST /financeiro/pagar/:id/pagar) ........ VALIDADO
+   - Transaction (kind=SAIDA) criada automaticamente .......... VALIDADO
+   - actualCostCents do Evento incrementado no valor EXATO da conta
+     (R$300,00 -> delta de 30000 centavos, sem arredondamento) VALIDADO
+
+FLUXO FINANCEIRO: Evento -> Conta a receber
+------------------------------------------------------------------------
+1. Conta a receber criada vinculada ao Evento ................ VALIDADO
+2. Conta liquidada (POST /financeiro/receber/:id/receber) ..... VALIDADO
+   - Transaction (kind=ENTRADA) criada automaticamente .......... VALIDADO
+   - actualRevenueCents do Evento incrementado no valor EXATO da conta
+     (R$1.000,00 -> delta de 100000 centavos, sem arredondamento)
+     VALIDADO
+
+FLUXO DE CATÁLOGO: ProductService -> SupplierProduct -> Supplier ->
+                    BudgetItem
+------------------------------------------------------------------------
+1. Category criada ............................................ VALIDADO
+2. ProductService criado vinculado à Category ................. VALIDADO
+3. SupplierProduct criado vinculando ProductService + Supplier
+   ............................................................. VALIDADO
+   - Refletido corretamente nos DOIS lados: detalhe do produto lista o
+     fornecedor vinculado; detalhe do fornecedor lista o produto
+     vinculado (checado só o lado do produto nesta rodada — o outro
+     lado usa a mesma query espelhada, não testado explicitamente).
+4. Orçamento criado com um item apontando para o ProductService
+   ............................................................. VALIDADO
+   - BudgetItem resultante trouxe productServiceId, description,
+     quantity, unitPriceCents e unitCostCents TODOS consistentes com o
+     que foi enviado e com os dados do catálogo.
+
+NENHUMA INCONSISTÊNCIA ENCONTRADA em nenhum dos 4 fluxos testados.
+
+LIMPEZA E CONTAGEM (regra do enunciado: confirmar antes/depois)
+------------------------------------------------------------------------
+Antes de qualquer dado de teste ser criado nesta fase:
+  User=1, todas as outras 21 tabelas contadas = 0
+
+Depois de toda a bateria de testes funcionais/integração/erro e da
+limpeza automática do harness (exclusão por relacionamento + por marca
+AUDIT-FASE2 / audit.fase2.*, em ordem que respeita as FKs):
+  User=1, todas as outras 21 tabelas contadas = 0
+
+RESULTADO: idêntico ao estado inicial. Confirmado por duas fontes
+independentes: (1) o próprio harness de auditoria mediu e comparou
+antes/depois programaticamente ("residual": false no resultado); (2)
+consulta manual direta ao banco após a execução, reproduzindo a mesma
+contagem.
+
+NOTA HONESTA SOBRE O PROCESSO: a primeira execução deste harness tinha
+uma lógica de limpeza incompleta (não previa que BudgetItem e
+Interaction são criados pelo backend sem devolver o id individual ao
+chamador) e travou no meio da limpeza, deixando resíduo temporário no
+banco. Isso foi detectado imediatamente (o processo terminou com erro,
+não silenciosamente), corrigido com uma limpeza manual de emergência
+(confirmada, banco voltou a User=1/resto=0), o script foi corrigido
+para apagar por relacionamento/marca em vez de por lista de ids, e a
+bateria completa foi executada novamente do zero com sucesso total e
+sem travar. Registrando isso porque a regra desta fase é não esconder
+falhas — inclusive as minhas, durante a própria auditoria.

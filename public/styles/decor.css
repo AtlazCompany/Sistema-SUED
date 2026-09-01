@@ -1,0 +1,215 @@
+/* ============================================================
+   SUED ERP — Camada de identidade visual (mármore + dourado)
+   Aplicação POR ZONAS: presença institucional em headers/hero/
+   empty states; NUNCA textura forte atrás de tabelas/cards.
+   Só SVG/CSS/gradientes — leve e responsivo.
+   ============================================================ */
+
+/* Utilitário de curvas luminosas + ramificações (posicionadas por contexto) */
+.lumi-curves,
+.gold-branches {
+  position: absolute;
+  pointer-events: none;
+  user-select: none;
+}
+.lumi-curves {
+  filter: drop-shadow(0 2px 6px rgba(180, 150, 60, 0.12))
+    drop-shadow(0 0 10px rgba(255, 255, 255, 0.55));
+}
+.gold-branches {
+  filter: drop-shadow(0 1px 1px rgba(201, 162, 39, 0.1));
+}
+
+/* ---------- Depth global MUITO sutil (canto do conteúdo) ---------- */
+.app-decor {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.app-decor .gold-branches {
+  right: -70px;
+  bottom: -60px;
+  width: 42%;
+  min-width: 340px;
+  height: 74%;
+  opacity: 0.08;
+}
+
+/* ---------- Hero institucional (ex.: topo do Dashboard) ---------- */
+.sued-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius);
+  border: 1px solid var(--sued-border);
+  padding: clamp(22px, 3vw, 34px) clamp(22px, 3vw, 36px);
+  background: var(--sued-marble-panel);
+  box-shadow: var(--sued-shadow-sm);
+}
+/* overlay claro para manter leitura sobre a decoração */
+.sued-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0.72) 0%,
+    rgba(255, 255, 255, 0.32) 46%,
+    rgba(255, 255, 255, 0) 78%
+  );
+}
+.sued-hero__decor {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.sued-hero__decor .lumi-curves {
+  top: -30%;
+  right: -6%;
+  width: 62%;
+  height: 190%;
+  opacity: 0.5;
+}
+.sued-hero__decor .gold-branches {
+  right: -4%;
+  top: -30%;
+  width: 42%;
+  height: 200%;
+  opacity: 0.16;
+}
+.sued-hero > :not(.sued-hero__decor) {
+  position: relative;
+  z-index: 2;
+}
+.sued-hero .page-header {
+  margin-bottom: 0;
+}
+
+/* ============================================================
+   Painel institucional "Parede SUED" (fiel à parede física)
+   ============================================================ */
+.sued-wall {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius);
+  border: 1px solid var(--sued-border-strong);
+  padding: clamp(26px, 3.4vw, 44px) clamp(24px, 3.4vw, 46px);
+  isolation: isolate;
+  /* Mármore claro aquecido (base) */
+  background-color: #f4eee2;
+  background-image:
+    radial-gradient(120% 90% at 82% 12%, rgba(255, 252, 244, 0.9) 0%, transparent 55%),
+    radial-gradient(90% 80% at 8% 90%, rgba(246, 238, 224, 0.9) 0%, transparent 60%),
+    linear-gradient(120deg, #f7f1e6 0%, #efe7d6 55%, #e9dfca 100%);
+  box-shadow: var(--sued-shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.sued-wall__veins,
+.sued-wall__curves,
+.sued-wall__scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.sued-wall__veins { z-index: 0; }
+.sued-wall__curves { z-index: 1; }
+.sued-wall__scrim { z-index: 2; }
+.sued-wall__content { position: relative; z-index: 3; }
+
+/* Veios dourados: densos à direita, esparsos à esquerda */
+.sued-wall__veins .wall-veins {
+  position: absolute;
+  top: -20%;
+  right: -6%;
+  width: 96%;
+  height: 150%;
+  opacity: 0.62;
+  -webkit-mask-image: linear-gradient(90deg, transparent 6%, #000 40%);
+  mask-image: linear-gradient(90deg, transparent 6%, #000 40%);
+}
+
+/* Curvas luminosas: leque à esquerda, com vinco 3D + glow quente */
+.sued-wall__curves .wall-curves {
+  position: absolute;
+  top: -18%;
+  left: -8%;
+  width: 78%;
+  height: 138%;
+  opacity: 0.9;
+  filter:
+    drop-shadow(7px 0 7px rgba(120, 88, 24, 0.22))
+    drop-shadow(0 0 14px rgba(255, 246, 224, 0.75));
+}
+
+/* Scrim: mantém texto legível (mais claro à esquerda, onde fica o conteúdo) */
+.sued-wall__scrim {
+  background: linear-gradient(
+    100deg,
+    rgba(255, 253, 248, 0.82) 0%,
+    rgba(255, 253, 248, 0.5) 34%,
+    rgba(255, 253, 248, 0.12) 60%,
+    transparent 80%
+  );
+}
+/* Fio de luz inferior (base iluminada da parede) */
+.sued-wall::after {
+  content: "";
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: 0;
+  height: 1px;
+  z-index: 2;
+  background: linear-gradient(90deg, transparent, rgba(255, 245, 222, 0.9) 30%, rgba(201, 162, 39, 0.5) 50%, rgba(255, 245, 222, 0.9) 70%, transparent);
+}
+
+.sued-wall .page-header { margin-bottom: 0; }
+
+/* ---------- Cabeçalho de módulo (curva luminosa lateral sutil) ---------- */
+.page-header {
+  position: relative;
+}
+.page-header::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -8px;
+  width: 220px;
+  height: 220px;
+  transform: translateY(-50%);
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at 78% 50%,
+    rgba(201, 162, 39, 0.07) 0%,
+    rgba(233, 220, 194, 0.05) 30%,
+    transparent 62%
+  );
+}
+
+/* ---------- Empty states com leve brilho + ramo dourado ---------- */
+.empty {
+  position: relative;
+  overflow: hidden;
+}
+.empty::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    120% 90% at 50% 0%,
+    rgba(244, 236, 221, 0.5) 0%,
+    transparent 60%
+  );
+}
+.empty > * {
+  position: relative;
+  z-index: 1;
+}

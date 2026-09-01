@@ -1,0 +1,28 @@
+=== PACKAGE.JSON ===
+
+{
+  "name": "sued-erp-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file=.env --watch index.js",
+    "start": "node --env-file=.env index.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cookie-parser": "^1.4.7",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "postgres": "^3.4.7"
+  }
+}
+
+
+=== NPM LS ===
+
+sued-erp-server@0.1.0 C:\Users\hardf\Desktop\SUED SYSTEM\server Ôö£ÔöÇÔöÇ bcryptjs@3.0.3 Ôö£ÔöÇÔöÇ cookie-parser@1.4.7 Ôö£ÔöÇÔöÇ express@5.2.1 Ôö£ÔöÇÔöÇ jsonwebtoken@9.0.3 ÔööÔöÇÔöÇ postgres@3.4.9 
+
+=== NPM AUDIT ===
+
+found 0 vulnerabilities

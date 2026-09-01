@@ -1,0 +1,149 @@
+FASE 5 / LOTE 5 — B19 + B20 + B21 (ACHADOS DA RELEITURA TÉCNICA)
+======================================================================
+Implementação autônoma de itens técnicos de baixo risco, dentro da
+autonomia explicitamente concedida pelo usuário nesta janela (sem
+regra de negócio, sem schema, sem serviço externo, sem trade-off de
+segurança significativo). Achados descritos em detalhe em
+`audit/phase5/08-auditoria-releitura.txt`.
+
+--------------------------------------------------------------------
+B19 (P1) — FK sem tratamento em POST /oportunidades/:id/interacoes
+--------------------------------------------------------------------
+
+Mesma classe de problema do B1 (Lote 1), só que a referência quebrada
+vem do PARÂMETRO DE ROTA (`opportunityId: req.params.id`), não de um
+campo do corpo — por isso ficou fora do inventário original.
+
+`server/routes/oportunidades.js`: o INSERT em `"Interaction"` passou a
+ser protegido por `try/catch`, mapeando `23503` para
+`HttpError(400, "Oportunidade selecionada não existe mais.")` — mesmo
+código HTTP já usado no precedente análogo (`POST
+/:clientId/contatos`, B8, para o mesmo padrão de FK vinda da URL).
+
+--------------------------------------------------------------------
+B20 (P3) — innerHTML sem escape no fallback de erro do router
+--------------------------------------------------------------------
+
+`public/src/router.js`: o bloco `catch` de `render()` construía o
+estado de erro via `innerHTML` com `err.message` interpolado
+diretamente. Trocado por construção via `document.createElement` +
+`textContent` (mesmo padrão já usado em `toast.js` e em `el()` para
+todo dado dinâmico do projeto). Não havia exploração possível hoje
+(confirmado por busca exaustiva: toda `HttpError` do backend usa texto
+fixo), mas fecha a única inconsistência com o padrão de segurança já
+documentado desde a auditoria original ("nenhum vetor de XSS
+encontrado").
+
+--------------------------------------------------------------------
+B21 (P3) — Maps de rate limit sem purga de entradas expiradas
+--------------------------------------------------------------------
+
+`server/auth.js`: `loginAttempts` e `passwordChangeAttempts` (Maps em
+memória do B6/Lote 1) só perdiam uma entrada em caso de sucesso ou de
+nova tentativa da MESMA chave. Uma tentativa malsucedida vinda de uma
+chave que nunca mais aparece ficava órfã para sempre. Adicionada uma
+varredura periódica (`setInterval` a cada 10 minutos, `.unref()` para
+não manter o processo vivo artificialmente — importante para os testes
+que sobem um servidor efêmero) que remove entradas com janela expirada
+dos dois Maps. Nenhuma dependência nova, nenhuma mudança de
+comportamento observável (o rate limit em si continua idêntico).
+
+--------------------------------------------------------------------
+TESTES
+--------------------------------------------------------------------
+
+`server/tests/fk-write-guards.test.js` (arquivo já existente do B1,
+estendido — mesmo padrão, mesmo arquivo, em vez de criar um novo):
++2 subtestes para B19 — `opportunityId` inexistente na URL → 400
+amigável; `opportunityId` válido → 201 (confirma que o caminho normal
+não quebrou). Limpeza do teste ajustada para apagar a `Interaction`
+criada antes da `Opportunity` (ordem de FK) e verificação de resíduo
+por padrão de conteúdo (`AUDIT-FASE5-%`) estendida para incluir
+`"Interaction"`.
+
+B20 e B21 não geraram teste automatizado novo: B20 é uma mudança de
+construção de DOM sem comportamento observável diferente (mesmo texto
+renderizado, só que de forma segura) — validado ao vivo no navegador
+(abaixo). B21 é uma melhoria de higiene de memória interna, sem
+comportamento HTTP observável diferente do já coberto por
+`password-change-rate-limit.test.js` — verificado por revisão de
+código e por `node --check`; testar a purga automaticamente exigiria
+expor os Maps internos publicamente só para o teste, o que não se
+justifica para uma melhoria deste tamanho.
+
+Antes deste lote: 230/230 PASS. Depois: **232/232 PASS, 0 FAIL**
+(+2, ambos em `fk-write-guards.test.js`). Suíte completa reexecutada
+com `--test-concurrency=1` (mesma prática já estabelecida nos lotes
+anteriores) — 232/232 confirmado, sem nenhuma falha intermitente desta
+vez.
+
+`node --check`: 100% OK em TODOS os `.js` de `server/` e `public/src/`
+(verificação completa, não só dos 4 arquivos alterados).
+`inspect-db.mjs`: 23 tabelas, schema íntegro — nenhuma migration.
+
+--------------------------------------------------------------------
+VALIDAÇÃO HTTP REAL (B19)
+--------------------------------------------------------------------
+
+Servidor Express real + Supabase real, admin temporário
+`AUDIT-FASE5-LOTE5`: criado cliente → oportunidade;
+`POST /api/oportunidades/<uuid-inexistente>/interacoes` → 400
+"Oportunidade selecionada não existe mais." (antes: 500 com erro cru);
+`POST /api/oportunidades/<id-válido>/interacoes` → 201, confirma que o
+caminho normal não regrediu. Zero resíduo, admin real intacto.
+
+--------------------------------------------------------------------
+VALIDAÇÃO VISUAL (B20)
+--------------------------------------------------------------------
+
+Navegador real (Browser pane), admin temporário
+`AUDIT-FASE5-LOTE5-UI`: login normal, dashboard carregado. Forçada uma
+falha de rede na chamada de `/api/relatorios` (via interceptação
+temporária de `window.fetch`, só para reproduzir a condição de erro —
+nenhum código do projeto foi alterado para o teste) e confirmado que a
+tela de "Não foi possível carregar" / mensagem de erro aparece como
+TEXTO puro (extraído via `get_page_text`, que só lê `textContent`),
+nunca como HTML interpretado. Também confirmado, por inspeção do DOM
+(`outerHTML`), que a estrutura gerada é `<p class="empty__title">` +
+`<p class="empty__desc">` via `createElement`/`textContent`, sem
+nenhum `innerHTML` no caminho.
+
+--------------------------------------------------------------------
+LIMPEZA E INTEGRIDADE
+--------------------------------------------------------------------
+
+Todo dado temporário (`AUDIT-FASE5-LOTE5*`, `audit.fase5.lote5*`)
+removido e confirmado por contagem — zero resíduo, incluindo dentro da
+suíte automatizada. Um resíduo TRANSIENTE do admin de bootstrap de
+`delete-404.test.js` (`audit.fase5.b16-admin@sued.local`) foi
+observado numa consulta manual feita enquanto a suíte completa ainda
+estava rodando em background — confirmado, após o término da suíte,
+que era apenas um estado intermediário do próprio teste em execução
+(seu `after()` o removeu normalmente); reconfirmado por consulta final
+que só o admin real permanece na tabela `"User"` com papel
+ADMIN/SOCIO. Admin real (`contato.atlazcompany@gmail.com`) confirmado
+intacto: `active=true`, `tokenVersion=0`, nunca tocado.
+
+--------------------------------------------------------------------
+ARQUIVOS ALTERADOS
+--------------------------------------------------------------------
+
+Backend: `server/routes/oportunidades.js` (B19),
+`server/auth.js` (B21).
+Frontend: `public/src/router.js` (B20).
+Testes: `server/tests/fk-write-guards.test.js` (estendido, +2 testes).
+Documentação: `audit/phase5/08-auditoria-releitura.txt` (achados),
+`09-lote5-b19-b20-b21.txt` (este arquivo), `CHECKPOINT.md`
+(atualizado).
+
+--------------------------------------------------------------------
+AMBIGUIDADES / DECISÕES DE REGRA DE NEGÓCIO
+--------------------------------------------------------------------
+
+Nenhuma. Os três achados são puramente técnicos, mesmo padrão já
+validado em achados anteriores (B1, B6, B8). Nenhum schema alterado.
+B2, B3, B4, B5, B9, B10, B14, B18 não foram tocados.
+
+--------------------------------------------------------------------
+FIM DO LOTE 5
+--------------------------------------------------------------------

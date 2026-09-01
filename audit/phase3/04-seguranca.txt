@@ -1,0 +1,124 @@
+FASE 3 — SEGURANÇA
+=====================
+
+--------------------------------------------------------------------
+1. passwordHash — busca global, confirmação de não-vazamento
+--------------------------------------------------------------------
+
+Busca por `passwordHash` em todo `server/` (grep, sem filtro):
+aparece só em:
+  - `server/auth.js`: SELECT explícito em login e em `PUT /senha` (para
+    comparar com bcrypt), nunca incluído em `res.json(...)`;
+    `resolveSession()` (usada por `requireAuth`/`GET /me`) NUNCA
+    seleciona essa coluna;
+  - `server/routes/usuarios.js`: só na criação (gera o hash) e na
+    redefinição administrativa (gera o hash) — nunca no SELECT de
+    listagem (`select id, name, email, role, active from "User"`);
+  - arquivos de auditoria/setup (`audit-phase2-run.mjs`) e de teste —
+    uso esperado (criar usuários de teste), nunca devolvido em resposta
+    HTTP.
+
+Nenhuma ocorrência de `passwordHash` sendo lido de volta pelo cliente.
+Testes automatizados comprovam isso ativamente (não é só leitura de
+código): listagem, criação, edição, login e `/me` — todos com asserção
+explícita `passwordHash === undefined`.
+
+--------------------------------------------------------------------
+2. `select *` — busca global, confirmação de não-vazamento
+--------------------------------------------------------------------
+
+`server/routes/usuarios.js` NÃO usa `select *` em nenhum lugar — todas
+as consultas listam colunas explicitamente. As demais rotas do sistema
+usam `select *`/`t.*`/`e.*`/`o.*`/`c.*`/etc., mas SEMPRE na tabela dona
+do registro (Event, Opportunity, Client, Task, Checklist,
+ScheduleItem, ChecklistItem, AccountReceivable/Payable, Supplier,
+Category, BudgetItem, Interaction) — NUNCA em `"User"`. Todo JOIN com
+`"User"` (Event.commercialId/operationalId, Task.assigneeId,
+Interaction.userId, Opportunity.ownerId) seleciona explicitamente só
+`u.name` (com alias, ex.: `ownerName`, `assigneeName`), nunca `u.*`.
+Confirmado por leitura de cada um dos 5 arquivos que fazem esses JOINs.
+
+--------------------------------------------------------------------
+3. Senhas
+--------------------------------------------------------------------
+
+- Hash: `bcryptjs`, custo 12 (criação, edição/redefinição, troca
+  própria) — nunca texto puro em nenhuma coluna. Confirmado por teste
+  automatizado que lê a coluna `"passwordHash"` direto do banco e
+  verifica o prefixo bcrypt (`$2a$`/`$2b$`/`$2y$`) e que o valor NÃO é
+  igual à senha em texto puro.
+- Política mínima: 8 caracteres (criação, redefinição administrativa,
+  troca própria) — consistente nos 3 fluxos, usando a mesma função
+  `pickPassword()` em `usuarios.js` para os dois primeiros; `PUT
+  /auth/senha` tem a mesma regra escrita separadamente (fluxo
+  diferente, com senha atual + confirmação).
+- Confirmação da nova senha: agora exigida na troca da PRÓPRIA senha
+  (achado A1, ver `02-alteracoes.txt`). Não exigida na redefinição
+  ADMINISTRATIVA (o admin não está "confirmando a própria senha" — está
+  definindo uma senha para outra conta, com autorização já checada por
+  `requireRole`).
+- Nenhuma senha (atual, nova, hash) aparece em mensagem de erro,
+  log de servidor, ou resposta HTTP — confirmado por leitura de todos
+  os `throw new HttpError(...)` e `console.error(...)` em
+  `server/auth.js` e `server/routes/usuarios.js`: nenhum interpola
+  senha/hash na mensagem. O único `console.error` de todo o módulo de
+  auth (dentro de `requireAuth`, para falha de consulta ao banco) loga
+  só `e.message`, nunca o objeto de erro completo nem dado de sessão.
+- Nenhuma senha aparece em teste impressa/logada: os testes usam
+  `assert` diretamente sobre valores em memória, nunca `console.log` de
+  senha/hash.
+
+--------------------------------------------------------------------
+4. Sessão (herdado da Fase 2, reconfirmado intacto)
+--------------------------------------------------------------------
+
+`requireAuth` continua revalidando `active`/`role`/nome/e-mail contra o
+banco a cada requisição (não foi alterado nesta fase). Reconfirmado
+pelos testes desta fase: o teste "trava de último administrador" já
+depende desse comportamento (o cookie de um admin recém-desativado para
+de funcionar imediatamente — testado explicitamente).
+
+Pendência já documentada e não alterada nesta fase (fora do escopo
+pedido — Fase 3 pediu para "avaliar", não implementar, salvo solução
+simples): troca de senha não revoga sessões antigas de OUTROS
+dispositivos/abas — só a aba que fez a troca ganha cookie novo.
+Avaliado nesta fase (ver `CHECKPOINT.md`, seção "riscos restantes"):
+implementar revogação real exigiria um mecanismo de versionamento de
+token (ex.: coluna `tokenVersion` em `User`, incrementada a cada troca
+de senha, conferida em `resolveSession()`) — isso É uma alteração de
+schema, então, conforme a própria instrução da Fase 3 ("se a
+implementação de revogação exigir alteração de banco significativa,
+documente a decisão antes de fazer"), NÃO foi implementado. Fica como
+proposta para decisão do usuário antes de uma próxima fase.
+
+--------------------------------------------------------------------
+5. Validação de ID (herdado da Fase 2, reconfirmado intacto)
+--------------------------------------------------------------------
+
+UUID malformado em qualquer rota com `:id` → 400 "ID inválido."
+(tratamento central em `server/index.js`, erro Postgres `22P02`) —
+não regredido. Reconfirmado especificamente contra `/api/usuarios/:id`
+(PUT e DELETE) nesta fase, tanto em teste automatizado quanto em teste
+real contra o servidor rodando (`05-validacao-real.txt`).
+
+--------------------------------------------------------------------
+6. RBAC
+--------------------------------------------------------------------
+
+Matriz (`public/src/roles.js`) não foi alterada. Reconfirmado via HTTP
+real (não só lógica) que só ADMIN e SOCIO acessam `/api/usuarios`
+(paridade já existente, deliberada desde a Fase 2) — COMERCIAL,
+OPERACIONAL e FINANCEIRO recebem 403; requisição sem cookie recebe 401.
+
+--------------------------------------------------------------------
+7. Achado A3 (não é uma vulnerabilidade — registrado por transparência)
+--------------------------------------------------------------------
+
+Ver `01-auditoria-usuarios.txt`, achado A3: a trava numérica de "último
+administrador" (`countOtherActiveAdmins`) tornou-se, depois da correção
+de sessão da Fase 2, estruturalmente inalcançável via API em condições
+normais — não porque foi enfraquecida, mas porque a autoproteção
+absoluta (bloqueia SEMPRE que alguém tenta mexer no próprio
+papel/status/conta) já impede, por outro caminho, que o sistema chegue
+a zero administradores. Mantida como defesa-em-profundidade. Nenhuma
+ação recomendada além de manter o registro deste achado.

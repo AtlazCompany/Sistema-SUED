@@ -1,0 +1,73 @@
+SUED SYSTEM — FASE 2 — 11. TESTES AUTOMATIZADOS
+=============================================================
+Comando: cd server && npm test
+(node --env-file=.env --experimental-test-module-mocks --test tests/*.test.js)
+
+RESULTADO FINAL: 97/97 PASS, 0 FAIL, 0 SKIPPED, 0 CANCELLED.
+(Executado duas vezes nesta fase para confirmar determinismo — mesmo
+resultado nas duas rodadas.)
+
+ARQUIVOS DE TESTE
+--------------------
+server/tests/middleware.test.js .... requireAuth/requireRole isolados
+                                     (sem banco) — HERDADO da Fase 1,
+                                     não alterado.
+server/tests/rbac-matrix.test.js ... matriz completa de papéis x
+                                     módulos — ATUALIZADO nesta fase
+                                     para incluir o novo módulo
+                                     "usuarios" (ADMIN+SOCIO).
+server/tests/auth-login.test.js .... login/logout via HTTP com banco
+                                     mockado — HERDADO da Fase 1, não
+                                     alterado.
+server/tests/numbering.test.js ..... mecanismo de sequence isolado
+                                     (sequence própria descartável) —
+                                     HERDADO da Fase 1, não alterado.
+server/tests/usuarios.test.js ...... NOVO NESTA FASE. Teste de
+                                     integração REAL (banco real, não
+                                     mockado) cobrindo: criar usuário,
+                                     e-mail duplicado (409), senha
+                                     curta (400), papel inválido (400),
+                                     listar sem vazar passwordHash,
+                                     editar papel, bloqueio de auto-
+                                     alteração de papel/status, bloqueio
+                                     de auto-exclusão, redefinir senha
+                                     de outro usuário (com login
+                                     subsequente confirmando a nova
+                                     senha), excluir usuário sem
+                                     vínculo, acesso negado a papel não
+                                     autorizado (403), troca de senha
+                                     própria (senha errada -> 401, nova
+                                     senha curta -> 400, sucesso com
+                                     confirmação de que a senha antiga
+                                     para de funcionar e a nova passa a
+                                     funcionar). 16 subtestes, todos
+                                     PASS. Usa e-mails prefixados
+                                     "audit.fase2." e limpa tudo ao
+                                     final (subteste dedicado de
+                                     limpeza + hook `after` como rede
+                                     de segurança adicional).
+
+POR QUE O TESTE DE "ÚLTIMO ADMINISTRADOR" NÃO ESTÁ AUTOMATIZADO
+------------------------------------------------------------------
+A trava "não é possível remover o último administrador/sócio ativo"
+foi implementada e revisada por leitura de código, mas testá-la de
+ponta a ponta exigiria chegar a um estado real de "só resta 1
+administrador ativo" — o que, no ambiente de teste deste projeto
+(que roda contra o BANCO REAL, não um banco de teste isolado), significa
+manipular a conta do único administrador de produção. Optei por não
+fazer isso. Fica registrado como P1: antes de confiar totalmente nesta
+trava em produção, validar manualmente criando 2 administradores de
+teste e tentando desativar/rebaixar um deles até restar 1, confirmando
+o bloqueio.
+
+DETERMINISMO E LIMPEZA
+--------------------------
+Todos os testes que tocam o banco real (usuarios.test.js, numbering.
+test.js) usam identificadores exclusivos de teste (prefixo
+"audit.fase2." para e-mail, sequence descartável própria para
+numbering) e se auto-limpam ao final — CONFIRMADO por consulta direta
+ao banco depois de rodar a suíte: nenhum resíduo de teste presente.
+
+NENHUMA DEPENDÊNCIA NOVA FOI INSTALADA para escrever estes testes — só
+o runner nativo do Node 24 (node:test) e as bibliotecas já presentes
+no projeto (express, cookie-parser, bcryptjs, postgres).

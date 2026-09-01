@@ -1,0 +1,264 @@
+﻿
+===== TABELAS DO BANCO =====
+AccountPayable
+AccountReceivable
+Budget
+BudgetItem
+Category
+Checklist
+ChecklistItem
+Client
+Contact
+Contract
+Event
+EventType
+Interaction
+Lead
+Opportunity
+ProductService
+ScheduleItem
+Supplier
+SupplierProduct
+Task
+Transaction
+User
+Venue
+
+===== COLUNAS =====
+
+--- AccountPayable ---
+id | uuid | uuid | nullable=NO | default=-
+description | text | text | nullable=NO | default=-
+eventId | uuid | uuid | nullable=YES | default=-
+supplierId | uuid | uuid | nullable=YES | default=-
+amountCents | integer | int4 | nullable=NO | default=0
+dueDate | date | date | nullable=YES | default=-
+status | text | text | nullable=NO | default='PENDENTE'::text
+paidDate | timestamp with time zone | timestamptz | nullable=YES | default=-
+createdAt | timestamp with time zone | timestamptz | nullable=NO | default=-
+updatedAt | timestamp with time zone | timestamptz | nullable=NO | default=-
+
+--- AccountReceivable ---
+id | uuid | uuid | nullable=NO | default=-
+description | text | text | nullable=NO | default=-
+eventId | uuid | uuid | nullable=YES | default=-
+amountCents | integer | int4 | nullable=NO | default=0
+dueDate | date | date | nullable=YES | default=-
+status | text | text | nullable=NO | default='PENDENTE'::text
+receivedDate | timestamp with time zone | timestamptz | nullable=YES | default=-
+createdAt | timestamp with time zone | timestamptz | nullable=NO | default=-
+updatedAt | timestamp with time zone | timestamptz | nullable=NO | default=-
+
+--- Budget ---
+id | uuid | uuid | nullable=NO | default=-
+number | text | text | nullable=NO | default=-
+clientId | uuid | uuid | nullable=YES | default=-
+eventId | uuid | uuid | nullable=YES | default=-
+opportunityId | uuid | uuid | nullable=YES | default=-
+status | text | text | nullable=NO | default='RASCUNHO'::text
+validUntil | date | date | nullable=YES | default=-
+discountCents | integer | int4 | nullable=NO | default=0
+notes | text | text | nullable=YES | default=-
+createdAt | timestamp with time zone | timestamptz | nullable=NO | default=-
+updatedAt | timestamp with time zone | timestamptz | nullable=NO | default=-
+
+--- BudgetItem ---
+id | uuid | uuid | nullable=NO | default=-
+budgetId | uuid | uuid | nullable=NO | default=-
+productServiceId | uuid | uuid | nullable=YES | default=-
+description | text | text | nullable=NO | default=-
+quantity | integer | int4 | nullable=NO | default=1
+unitPriceCents | integer | int4 | nullable=NO | default=0
+unitCostCents | integer | int4 | nullable=NO | default=0
+
+--- Category ---
+id | uuid | uuid | nullable=NO | default=-
+name | text | text | nullable=NO | default=-
+
+--- Checklist ---
+id | uuid | uuid | nullable=NO | default=-
+eventId | uuid | uuid | nullable=NO | default=-
+title | text | text | nullable=NO | default=-
+
+--- ChecklistItem ---
+id | uuid | uuid | nullable=NO | default=-
+checklistId | uuid | uuid | nullable=NO | default=-
+label | text | text | nullable=NO | default=-
+done | boolean | bool | nullable=NO | default=false
+doneAt | timestamp with time zone | timestamptz | nullable=YES | default=-
+order | integer | int4 | nullable=YES | default=0
+
+--- Client ---
+id | uuid | uuid | nullable=NO | default=-
+personType | text | text | nullable=NO | default='PF'::text
+name | text | text | nullable=NO | default=-
+tradeName | text | text | nullable=YES | default=-
+document | text | text | nullable=YES | default=-
+email | text | text | nullable=YES | default=-
+phone | text | text | nullable=YES | default=-
+zipCode | text | text | nullable=YES | default=-
+street | text | text | nullable=YES | default=-
+number | text | text | nullable=YES | default=-
+complement | text | text | nullable=YES | default=-
+district | text | text | nullable=YES | default=-
+city | text | text | nullable=YES | default=-
+state | text | text | nullable=YES | default=-
+notes | text | text | nullable=YES | default=-
+createdAt | timestamp with time zone | timestamptz | nullable=NO | default=-
+updatedAt | timestamp with time zone | timestamptz | nullable=NO | default=-
+
+--- Contact ---
+id | uuid | uuid | nullable=NO | default=-
+clientId | uuid | uuid | nullable=NO | default=-
+name | text | text | nullable=NO | default=-
+primary | boolean | bool | nullable=NO | default=false
+
+--- Contract ---
+id | uuid | uuid | nullable=NO | default=-
+number | text | text | nullable=NO | default=-
+clientId | uuid | uuid | nullable=YES | default=-
+eventId | uuid | uuid | nullable=YES | default=-
+status | text | text | nullable=NO | default='RASCUNHO'::text
+valueCents | integer | int4 | nullable=NO | default=0
+content | text | text | nullable=YES | default=-
+signedAt | timestamp with time zone | timestamptz | nullable=YES | default=-
+createdAt | timestamp with time zone | timestamptz | nullable=NO | default=-
+updatedAt | timestamp with time zone | timestamptz | nullable=NO | default=-
+
+--- Event ---
+id | uuid | uuid | nullable=NO | default=-
+code | text | text | nullable=NO | default=-
+title | text | text | nullable=NO | default=-
+status | text | text | nullable=NO | default='RASCUNHO'::text
+clientId | uuid | uuid | nullable=YES | default=-
+eventTypeId | uuid | uuid | nullable=YES | default=-
+venueId | uuid | uuid | nullable=YES | default=-
+opportunityId | uuid | uuid | nullable=YES | default=-
+commercialId | uuid | uuid | nullable=YES | default=-
+operationalId | uuid | uuid | nullable=YES | default=-
+eventDate | date | date | nullable=YES | default=-
+startTime | time without time zone | time | nullable=YES | default=-
+endTime | time without time zone | time | nullable=YES | default=-
+guestCount | integer | int4 | nullable=YES | default=-
+plannedRevenueCents | integer | int4 | nullable=NO | default=0
+actualRevenueCents | integer | int4 | nullable=NO | default=0
+plannedCostCents | integer | int4 | nullable=NO | default=0
+actualCostCents | integer | int4 | nullable=NO | default=0
+notes | text | text | nullable=YES | default=-
+createdAt | timestamp with time zone | timestamptz | nullable=NO | default=-
+updatedAt | timestamp with time zone | timestamptz | nullable=NO | default=-
+
+--- EventType ---
+id | uuid | uuid | nullable=NO | default=-
+name | text | text | nullable=NO | default=-
+
+--- Interaction ---
+id | uuid | uuid | nullable=NO | default=-
+type | text | text | nullable=NO | default='NOTA'::text
+content | text | text | nullable=NO | default=-
+opportunityId | uuid | uuid | nullable=NO | default=-
+userId | uuid | uuid | nullable=NO | default=-
+createdAt | timestamp with time zone | timestamptz | nullable=NO | default=-
+
+--- Lead ---
+id | uuid | uuid | nullable=NO | default=-
+name | text | text | nullable=NO | default=-
+company | text | text | nullable=YES | default=-
+email | text | text | nullable=YES | default=-
+phone | text | text | nullable=YES | default=-
+source | text | text | nullable=YES | default=-
+status | text | text | nullable=NO | default='NOVO'::text
+notes | text | text | nullable=YES | default=-
+clientId | uuid | uuid | nullable=YES | default=-
+createdAt | timestamp with time zone | timestamptz | nullable=NO | default=-
+updatedAt | timestamp with time zone | timestamptz | nullable=NO | default=-
+
+--- Opportunity ---
+id | uuid | uuid | nullable=NO | default=-
+title | text | text | nullable=NO | default=-
+clientId | uuid | uuid | nullable=NO | default=-
+ownerId | uuid | uuid | nullable=YES | default=-
+stage | text | text | nullable=NO | default='PROSPECCAO'::text
+estimatedCents | integer | int4 | nullable=NO | default=0
+expectedDate | date | date | nullable=YES | default=-
+notes | text | text | nullable=YES | default=-
+createdAt | timestamp with time zone | timestamptz | nullable=NO | default=-
+updatedAt | timestamp with time zone | timestamptz | nullable=NO | default=-
+
+--- ProductService ---
+id | uuid | uuid | nullable=NO | default=-
+name | text | text | nullable=NO | default=-
+description | text | text | nullable=YES | default=-
+categoryId | uuid | uuid | nullable=YES | default=-
+unit | text | text | nullable=YES | default=-
+referenceCostCents | integer | int4 | nullable=NO | default=0
+suggestedPriceCents | integer | int4 | nullable=NO | default=0
+active | boolean | bool | nullable=NO | default=true
+createdAt | timestamp with time zone | timestamptz | nullable=NO | default=-
+updatedAt | timestamp with time zone | timestamptz | nullable=NO | default=-
+
+--- ScheduleItem ---
+id | uuid | uuid | nullable=NO | default=-
+eventId | uuid | uuid | nullable=NO | default=-
+title | text | text | nullable=NO | default=-
+startsAt | timestamp with time zone | timestamptz | nullable=NO | default=-
+endsAt | timestamp with time zone | timestamptz | nullable=YES | default=-
+location | text | text | nullable=YES | default=-
+notes | text | text | nullable=YES | default=-
+
+--- Supplier ---
+id | uuid | uuid | nullable=NO | default=-
+name | text | text | nullable=NO | default=-
+document | text | text | nullable=YES | default=-
+category | text | text | nullable=YES | default=-
+email | text | text | nullable=YES | default=-
+phone | text | text | nullable=YES | default=-
+notes | text | text | nullable=YES | default=-
+createdAt | timestamp with time zone | timestamptz | nullable=NO | default=-
+updatedAt | timestamp with time zone | timestamptz | nullable=NO | default=-
+
+--- SupplierProduct ---
+id | uuid | uuid | nullable=NO | default=-
+productServiceId | uuid | uuid | nullable=NO | default=-
+supplierId | uuid | uuid | nullable=NO | default=-
+costCents | integer | int4 | nullable=NO | default=0
+isDefault | boolean | bool | nullable=NO | default=false
+
+--- Task ---
+id | uuid | uuid | nullable=NO | default=-
+eventId | uuid | uuid | nullable=NO | default=-
+title | text | text | nullable=NO | default=-
+description | text | text | nullable=YES | default=-
+assigneeId | uuid | uuid | nullable=YES | default=-
+status | text | text | nullable=NO | default='A_FAZER'::text
+priority | text | text | nullable=NO | default='MEDIA'::text
+dueDate | date | date | nullable=YES | default=-
+createdAt | timestamp with time zone | timestamptz | nullable=NO | default=-
+updatedAt | timestamp with time zone | timestamptz | nullable=NO | default=-
+
+--- Transaction ---
+id | uuid | uuid | nullable=NO | default=-
+kind | text | text | nullable=NO | default=-
+description | text | text | nullable=NO | default=-
+amountCents | integer | int4 | nullable=NO | default=-
+date | timestamp with time zone | timestamptz | nullable=NO | default=-
+eventId | uuid | uuid | nullable=YES | default=-
+
+--- User ---
+id | uuid | uuid | nullable=NO | default=-
+name | text | text | nullable=NO | default=-
+email | text | text | nullable=NO | default=-
+role | text | text | nullable=NO | default=-
+active | boolean | bool | nullable=NO | default=true
+passwordHash | text | text | nullable=NO | default=-
+
+--- Venue ---
+id | uuid | uuid | nullable=NO | default=-
+name | text | text | nullable=NO | default=-
+address | text | text | nullable=YES | default=-
+city | text | text | nullable=YES | default=-
+state | text | text | nullable=YES | default=-
+capacity | integer | int4 | nullable=YES | default=-
+isOwn | boolean | bool | nullable=NO | default=false
+notes | text | text | nullable=YES | default=-
+createdAt | timestamp with time zone | timestamptz | nullable=NO | default=-

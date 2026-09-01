@@ -1,0 +1,166 @@
+FASE 5 / LOTE 4 — B13 (PAGINAÇÃO MÍNIMA) + B16 (DELETE → 404 PADRONIZADO)
++ B17 (ARQUIVADO)
+======================================================================
+B2/B3/B4/B5/B9/B10/B14/B18 não tocados nesta etapa. Nenhuma alteração
+de schema/banco.
+
+--------------------------------------------------------------------
+INVENTÁRIO (apresentado e confirmado antes de editar)
+--------------------------------------------------------------------
+
+B13: 8 endpoints de maior risco de crescimento identificados no
+inventário anterior — `clientes.js`, `leads.js`, `oportunidades.js`,
+`eventos.js`, `orcamentos.js`, `contratos.js`, `financeiro.js`
+(`/receber` e `/pagar`).
+
+B16: 19 rotas `DELETE` idempotentes (recontadas com precisão nesta
+etapa — eram 19, não 22 como uma estimativa anterior havia sugerido)
+em 10 arquivos: `clientes.js` (2), `catalogo.js` (3), `contratos.js`
+(1), `financeiro.js` (2), `eventos.js` (3), `fornecedores.js` (1),
+`leads.js` (1), `operacional.js` (4), `oportunidades.js` (1),
+`orcamentos.js` (1).
+
+B17: investigado, sem problema técnico comprovado — arquivado sem
+alteração de código, conforme decidido.
+
+--------------------------------------------------------------------
+IMPLEMENTAÇÃO — B13
+--------------------------------------------------------------------
+
+Novo helper `parsePagination(query)` em `server/utils.js`: sem
+`page`/`pageSize` na query (ou com valores inválidos/parciais),
+`paginated: false` — o chamador roda a MESMA consulta de sempre, sem
+`LIMIT`/`OFFSET`. Só com os dois parâmetros como inteiros positivos a
+paginação entra em ação; `pageSize` é limitado a 200.
+
+Nos 8 endpoints: quando paginado, a query original ganha
+`limit/offset` (via fragmento `sql` composável, mesmo mecanismo já
+usado pela subquery `totalsSelect` de `orcamentos.js`) e uma segunda
+consulta de contagem populando o header `X-Total-Count` — **o corpo da
+resposta continua sendo o mesmo array de sempre em qualquer um dos
+dois casos**. Nos 2 endpoints com filtro (`clientes?q=`,
+`eventos?status=`), o filtro foi extraído para um fragmento
+`whereClause` reaproveitado tanto na consulta principal quanto na de
+contagem — o total respeita o filtro, não conta a tabela inteira.
+
+Nenhuma rota do frontend foi alterada — nenhuma tela envia
+`page`/`pageSize` hoje, então o comportamento observado pelo usuário
+final é idêntico ao de antes em 100% dos casos atuais.
+
+--------------------------------------------------------------------
+IMPLEMENTAÇÃO — B16
+--------------------------------------------------------------------
+
+Nas 19 rotas: `DELETE ... RETURNING id` (em vez de `DELETE` sem
+retorno) + `if (!deleted) throw new HttpError(404, "<Entidade> não
+encontrado(a).")`. Onde já existia tratamento de FK (`23503` → 409,
+adicionado nas Fases 2/4/Lote1), foi preservado sem alteração — a
+checagem de 404 acontece SEMPRE antes de qualquer possível conflito de
+FK (a exclusão só chega a violar uma FK se o registro existir).
+
+Para as duas rotas que fazem 2 exclusões em sequência (Checklist +
+seus itens; Budget + seus itens), o `RETURNING`/404 foi aplicado na
+exclusão da entidade PRINCIPAL — a exclusão dos itens filhos continua
+"melhor esforço" (idempotente), o que é inofensivo mesmo se o pai não
+existir mais.
+
+Mesmo padrão de `server/routes/usuarios.js`, mas em 1 consulta em vez
+de 2 (lá são 2 porque a regra do último-administrador precisa dos
+dados da linha ANTES de decidir se bloqueia — aqui não há essa
+necessidade, então `RETURNING` já resolve tudo numa só ida ao banco).
+
+--------------------------------------------------------------------
+B17 — ARQUIVADO
+--------------------------------------------------------------------
+
+Nenhuma alteração de código. Confirmado na etapa de inventário: sem
+problema técnico comprovado (nunca exibido no frontend, unicidade
+sempre garantida por ser o próprio UUID). Registrado como decisão,
+não como pendência esquecida.
+
+--------------------------------------------------------------------
+INSTABILIDADE DE INFRAESTRUTURA ENCONTRADA (não é um bug de código)
+--------------------------------------------------------------------
+
+Ao rodar a suíte completa com `npm test` (concorrência padrão do
+`node --test`, um processo por arquivo), 4 dos agora 16 arquivos de
+teste falharam de forma intermitente no login do admin de bootstrap
+(erro 500 dentro do próprio teste, não da aplicação real) — mesmo
+sintoma de instabilidade de conexão com o Supabase já registrado no
+Lote 3 (`CONNECT_TIMEOUT`), agora mais frequente porque a suíte cresceu
+de 13 para 16 arquivos, cada um abrindo sua própria conexão de teste
+mais a conexão da própria aplicação Express local. Confirmado que NÃO
+é regressão de código: os 2 arquivos novos deste lote passaram 100%
+tanto isolados quanto dentro da suíte completa quando executada com
+`--test-concurrency=1` (um arquivo por vez) — **230/230 PASS** nessa
+configuração. Nenhuma alteração de código foi feita por causa disso
+(fora de escopo deste lote); registrado aqui como observação de
+ambiente para conhecimento — se voltar a acontecer em fases futuras,
+rodar com `--test-concurrency=1` (mais lento, mas 100% estável) é o
+contorno já validado.
+
+--------------------------------------------------------------------
+TESTES
+--------------------------------------------------------------------
+
+Antes deste lote: 203/203 PASS. Depois: **230/230 PASS, 0 FAIL**
+(+27: 9 em `server/tests/pagination.test.js`, novo; 18 em
+`server/tests/delete-404.test.js`, novo — cobrindo as 19 rotas
+padronizadas, já que um dos 18 blocos de teste cobre 2 rotas
+[Checklist+Item] e outro cobre 3 [vínculo→Produto→Fornecedor]).
+Confirmado com `--test-concurrency=1` para eliminar qualquer dúvida
+sobre a instabilidade de rede descrita acima.
+
+`node --check`: 100% OK em `server/` e `public/`.
+`inspect-db.mjs`: 23 tabelas, schema íntegro — nenhuma migration.
+
+--------------------------------------------------------------------
+VALIDAÇÃO HTTP REAL
+--------------------------------------------------------------------
+
+Usuário temporário `AUDIT-FASE5-LOTE4`.
+  - `DELETE /api/clientes/<uuid-inexistente>` → 404 "Cliente não
+    encontrado."                                                    OK
+  - `GET /api/leads` sem parâmetros → 200, sem header
+    `X-Total-Count` (comportamento antigo preservado).               OK
+  - `GET /api/leads?page=1&pageSize=1` → 200, com header
+    `X-Total-Count`.                                                 OK
+  - Criar Fornecedor → excluir (200) → excluir de novo o mesmo id
+    (404 "Fornecedor não encontrado.").                               OK
+
+--------------------------------------------------------------------
+LIMPEZA E INTEGRIDADE
+--------------------------------------------------------------------
+
+Todo dado temporário (`AUDIT-FASE5-LOTE4*`, `AUDIT-FASE5-B13-*`,
+`AUDIT-FASE5-B16-*`) removido e confirmado por contagem — zero
+resíduo. Admin real de produção confirmado intacto (`active=true`,
+`tokenVersion=0`, nunca tocado). Servidor de validação encerrado
+corretamente (PID real via `netstat` antes do `taskkill`). Porta 4000
+livre ao final.
+
+--------------------------------------------------------------------
+ARQUIVOS ALTERADOS
+--------------------------------------------------------------------
+
+Backend (11 arquivos): `server/utils.js` (novo helper
+`parsePagination`), `server/routes/clientes.js`, `leads.js`,
+`oportunidades.js`, `eventos.js`, `orcamentos.js`, `contratos.js`,
+`financeiro.js` (B13 + B16), `catalogo.js`, `fornecedores.js`,
+`operacional.js` (só B16).
+Testes novos: `server/tests/pagination.test.js` (9 testes),
+`server/tests/delete-404.test.js` (18 testes).
+Documentação: `audit/phase5/07-lote4-b13-b16-b17.txt` (este arquivo),
+`CHECKPOINT.md` (atualizado).
+
+--------------------------------------------------------------------
+AMBIGUIDADES DE REGRA DE NEGÓCIO
+--------------------------------------------------------------------
+
+Nenhuma. B13 e B16 são puramente técnicos (contrato de API/paginação
+opcional), sem tocar em nenhuma regra de negócio ou comportamento
+comercial. B17 foi arquivado exatamente como decidido, sem código.
+
+--------------------------------------------------------------------
+FIM DO LOTE 4 — NÃO AVANÇANDO PARA B14 OU OUTRAS PENDÊNCIAS
+--------------------------------------------------------------------

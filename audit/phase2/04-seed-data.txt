@@ -1,0 +1,85 @@
+SUED SYSTEM — FASE 2 — 04. DADOS INICIAIS (SEED)
+=============================================================
+
+O banco está praticamente vazio (User=1, todas as outras 22 tabelas=0).
+Isso NÃO é um bug — é o estado esperado de um banco recém-criado, sem
+nenhuma empresa real ainda tendo usado o sistema.
+
+TABELAS INVESTIGADAS
+-----------------------
+EventType ........ CATÁLOGO DE APOIO. 0 registros hoje. NÃO existe
+                    nenhuma tela/rota de CRUD para EventType em todo o
+                    código (confirmado por leitura de todas as rotas —
+                    só há SELECT id,name em server/routes/eventos.js,
+                    usado para popular o <select> de "Tipo de evento").
+                    Sem pelo menos um registro, esse seletor fica vazio
+                    ao criar um evento (o campo é OPCIONAL, então isso
+                    não impede o cadastro do evento, só limita a
+                    categorização).
+                    RECOMENDAÇÃO: a empresa (ou um script de
+                    inicialização único) precisa inserir os tipos de
+                    evento que fazem sentido para o negócio (ex.:
+                    "Casamento", "Corporativo", "Aniversário") — são
+                    dados de negócio, não dados técnicos, então NÃO
+                    foram inventados aqui.
+
+Venue ............. CADASTRO DA PRÓPRIA APLICAÇÃO. 0 registros hoje, mas
+                    TEM tela de CRUD completa (público/src/views/
+                    locais.js + server/routes/eventos.js locaisRouter) —
+                    pode começar vazio, a empresa cadastra pelos usuário
+                    normalmente pela UI. Testado nesta fase (criar/
+                    editar/excluir local funcionou).
+
+Category .......... CATÁLOGO DE APOIO com tela de CRUD (dentro da tela
+                    de Catálogo). Pode começar vazio — testado nesta
+                    fase (criar categoria, duplicidade rejeitada,
+                    funcionou).
+
+ProductService .... CATÁLOGO DE APOIO (produtos/serviços) com tela de
+                    CRUD completa. Pode começar vazio — testado nesta
+                    fase (criar produto vinculado a categoria, funcionou).
+
+Supplier .......... CADASTRO com tela de CRUD completa. Pode começar
+                    vazio — testado nesta fase (criar/editar fornecedor,
+                    funcionou).
+
+SupplierProduct ... TABELA DE VÍNCULO (fornecedor <-> produto), sem tela
+                    própria — é criada a partir da tela de Catálogo ou
+                    de Fornecedores. Começa vazia por natureza (só existe
+                    depois que produto E fornecedor já existem). Testado
+                    nesta fase (vínculo criado com sucesso, refletido nos
+                    dois lados: detalhe do produto e detalhe do
+                    fornecedor).
+
+CLASSIFICAÇÃO
+---------------
+Nenhuma dessas tabelas exige seed técnico obrigatório para o sistema
+FUNCIONAR (o backend não quebra com elas vazias — todos os campos que
+apontam para elas são opcionais/nullable no schema, confirmado em
+08-database.txt). O que falta é DADO DE NEGÓCIO, que só a empresa sabe
+(quais tipos de evento oferece, quais fornecedores usa, quais produtos
+vende) — por isso NÃO foram inventados dados de exemplo permanentes.
+
+O único dado tecnicamente indispensável para o sistema ser utilizável é
+o usuário administrador — que já existe (1 usuário ADMIN ativo,
+confirmado em 02-user-management.txt).
+
+DADOS DE EXEMPLO USADOS NOS TESTES DESTA FASE
+-------------------------------------------------
+Durante a auditoria funcional, foram criados registros de teste em TODAS
+essas tabelas (e em Client, Lead, Opportunity, Event, Budget, Contract
+etc.), todos com nomes prefixados "AUDIT-FASE2" ou e-mails prefixados
+"audit.fase2." para serem inequivocamente identificáveis como teste.
+TODOS foram removidos ao final — confirmado por contagem antes/depois
+(ver 07-integration-tests.txt e 14-final-status.txt): todas as 22
+tabelas voltaram a 0, User voltou a 1.
+
+RECOMENDAÇÃO PARA PRODUÇÃO (não executada nesta fase — decisão de
+negócio da empresa, não uma correção técnica)
+------------------------------------------------------------------------
+Antes do primeiro uso real, a empresa (via ADMIN) deveria cadastrar
+manualmente pela própria UI: pelo menos 1-2 EventType relevantes ao
+negócio, os Venue próprios (Palácio SUED, Espaço SUED, etc., conforme
+mencionado no README do projeto), e o catálogo inicial de
+produtos/serviços/fornecedores mais usados. Isso é operação normal do
+sistema, não uma pendência técnica.

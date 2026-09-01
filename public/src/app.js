@@ -6,22 +6,40 @@ import { loadSession } from "./auth.js";
 import { store } from "./state.js";
 import { router } from "./router.js";
 import { renderShell, setActiveNav } from "./components/shell.js";
-import { renderLogin } from "./views/login.js";
+import { renderLogin, renderResetPassword } from "./views/login.js";
 import { renderDashboard } from "./views/dashboard.js";
 import { renderClientes } from "./views/clientes.js";
-import { renderPlaceholder } from "./views/placeholder.js";
+import { renderLeads } from "./views/leads.js";
+import { renderPipeline } from "./views/pipeline.js";
+import { renderEventos } from "./views/eventos.js";
+import { renderLocais } from "./views/locais.js";
+import { renderFornecedores } from "./views/fornecedores.js";
+import { renderCatalogo } from "./views/catalogo.js";
+import { renderOrcamentos } from "./views/orcamentos.js";
+import { renderOperacional } from "./views/operacional.js";
+import { renderFinanceiro } from "./views/financeiro.js";
+import { renderContratos } from "./views/contratos.js";
+import { renderRelatorios } from "./views/relatorios.js";
+import { renderUsuarios } from "./views/usuarios.js";
 
 const appRoot = document.getElementById("app");
 
 // Tabela de rotas → cada view no seu módulo.
 const routes = [
   { path: "/dashboard", module: "dashboard", view: renderDashboard },
+  { path: "/leads", module: "crm", view: renderLeads },
   { path: "/clientes", module: "crm", view: renderClientes },
-  { path: "/eventos", module: "eventos", view: () => renderPlaceholder("Eventos", 4) },
-  { path: "/fornecedores", module: "fornecedores", view: () => renderPlaceholder("Fornecedores", 5) },
-  { path: "/orcamentos", module: "orcamentos", view: () => renderPlaceholder("Orçamentos", 6) },
-  { path: "/financeiro", module: "financeiro", view: () => renderPlaceholder("Financeiro", 8) },
-  { path: "/relatorios", module: "relatorios", view: () => renderPlaceholder("Relatórios", 10) },
+  { path: "/funil", module: "crm", view: renderPipeline },
+  { path: "/eventos", module: "eventos", view: renderEventos },
+  { path: "/locais", module: "eventos", view: renderLocais },
+  { path: "/fornecedores", module: "fornecedores", view: renderFornecedores },
+  { path: "/catalogo", module: "fornecedores", view: renderCatalogo },
+  { path: "/orcamentos", module: "orcamentos", view: renderOrcamentos },
+  { path: "/operacional", module: "operacional", view: renderOperacional },
+  { path: "/financeiro", module: "financeiro", view: renderFinanceiro },
+  { path: "/contratos", module: "contratos", view: renderContratos },
+  { path: "/relatorios", module: "relatorios", view: renderRelatorios },
+  { path: "/usuarios", module: "usuarios", view: renderUsuarios },
 ];
 
 function showLogin() {
@@ -36,7 +54,7 @@ function startApp() {
   router.init({
     container: content,
     routes,
-    onNavigate: (route) => setActiveNav(route.module),
+    onNavigate: (route) => setActiveNav(route.path),
   });
 
   // Garante uma rota válida ao entrar.
@@ -49,7 +67,20 @@ function startApp() {
 // Sessão expirada em qualquer requisição → volta ao login.
 window.addEventListener("auth:expired", showLogin);
 
+// Achado B14 (Fase 5): link de redefinição de senha do e-mail — acessível
+// fora do fluxo normal de sessão, mesmo sem estar logado (ou com uma sessão
+// antiga ainda no navegador).
+function showResetPassword() {
+  appRoot.replaceChildren(
+    renderResetPassword(() => {
+      window.history.replaceState({}, "", "/");
+      showLogin();
+    }),
+  );
+}
+
 async function init() {
+  if (window.location.pathname === "/redefinir-senha") return showResetPassword();
   try {
     const user = await loadSession();
     if (user) startApp();

@@ -1,0 +1,47 @@
+SUED SYSTEM — FASE 2 — 06. TESTES DE RBAC (matriz real via HTTP)
+=============================================================
+Metodologia: NÃO foi testado só o frontend nem só a lógica unitária.
+Para cada um dos 5 papéis, foi criado um usuário de teste real
+(audit.fase2.<papel>@sued.local), foi feito login real via
+POST /api/auth/login, e o cookie de sessão retornado foi usado para
+chamar diretamente o endpoint GET representativo de cada um dos 10
+módulos (9 módulos de negócio + o novo módulo "usuarios"). Resultado
+esperado: permitido -> 200, não permitido -> 403, não autenticado -> 401.
+
+RESULTADO: 51/51 CHECAGENS PASS (50 combinações papel x módulo + 1
+checagem de acesso sem autenticação). ZERO FALHAS.
+
+MATRIZ COMPLETA (esperado / obtido — sempre idênticos)
+------------------------------------------------------------------------
+Módulo        | Endpoint testado          | ADMIN | SOCIO | COMERCIAL | OPERACIONAL | FINANCEIRO
+--------------|---------------------------|-------|-------|-----------|-------------|------------
+dashboard     | GET /dashboard            |  200  |  200  |    200    |     200     |    200
+crm           | GET /clientes             |  200  |  200  |    200    |     403     |    403
+eventos       | GET /eventos              |  200  |  200  |    200    |     200     |    200
+fornecedores  | GET /fornecedores         |  200  |  200  |    403    |     200     |    403
+orcamentos    | GET /orcamentos           |  200  |  200  |    200    |     403     |    403
+operacional   | GET /operacional/eventos  |  200  |  200  |    403    |     200     |    403
+financeiro    | GET /financeiro/resumo    |  200  |  200  |    403    |     403     |    200
+contratos     | GET /contratos            |  200  |  200  |    200    |     403     |    200
+relatorios    | GET /relatorios           |  200  |  200  |    200    |     403     |    200
+usuarios      | GET /usuarios             |  200  |  200  |    403    |     403     |    403
+
+Sem autenticação (nenhum cookie) -> GET /dashboard -> 401: CONFIRMADO.
+
+OBSERVAÇÕES
+-------------
+- Todos os valores "obtido" bateram exatamente com "esperado" — nenhuma
+  divergência em nenhuma das 50 combinações.
+- O módulo "usuarios" (novo nesta fase) segue a mesma paridade ADMIN=
+  SOCIO já usada em todos os outros 9 módulos — nenhuma exceção nova
+  foi criada na matriz (ver decisão documentada em
+  02-user-management.txt).
+- Esta é a MESMA matriz já validada na Fase 1 (A1/A2) via testes
+  automatizados com mock — a diferença aqui é que desta vez a validação
+  foi feita com requisição HTTP real, servidor real, banco real e
+  usuários reais persistidos no Postgres, não com dublês. Nenhuma
+  regressão foi encontrada.
+- Os testes automatizados equivalentes (server/tests/rbac-matrix.test.js)
+  também foram executados nesta fase como parte do "npm test" (97/97
+  PASS) e continuam cobrindo os mesmos 10 módulos x 5 papéis de forma
+  determinística e sem depender de banco.

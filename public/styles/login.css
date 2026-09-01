@@ -31,15 +31,17 @@
     radial-gradient(60% 50% at 48% 46%, rgba(255, 253, 248, 0.55) 0%, transparent 70%),
     linear-gradient(135deg, #fbfaf7 0%, #f6f2ea 52%, #efe9dd 100%);
 }
-/* borda de luz superior + vinheta muito sutil para profundidade */
+/* overlay de leitura (branco à esquerda) + luz superior + vinheta.
+   Fica ACIMA da decoração (z-index 1) e ABAIXO do texto (z-index 2). */
 .login__aside::before {
   content: "";
   position: absolute;
   inset: 0;
-  z-index: -1;
+  z-index: 1;
   pointer-events: none;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.55), transparent 26%),
+    linear-gradient(100deg, rgba(255, 255, 255, 0.62) 0%, rgba(255, 255, 255, 0.24) 44%, transparent 68%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.5), transparent 26%),
     radial-gradient(120% 120% at 50% 40%, transparent 62%, rgba(28, 25, 23, 0.04) 100%);
 }
 /* separador dourado vertical delicado entre os dois lados */
@@ -54,7 +56,11 @@
   background: linear-gradient(180deg, transparent, rgba(201, 162, 39, 0.4) 22%, rgba(201, 162, 39, 0.55) 50%, rgba(201, 162, 39, 0.4) 78%, transparent);
 }
 
-.login-veins { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+/* Curvas luminosas (leque à direita, atrás do overlay) */
+.login-lumi { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+.login-lumi .lumi-curves { top: -16%; right: -18%; width: 88%; height: 132%; opacity: 0.55; }
+
+.login-veins { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
 .login-veins .veins { position: absolute; filter: drop-shadow(0 1px 1px rgba(201, 162, 39, 0.08)); }
 .login-veins .veins--tr { top: -6%; right: -12%; width: 80%; height: 90%; }
 .login-veins .veins--bl { bottom: -8%; left: -15%; width: 72%; height: 84%; }
@@ -62,7 +68,7 @@
 
 .login-aside__top,
 .login-aside__center,
-.login-aside__foot { position: relative; z-index: 1; }
+.login-aside__foot { position: relative; z-index: 2; }
 
 /* ---------- Marca SUED ---------- */
 .login-brand { display: flex; align-items: center; gap: 0.95rem; }
@@ -277,6 +283,21 @@
 .login-submit.is-loading { cursor: progress; }
 
 .login-foot { margin-top: 1.6rem; text-align: center; font-size: 0.75rem; color: var(--sued-muted); }
+
+/* Achado B14 (Fase 5): link "Esqueci minha senha" / "Voltar ao login". */
+.login-forgot {
+  display: block;
+  width: 100%;
+  margin-top: 0.9rem;
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 0.8rem;
+  color: var(--sued-muted);
+  text-align: center;
+  cursor: pointer;
+}
+.login-forgot:hover { color: var(--sued-gold-dark); text-decoration: underline; }
 
 /* Marca no topo do formulário — só aparece no mobile */
 .login-brand--mobile { display: none; justify-content: center; margin-bottom: 2.2rem; }

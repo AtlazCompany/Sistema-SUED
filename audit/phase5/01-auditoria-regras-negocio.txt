@@ -1,0 +1,362 @@
+FASE 5 — AUDITORIA DE REGRAS DE NEGÓCIO E COMPLETUDE FUNCIONAL
+==================================================================
+(SOMENTE LEITURA — nenhum arquivo de código ou dado do banco foi
+alterado nesta etapa. Verificado ao final: `git status` idêntico ao
+estado deixado pela Fase 4.)
+
+Método: releitura do código atual (não presumido a partir dos
+checkpoints) de todas as rotas de backend (`server/routes/*.js`,
+`server/auth.js`, `server/utils.js`), das views de frontend mais
+relevantes, e consolidação com os achados já registrados em
+`audit/phase2`, `audit/phase3` e `audit/phase4`. Nenhum teste foi
+executado e nenhuma chamada foi feita contra o banco real nesta etapa
+— achados de robustez/segurança abaixo foram confirmados por leitura
+de código (grep exaustivo dos pontos de tratamento de erro
+existentes), não por reprodução ao vivo, e assim estão marcados.
+
+--------------------------------------------------------------------
+RESUMO EXECUTIVO
+--------------------------------------------------------------------
+
+Nenhum achado P0 foi encontrado. O sistema não tem, hoje, nenhuma
+falha conhecida de perda de dados, bypass de autenticação/autorização,
+ou cálculo financeiro incorreto — todas essas áreas já foram
+auditadas e comprovadas corretas nas Fases 1–4 (RBAC, sessão,
+segurança de credenciais, matemática de dashboard/orçamento/
+financeiro/relatórios).
+
+O achado mais importante desta fase é NOVO (não estava em nenhum
+checkpoint anterior): praticamente toda rota de criação/edição que
+aceita uma referência a outro registro (clientId, eventId, ownerId,
+assigneeId, supplierId, productServiceId, etc.) não trata violação de
+FK na escrita — o padrão `try/catch` para o erro Postgres `23503` só
+foi aplicado nas rotas `DELETE` (Fase 2, para usuários; Fase 4, para
+os outros 6 módulos). Nenhuma rota `POST`/`PUT` tem esse tratamento.
+Classificado como P1 — ver achado B1.
+
+Os demais achados são, em sua maioria, decisões de regra de negócio
+ainda não tomadas (não bugs técnicos) ou lacunas funcionais já
+conhecidas desde fases anteriores e conscientemente adiadas.
+
+--------------------------------------------------------------------
+TABELA DE CLASSIFICAÇÃO
+--------------------------------------------------------------------
+
+P0 (crítico, bloqueador): NENHUM.
+
+P1 (importante — recomendado resolver antes de expor a mais usuários):
+  B1. Escrita com referência (FK) inexistente → 500 com erro SQL cru.
+
+P2 (deveria ser resolvido, não bloqueia o uso atual):
+  B2. Nenhuma validação de transição de status/estágio (Evento,
+      Oportunidade, Orçamento, Contrato).
+  B3. Cliente aceita documento (CPF/CNPJ) duplicado.
+  B4. Financeiro aceita valores negativos em contas a pagar/receber.
+  B5. Orçamento aceita desconto maior que o subtotal (total negativo).
+  B6. `PUT /api/auth/senha` sem limite de tentativas.
+  B7. Troca de senha não revoga sessões antigas de outros dispositivos
+      (já documentado desde a Fase 2 — reconfirmado, não corrigido).
+  B8. `Contact` (contatos do cliente) sem nenhuma rota/tela de CRUD.
+  B9. Sem trilha de auditoria (log de quem alterou o quê e quando).
+  B10. Orçamento aprovado não sincroniza automaticamente com o valor
+      do Contrato (preenchimento manual, sem checagem cruzada).
+
+P3 (qualidade de vida / futuro, baixo risco):
+  B11. `EventType` (Tipos de Evento) sem tela de CRUD (já conhecido).
+  B12. `Venue` (Locais) sem edição — só criar/listar/excluir (já
+      conhecido).
+  B13. Nenhuma listagem tem paginação (latente — banco real ainda
+      vazio, sem impacto hoje).
+  B14. Recuperação de senha por e-mail não implementada (mitigado:
+      qualquer ADMIN/SÓCIO já pode redefinir a senha de outro usuário).
+  B15. Modais empilham em vez de fechar o anterior ao abrir um novo
+      (já conhecido desde a Fase 2).
+  B16. Inconsistência entre rotas DELETE "idempotentes" (sempre 200,
+      mesmo se nada existia) e rotas que devolvem 404 explícito.
+  B17. `Event.code` é gravado como o próprio UUID (não um código
+      amigável tipo EVT-0001) — mas nunca é exibido em nenhuma tela,
+      impacto zero hoje.
+  B18. Múltiplos Orçamentos/Contratos "aprovados"/"assinados" podem
+      coexistir no mesmo Evento sem controle de qual é o vigente.
+
+--------------------------------------------------------------------
+DETALHAMENTO
+--------------------------------------------------------------------
+
+### P1 — B1: escrita com FK inexistente → 500 com erro SQL cru
+
+Confirmado por leitura de código (grep exaustivo de `23503` em todo
+`server/routes/`): as ÚNICAS 8 ocorrências desse tratamento estão em
+handlers `DELETE` (Usuários desde a Fase 2; Clientes, Fornecedores,
+Catálogo ×2, Eventos ×2, Oportunidades desde a Fase 4). NENHUMA rota
+`POST`/`PUT` tem esse tratamento, apesar de praticamente todas
+aceitarem pelo menos um campo de referência vindo do corpo da
+requisição:
+
+  - Eventos (POST/PUT): clientId, eventTypeId, venueId, opportunityId,
+    commercialId, operationalId
+  - Oportunidades (POST/PUT): clientId, ownerId
+  - Orçamentos (POST/PUT): clientId, eventId, opportunityId,
+    items[].productServiceId
+  - Contratos (POST/PUT): clientId, eventId
+  - Operacional (POST tarefas/cronograma, PATCH tarefas): eventId,
+    assigneeId
+  - Financeiro (POST pagar/receber): eventId, supplierId
+  - Catálogo (POST produto, POST vínculo fornecedor): categoryId,
+    supplierId, productServiceId (o vínculo já trata duplicidade —
+    `23505` — mas não referência inexistente — `23503`)
+
+Se qualquer um desses IDs não existir mais no banco no momento do
+INSERT/UPDATE, o Postgres recusa com o erro 23503, que hoje cai direto
+no handler central sem tratamento específico e devolve 500 com a
+mensagem crua do driver (nome de tabela e de constraint interna) —
+exatamente o padrão que a Fase 4 já classificou como inaceitável
+("nenhum erro interno deve vazar SQL") e corrigiu no lado das
+exclusões.
+
+Impacto e risco: não é um bypass de segurança (não permite acesso
+indevido nem perda de dado), mas é: (a) uma experiência de erro ruim
+pro usuário (mensagem técnica em vez de "cliente não encontrado"); (b)
+um vazamento pequeno de detalhe de infraestrutura (nome de tabela/
+constraint); (c) reproduzível em uso NORMAL, não só por ataque — um
+formulário aberto por muito tempo enquanto outra aba exclui o
+cliente/evento/fornecedor referenciado, ou uma chamada de API direta
+com um ID digitado errado, dispara isso hoje. Mesma classe de problema
+que a Fase 4 já tratou como prioridade — por consistência, deveria ter
+o mesmo nível de prioridade aqui.
+
+Correção recomendada (quando autorizada): mesmo padrão já usado e
+validado nas rotas DELETE — `try/catch` no INSERT/UPDATE de cada rota
+listada acima, mapeando `e.code === "23503"` para 400 com mensagem
+amigável (ex.: "Cliente selecionado não existe mais."). Mudança
+mecânica, mesmo padrão repetido, baixo risco, mesmo espírito da
+correção já aprovada e testada na Fase 4.
+
+---
+
+### P2 — B2: nenhuma validação de transição de status/estágio
+
+Nenhuma das quatro máquinas de estado do sistema valida a transição:
+  - Evento: 9 status (RASCUNHO...CANCELADO) — `PUT /eventos/:id`
+    aceita qualquer status do enum, em qualquer ordem (pode ir de
+    RASCUNHO direto pra REALIZADO, ou "reabrir" um CANCELADO).
+  - Oportunidade: `PATCH /:id/estagio` só valida que o valor pertence
+    à lista de estágios — não impede voltar de GANHO/PERDIDO pra
+    PROSPECCAO, por exemplo.
+  - Orçamento: mesmo caso (RASCUNHO/ENVIADO/APROVADO/REJEITADO/
+    EXPIRADO sem ordem imposta).
+  - Contrato: mesmo caso, com o agravante de que assinar/desassinar
+    (`signedAt`) já tem lógica própria (Fase 2), mas o status em si
+    ainda pode ser setado livremente.
+
+Impacto: dado de negócio inconsistente com o processo real (ex.: um
+evento "REALIZADO" sendo movido de volta pra "RASCUNHO"), mas não
+causa erro de sistema nem afeta segurança — é uma lacuna de regra de
+negócio, não um bug técnico. Requer decisão do usuário sobre QUAIS
+transições são válidas antes de implementar (matriz de transição por
+módulo) — não é óbvio o suficiente pra inventar sem validar com quem
+usa o sistema no dia a dia.
+
+### P2 — B3: Cliente aceita documento duplicado
+
+Já registrado no achado A2 da Fase 4. Sem `UNIQUE` em
+`Client.document` nem checagem no código. Decisão de regra de negócio
+(pode ser intencional permitir múltiplos registros com o mesmo
+documento), não implementado por falta de definição do usuário.
+
+### P2 — B4: Financeiro aceita valores negativos
+
+Já registrado no achado A3 da Fase 4. `toCents()` não rejeita
+negativos em `AccountPayable`/`AccountReceivable`. Mesma categoria:
+decisão de regra de negócio (um valor negativo pode ser um estorno
+legítimo) vs. validação a acrescentar.
+
+### P2 — B5: Orçamento aceita desconto maior que o subtotal
+
+NOVO nesta fase. `server/routes/orcamentos.js` (`pickHeader`) grava
+`discountCents` sem checar contra o subtotal calculado pelos itens; o
+frontend (`public/src/views/orcamentos.js`, função `recalc()`) calcula
+`total = subtotal - discount` e exibe via `formatBRL(total)` sem
+clampar em zero — um desconto maior que o subtotal produz e EXIBE um
+total negativo (ex.: "-R$ 50,00") num documento que será enviado a um
+cliente. Não quebra o sistema (sem erro, sem NaN), mas é um dado de
+negócio sem sentido para um orçamento comercial. Correção sugerida
+(quando autorizada): validar `discountCents <= subtotal` no backend
+(400 amigável) e/ou clampar visualmente no frontend.
+
+### P2 — B6: `PUT /api/auth/senha` sem limite de tentativas
+
+`server/auth.js` só tem rate limit (`loginRateLimit`) na rota de
+login. A troca da própria senha exige a senha atual, mas não tem
+nenhum limite de tentativas — um atacante que já tenha roubado o
+cookie de sessão (ex.: XSS em outra parte do stack, malware no
+dispositivo) poderia tentar adivinhar a senha atual sem bloqueio.
+Não concede MAIS acesso do que o cookie roubado já dá (o atacante já
+consegue agir como o usuário via o cookie), mas permitiria descobrir a
+senha em texto — o que estende o acesso além da validade do cookie
+(8h) e para outros dispositivos/fluxos que exigem a senha (ex.: login
+direto). Risco moderado, correção simples (reaproveitar o mesmo
+mecanismo de rate limit já existente, por usuário ou por IP).
+
+### P2 — B7: troca de senha não revoga sessões de outros dispositivos
+
+Já documentado desde a Fase 2 (achado então classificado como
+limitação arquitetural aceita) e re-avaliado na Fase 3: corrigir de
+verdade exigiria um mecanismo de versionamento de token (ex.: coluna
+`tokenVersion` em `"User"`, conferida em `resolveSession()`) — ALTERAÇÃO
+DE SCHEMA. Por instrução explícita das fases anteriores ("se exigir
+alteração de banco significativa, documente antes de fazer"), segue
+não implementado. Reconfirmado aqui como ainda válido e ainda não
+decidido pelo usuário.
+
+### P2 — B8: `Contact` sem CRUD
+
+Tabela `Contact` (contatos de um cliente) só é LIDA hoje (
+`GET /api/clientes/:id` traz `contacts`), sem nenhuma rota
+`POST`/`PUT`/`DELETE` nem tela para gerenciá-los. Achado herdado desde
+a Fase 2 (P3 na época), reclassificado aqui como P2 porque é uma
+lacuna funcional genuína (não dá pra cadastrar um contato do cliente
+de jeito nenhum hoje, nem por API nem por UI) — não uma preferência
+estética.
+
+### P2 — B9: sem trilha de auditoria
+
+Não existe, em nenhuma tabela, registro de quem alterou o quê e
+quando (sem coluna tipo `updatedBy`, sem tabela de log de alterações).
+Para um ERP que lida com contratos e financeiro, isso é uma lacuna de
+maturidade real (rastreabilidade, confiança, eventual necessidade de
+auditoria externa) — mas é uma FEATURE nova, não um bug, e o escopo
+exato (o que logar, por quanto tempo manter, se vira tela ou só
+registro técnico) precisa de definição do usuário antes de qualquer
+implementação.
+
+### P2 — B10: Orçamento aprovado não sincroniza com o Contrato
+
+`Contract.valueCents` é um campo digitado manualmente
+(`server/routes/contratos.js`, `pick()` → `toCents(body?.value)`), sem
+nenhuma ligação automática com o total de um `Budget` aprovado para o
+mesmo evento. Um operador pode digitar um valor diferente do orçamento
+aprovado por engano, sem nenhum aviso do sistema. Lacuna de processo,
+não bug — requer decisão de produto (o contrato deveria puxar o valor
+do orçamento automaticamente? permitir edição depois? travar se
+divergente?).
+
+---
+
+### P3 — B11/B12: lacunas já conhecidas (EventType, Venue)
+
+Reconfirmadas por leitura de código nesta fase, sem mudança desde a
+Fase 4 (`01-auditoria-funcional.txt`, achados A4/A5). Não repetido em
+detalhe aqui — ver aquele relatório.
+
+### P3 — B13: sem paginação
+
+Todas as listagens (`GET /api/clientes`, `/eventos`, etc.) devolvem a
+tabela inteira de uma vez. Com o banco real ainda vazio, impacto zero
+hoje; vira relevante conforme o volume de dados crescer. Não é uma
+correção urgente — registrado para acompanhamento futuro.
+
+### P3 — B14: recuperação de senha por e-mail
+
+Não implementada (Opção C, já deliberadamente fora do escopo desde a
+Fase 2 por exigir infraestrutura de e-mail transacional que o projeto
+não tem). Mitigado: qualquer ADMIN/SOCIO pode redefinir a senha de
+outro usuário a qualquer momento pela tela de Usuários.
+
+### P3 — B15: modais empilham
+
+Achado incidental da Fase 2, ainda não corrigido — abrir um modal
+sobre outro não fecha o anterior automaticamente. UX, não bug de dado.
+
+### P3 — B16: inconsistência DELETE idempotente vs. 404
+
+Já observado desde o harness da Fase 2 (nota "N/A", não uma falha):
+`DELETE` de um recurso inexistente em Leads, Contratos, Tarefas,
+Checklists, ScheduleItem, Contas a pagar/receber sempre devolve 200
+`{ok:true}` (delete idempotente, não verifica existência antes);
+`DELETE` de Usuário SEMPRE verificou (404 explícito desde a Fase 2);
+`DELETE` de Cliente/Fornecedor/Produto/Categoria/Evento/Local/
+Oportunidade (corrigidos na Fase 4) também não verificam existência
+antes — só tratam o caso de FK. Inconsistência de contrato de API
+entre rotas, baixo risco (nenhuma delas vaza dado nem quebra), mas
+vale padronizar um dia.
+
+### P3 — B17: `Event.code` = UUID cru
+
+`server/routes/eventos.js` (POST): `data.code = data.id` — usado só
+para satisfazer a coluna `UNIQUE`, nunca exibido em nenhuma tela
+(confirmado: nenhuma ocorrência de `.code` em
+`public/src/views/eventos.js`). Inconsistente com o padrão amigável
+`ORC-0001`/`CT-0001` de Orçamento/Contrato, mas sem nenhum impacto
+funcional real hoje.
+
+### P3 — B18: múltiplos Orçamentos/Contratos "vigentes" por Evento
+
+Nada impede criar 2 orçamentos com status APROVADO, ou 2 contratos
+ASSINADO, para o mesmo evento — não há campo "vigente" nem regra que
+desative os outros ao aprovar/assinar um. Lacuna de processo,
+relacionada ao achado B2 (falta de máquina de estados) — mesma
+categoria de decisão de negócio pendente.
+
+--------------------------------------------------------------------
+CONFIRMADO SEM PROBLEMA (verificado nesta auditoria, não presumido)
+--------------------------------------------------------------------
+
+- Nenhum vetor de XSS encontrado: `el()` (`public/src/utils.js`) só
+  usa `innerHTML` (`html:`) com conteúdo estático/hardcoded (ícones,
+  rótulos de config); todo dado vindo do usuário/banco é inserido via
+  `document.createTextNode` (texto puro, nunca interpretado como
+  HTML). Existe até um `escapeHtml()` disponível, hoje sem uso porque
+  não há nenhum caso que precise dele.
+- RBAC, sessão (revalidação a cada requisição), última proteção de
+  administrador, segurança de credenciais: sem mudança desde as Fases
+  2–3, sem novo achado.
+- Cálculos (dashboard, orçamento, financeiro, relatórios): sem
+  mudança desde a Fase 4, sem novo achado.
+- Segredos (`passwordHash`, `.env`, `JWT_SECRET`, `DATABASE_URL`):
+  sem exposição encontrada, `.env` confirmado fora do controle de
+  versão.
+
+--------------------------------------------------------------------
+ORDEM RECOMENDADA DE IMPLEMENTAÇÃO (quando autorizada)
+--------------------------------------------------------------------
+
+1. **B1 (P1)** — tratar 23503 em todas as rotas de escrita. Correção
+   mecânica, mesmo padrão já testado e aprovado na Fase 4, baixo
+   risco, alto valor (fecha uma classe inteira de vazamento de erro
+   interno). Deveria vir primeiro, sozinho, com sua própria bateria de
+   testes de regressão — mesmo espírito de `fk-delete-guards.test.js`.
+
+2. **B6 (P2, segurança)** — rate limit em `PUT /auth/senha`. Pequeno,
+   isolado, reaproveita mecanismo já existente.
+
+3. **Decisões de regra de negócio que só precisam de confirmação do
+   usuário antes de codificar** (B3, B4, B5, B2/B18, B10) — nenhuma
+   delas é grande, mas todas mudam comportamento visível pro usuário
+   final, então convém alinhar a regra exata antes de implementar
+   (ex.: "bloquear documento duplicado com erro, ou só avisar?";
+   "permitir valor negativo como estorno, ou nunca?"; "que transições
+   de status são válidas em cada módulo?").
+
+4. **B8 (P2, funcional)** — CRUD de Contact. Módulo pequeno e
+   autocontido, mesmo padrão dos outros cadastros simples já existentes
+   (Fornecedores, Locais).
+
+5. **B7 (P2, arquitetural)** — revogação de sessão via `tokenVersion`.
+   Deixada por último de propósito: é a única mudança desta lista que
+   toca schema — precisa de aprovação explícita antes de tocar nisso,
+   conforme já sinalizado nas Fases 2/3.
+
+6. **B9 (P2, feature nova)** — trilha de auditoria. Escopo maior,
+   precisa de definição de produto antes de qualquer código
+   (granularidade, retenção, exposição na UI).
+
+7. **P3 (B11–B17)** — quando houver tempo sobrando ou pedido
+   específico do usuário; nenhum bloqueia nada hoje.
+
+--------------------------------------------------------------------
+FIM DA AUDITORIA — NENHUMA ALTERAÇÃO FOI FEITA
+--------------------------------------------------------------------
+
+Aguardando autorização para iniciar a implementação, na ordem acima ou
+na ordem que o usuário preferir.

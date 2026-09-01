@@ -3,9 +3,9 @@
   "configurations": [
     {
       "name": "sued-erp-dev",
-      "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
-      "runtimeArgs": ["run", "dev"],
-      "port": 3000
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["--env-file=server/.env", "--watch", "server/index.js"],
+      "port": 4000
     }
   ]
 }

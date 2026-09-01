@@ -1,0 +1,152 @@
+FASE 5 — AVALIAÇÃO DE ARQUITETURA: B14 (RECUPERAÇÃO DE SENHA POR E-MAIL)
+=========================================================================
+NÃO IMPLEMENTADO — avaliação técnica completa, para decisão do usuário
+antes de qualquer código, schema ou integração externa. Mitigação atual
+continua valendo enquanto isso não é decidido: qualquer ADMIN/SÓCIO já
+pode redefinir a senha de outro usuário pela tela de Usuários.
+
+--------------------------------------------------------------------
+1. FLUXO PROPOSTO (ponta a ponta)
+--------------------------------------------------------------------
+
+1. Tela de login ganha um link "Esqueci minha senha".
+2. Usuário informa o e-mail → `POST /api/auth/esqueci-senha { email }`.
+3. Backend SEMPRE responde igual, exista ou não o e-mail (proteção
+   contra enumeração de contas — ver seção 6): "Se o e-mail existir,
+   enviaremos instruções."
+4. Se o e-mail existir E a conta estiver ativa: gera um token aleatório
+   criptográfico (256 bits), grava só o HASH dele no banco (nunca o
+   token em texto puro — mesmo princípio já usado para senha), com
+   validade curta, e envia um e-mail com um link contendo o token em
+   texto puro (`.../redefinir-senha?token=...`).
+5. Usuário clica no link → tela nova para definir a nova senha →
+   `POST /api/auth/redefinir-senha { token, newPassword,
+   confirmNewPassword }`.
+6. Backend recalcula o hash do token recebido, procura no banco,
+   confere validade/expiração/uso único → se OK, grava a nova senha
+   (bcrypt, mesmo padrão de sempre), invalida o token (uso único) e
+   incrementa `tokenVersion` (mesmo mecanismo do achado B7) — derruba
+   qualquer sessão aberta daquela conta em qualquer dispositivo,
+   exatamente como já acontece quando um admin redefine a senha de
+   alguém hoje.
+
+--------------------------------------------------------------------
+2. ARQUITETURA / SCHEMA — DUAS OPÇÕES (decisão do usuário)
+--------------------------------------------------------------------
+
+(A) Tabela nova `"PasswordResetToken"` (id, userId FK, tokenHash,
+    expiresAt, createdAt, usedAt) — permite histórico de tentativas,
+    mais explícito, mais fácil de auditar/expurgar depois.
+
+(B) Duas colunas novas em `"User"` (`resetTokenHash`,
+    `resetTokenExpiresAt`) — mais simples, sem tabela nova; um novo
+    pedido de redefinição automaticamente invalida o anterior (só um
+    token válido por vez, o que é até uma propriedade de segurança
+    desejável, não uma limitação).
+
+Recomendação técnica: (B), pela simplicidade — mas ambas são
+igualmente seguras e válidas; a escolha final é sua.
+
+**Qualquer uma das duas é uma alteração de schema** — mesma categoria
+de decisão do B7/B9: só seria executada com autorização explícita, e eu
+apresentaria o DDL exato antes de rodar, do mesmo jeito.
+
+--------------------------------------------------------------------
+3. TOKEN — GERAÇÃO, ARMAZENAMENTO, EXPIRAÇÃO
+--------------------------------------------------------------------
+
+- Gerado com `crypto.randomBytes(32).toString("hex")` (256 bits de
+  entropia — praticamente impossível de adivinhar por força bruta).
+- Só o HASH (SHA-256) é gravado no banco — um vazamento do banco não
+  gera tokens utilizáveis, mesmo princípio já usado para
+  `passwordHash`.
+- Expiração recomendada: 30 minutos (padrão de mercado para este tipo
+  de link) — decisão técnica de baixo risco, aplico esse valor a menos
+  que você prefira outro.
+- Uso único: token é invalidado (apagado ou marcado como usado)
+  imediatamente após uma redefinição bem-sucedida.
+
+--------------------------------------------------------------------
+4. INVALIDAÇÃO DE SESSÃO
+--------------------------------------------------------------------
+
+Reaproveita o `tokenVersion` do achado B7 — uma redefinição de senha
+bem-sucedida (por este fluxo OU pelo admin, como já acontece)
+incrementa `tokenVersion`, derrubando qualquer sessão antiga daquela
+conta em qualquer dispositivo. Nenhum mecanismo novo necessário aqui.
+
+--------------------------------------------------------------------
+5. RATE LIMIT
+--------------------------------------------------------------------
+
+Reaproveita o mesmo padrão em memória já usado desde o B6/B21:
+- `POST /esqueci-senha`: limitado por E-MAIL (evita spammar a caixa de
+  entrada de uma vítima) E por IP (evita abuso em escala/enumeração).
+- `POST /redefinir-senha`: limitado por IP (o espaço do token já é
+  grande demais para força bruta ser viável, mas não custa nada
+  limitar mesmo assim).
+
+--------------------------------------------------------------------
+6. PROTEÇÃO CONTRA ENUMERAÇÃO DE CONTAS
+--------------------------------------------------------------------
+
+- `POST /esqueci-senha` responde EXATAMENTE igual (mesmo status, mesma
+  mensagem) exista ou não o e-mail, esteja a conta ativa ou não —
+  nunca revela se um e-mail está cadastrado.
+- `POST /redefinir-senha` com token inválido/expirado/já usado também
+  responde com uma mensagem genérica única ("Link inválido ou
+  expirado."), sem diferenciar os três motivos.
+
+--------------------------------------------------------------------
+7. DEPENDÊNCIA E ENVIO DE E-MAIL — REQUER SUA DECISÃO
+--------------------------------------------------------------------
+
+Node não tem envio de e-mail embutido — é necessária uma dependência
+nova E um provedor externo (você confirmou que hoje não há nenhuma
+capacidade de envio de e-mail configurada). Isso ativa a regra que
+você mesmo definiu: **eu paro aqui e não crio/configuro nada até você
+decidir.**
+
+Dependência recomendada: `nodemailer` (biblioteca SMTP genérica,
+funciona com QUALQUER provedor abaixo, evita prender o projeto a um
+SDK proprietário de um provedor específico).
+
+Opções de provedor (todas com camada gratuita hoje):
+  - **Resend** — camada gratuita generosa (3.000 e-mails/mês, 100/dia),
+    API/SMTP simples, feito especificamente para e-mail transacional.
+    Minha recomendação, se não houver preferência prévia.
+  - **AWS SES** — extremamente barato em escala, mas setup mais
+    burocrático (conta AWS, verificação de domínio, sai do modo
+    sandbox só depois de um pedido aprovado pela AWS).
+  - **SendGrid** — camada gratuita ~100 e-mails/dia, produto maduro.
+  - **Mailgun** — trial gratuito, depois pago.
+  - **Gmail/Workspace com senha de app** — NÃO recomendado para
+    produção mesmo que vocês tenham Workspace: limite baixo (~500/dia),
+    risco maior de ser bloqueado pelo Google por uso automatizado fora
+    do padrão de uso normal de caixa de e-mail.
+
+**Decisões necessárias antes de qualquer código**:
+  1. Qual provedor usar (ou outro que vocês já tenham em mente).
+  2. Criar a conta no provedor escolhido (ação sua — eu não crio
+     contas em serviços externos em seu nome).
+  3. Aprovar o schema (opção A ou B da seção 2).
+  4. Confirmar (ou ajustar) a expiração de 30 minutos.
+
+Variáveis de ambiente que entrariam em `.env` (nomes finais dependem
+do provedor escolhido, ex.: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`,
+`SMTP_PASS`, `MAIL_FROM`, `APP_BASE_URL` — esta última para montar o
+link do e-mail).
+
+--------------------------------------------------------------------
+8. FRONTEND
+--------------------------------------------------------------------
+
+- `public/src/views/login.js`: link "Esqueci minha senha" → formulário
+  simples de e-mail.
+- Nova view para a tela acessada via link do e-mail (lê `?token=` da
+  URL) — formulário de nova senha + confirmação, mesmo padrão visual
+  já usado em `changePassword`/`usuarios.js`.
+
+--------------------------------------------------------------------
+FIM DA AVALIAÇÃO — NENHUM CÓDIGO, SCHEMA OU INTEGRAÇÃO FOI CRIADO
+--------------------------------------------------------------------

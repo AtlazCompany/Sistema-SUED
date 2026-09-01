@@ -1,0 +1,257 @@
+FASE 5 / LOTE 6 — FECHAMENTO E VALIDAÇÃO FINAL
+(B19 + B20 + B21 + B9 + B14)
+======================================================================
+Relatório objetivo pedido pelo usuário ao final desta etapa. Cobre a
+suíte completa, node --check, estado do banco/schema, validação HTTP
+e visual, limpeza, confirmação do admin real, arquivos alterados e
+pendências que dependem do consultor.
+
+--------------------------------------------------------------------
+1. TESTES — QUANTIDADE FINAL E PASS/FAIL
+--------------------------------------------------------------------
+
+**255/255 PASS, 0 FAIL** (execução sequencial, `--test-concurrency=1`,
+16 arquivos de teste, ~582s).
+
+Acumulado da Fase 5: 139 → 171 → 176 → 189 → 203 → 230 → 232 → 255.
+
+Durante o fechamento, uma REGRESSÃO REAL foi encontrada e corrigida
+(detalhe na seção 9) — a suíte só chegou a 255/255 depois da correção.
+Antes da correção, 2 arquivos falhavam de forma consistente e
+reprodutível (não intermitente): `usuarios.test.js` e
+`fk-write-guards.test.js`.
+
+--------------------------------------------------------------------
+2. NODE --CHECK
+--------------------------------------------------------------------
+
+100% OK — todos os `.js` e `.mjs` de `server/`, todos os `.js` de
+`public/src/`. Verificação completa da árvore, não só dos arquivos
+alterados nesta etapa.
+
+--------------------------------------------------------------------
+3. ESTADO DO BANCO / SCHEMA
+--------------------------------------------------------------------
+
+`inspect-db.mjs`: **24 tabelas** (23 anteriores + `"AuditLog"`, nova
+do B9). `"User"` com 2 colunas novas do B14 (`resetTokenHash`,
+`resetTokenExpiresAt`, ambas nullable). Nenhuma tabela/coluna
+pré-existente alterada ou removida.
+
+Uma correção de constraint foi aplicada em `"AuditLog"."userId"`
+(`ON DELETE SET NULL` em vez de `RESTRICT`) — ver seção 9. Confirmada
+via `pg_constraint` (`confdeltype = 'n'`).
+
+--------------------------------------------------------------------
+4. B19 — CONFIRMADO PRESENTE E CORRETO
+--------------------------------------------------------------------
+
+`server/routes/oportunidades.js`, `POST /:id/interacoes`: `try/catch`
+em volta do INSERT, `23503` → `HttpError(400, "Oportunidade
+selecionada não existe mais.")`. Testado: `opportunityId` inexistente
+na URL → 400 (era 500 cru antes); `opportunityId` válido → 201.
+
+--------------------------------------------------------------------
+5. B20 — CONFIRMADO PRESENTE E CORRETO
+--------------------------------------------------------------------
+
+`public/src/router.js`: fallback de erro reconstruído com
+`document.createElement`/`textContent`, sem `innerHTML`. Confirmado
+por busca exaustiva (`.innerHTML =`/`insertAdjacentHTML`) que não há
+mais nenhuma interpolação de dado dinâmico em HTML fora do padrão
+seguro já usado no resto do projeto.
+
+--------------------------------------------------------------------
+6. B21 — CONFIRMADO PRESENTE E CORRETO
+--------------------------------------------------------------------
+
+`server/auth.js`: `sweepExpired()` + `setInterval(..., 10 * 60 *
+1000).unref()` purgando `loginAttempts`, `passwordChangeAttempts`, e
+(estendido naturalmente pela implementação do B14) os 3 Maps novos de
+rate limit de recuperação de senha. `.unref()` confirmado — não
+mantém o processo vivo artificialmente (relevante para os testes, que
+sobem/derrubam um servidor efêmero por arquivo).
+
+--------------------------------------------------------------------
+7. B9 — CONFIRMADO PRESENTE E CORRETO
+--------------------------------------------------------------------
+
+Ver CHECKPOINT.md seção 26 para o resumo de escopo (decisões do
+usuário: só Financeiro/Contratos/Usuários; retenção indefinida; sem
+tela própria). Verificado por leitura direta do código:
+- `server/audit.js`: `logAudit()` — redação de `passwordHash`
+  confirmada (nunca aparece em `before`/`after`); `userName` congelado
+  no momento da ação; aceita `tx` para gravar na mesma transação.
+- Aplicado em `usuarios.js`, `financeiro.js`, `contratos.js`.
+- `server/setup-audit-log.mjs`: script idempotente, aditivo,
+  confirmado sem alterar nenhuma tabela existente.
+
+--------------------------------------------------------------------
+8. B14 — CONFIRMADO PRESENTE E CORRETO
+--------------------------------------------------------------------
+
+Ver CHECKPOINT.md seção 27. Verificado por leitura direta do código:
+- Token: `crypto.randomBytes(32)` (256 bits), armazenado só como hash
+  SHA-256, nunca em texto puro. TTL de 30 minutos. Uso único (limpo
+  após o uso).
+- Anti-enumeração: `POST /esqueci-senha` sempre responde com a mesma
+  mensagem, exista ou não a conta.
+- Rate limit: por e-mail e por IP na solicitação; por IP na
+  confirmação.
+- Invalidação de sessão: `tokenVersion` incrementado após redefinição
+  (reaproveitando o achado B7) — sessões antigas param de funcionar
+  imediatamente.
+- Provedor: Resend (`server/mail.js`), dependência nova
+  (`server/package.json`). **`RESEND_API_KEY` NÃO configurada em
+  `server/.env`** — sistema em modo de desenvolvimento (link
+  registrado no console, e-mail de verdade NÃO é enviado ainda).
+  Nenhuma conta/cobrança foi criada por mim.
+- Frontend: link "Esqueci minha senha" no login; página
+  `/redefinir-senha?token=...` funcional sem sessão.
+
+--------------------------------------------------------------------
+9. PROBLEMA ADICIONAL ENCONTRADO E CORRIGIDO — REGRESSÃO REAL
+--------------------------------------------------------------------
+
+**Não foi instabilidade de infraestrutura/Supabase.** Diagnóstico:
+
+`"AuditLog"."userId" REFERENCES "User"("id")` foi criada, na
+implementação original do B9, com o padrão `RESTRICT` do Postgres em
+vez de `ON DELETE SET NULL` — uma contradição direta com o próprio
+design já aprovado do B9 (a proposta original dizia explicitamente que
+`userName` fica congelado "para o log continuar legível MESMO QUE O
+USUÁRIO SEJA EXCLUÍDO DEPOIS"). Isso não é uma decisão nova de
+arquitetura — é a implementação não tendo seguido o design já
+combinado.
+
+**Efeito observado**: qualquer usuário de teste que executasse UMA
+ação de escrita em Financeiro/Contratos/Usuários (o escopo do B9)
+passava a ter uma linha em `"AuditLog"` como ator (`userId`). Quando um
+teste pré-existente (de ANTES do B9 existir — `usuarios.test.js`,
+`fk-write-guards.test.js`) tentava apagar esse usuário via SQL direto
+(bypassando a rota da API), o Postgres recusava com `23503` — erro não
+tratado nesses testes antigos, que não previam essa FK nova.
+
+**Confirmado real, não intermitente**: reproduzido de forma
+determinística ao rodar `usuarios.test.js` isoladamente 2 vezes
+seguidas, mesma falha nos dois casos, com stack trace do Postgres
+apontando exatamente para a constraint `AuditLog_userId_fkey`.
+
+**Correção**: `ALTER TABLE "AuditLog" DROP CONSTRAINT
+"AuditLog_userId_fkey"` + `ADD CONSTRAINT ... FOREIGN KEY ("userId")
+REFERENCES "User"("id") ON DELETE SET NULL`. Por exigir `ALTER TABLE`,
+a alteração foi apresentada e autorizada explicitamente pelo usuário
+antes de ser executada — como o classificador de segurança do
+ambiente bloqueou a execução automatizada mesmo depois de uma regra de
+permissão ter sido adicionada, o próprio usuário rodou o comando
+manualmente pelo painel SQL do Supabase. Confirmado depois via
+`pg_constraint` (`confdeltype = 'n'` = SET NULL). `server/
+setup-audit-log.mjs` também corrigido, para que uma instalação nova já
+saia com a constraint certa desde o início.
+
+**Reconfirmação**: `usuarios.test.js` + `fk-write-guards.test.js`
+reexecutados isoladamente após a correção — 67/67 PASS. Suíte completa
+reexecutada do zero — 255/255 PASS.
+
+Durante o diagnóstico, também foram encontrados e removidos 12
+usuários de teste órfãos (`audit.fase2.*`/`audit.fase5.*`) e 3
+registros órfãos (`Client`/`ProductService`/`Category`) deixados por
+execuções anteriores desta mesma janela que precisaram ser
+interrompidas à força (processo travado, não relacionado ao código —
+ver observação abaixo) — não fazem parte da regressão em si, mas
+precisavam ser limpos antes de a suíte rodar de forma confiável.
+
+**Observação de ambiente (não é bug de código)**: uma execução da
+suíte completa travou de verdade (processo vivo, sem produzir mais
+saída por >5 minutos, mesmo sendo o último arquivo da fila) — não uma
+falha de teste, um travamento real do processo Node, encerrado
+manualmente. Causa provável: conexões de banco não liberadas
+corretamente quando um `after()` de teste lança um erro (como
+aconteceu ali, pela regressão descrita acima). Não gerou nenhuma
+alteração de código — resolvido corrigindo a causa raiz (a
+constraint), que eliminou o erro que provocava a trava.
+
+--------------------------------------------------------------------
+10. VALIDAÇÃO HTTP REAL
+--------------------------------------------------------------------
+
+Servidor Express real + Supabase real, admin temporário
+`AUDIT-FASE5-LOTE6`:
+- B9: `POST /api/usuarios` → 201 + registro em `AuditLog` confirmado
+  (action=CREATE, ator correto, `passwordHash` nunca presente).
+- B14: `POST /esqueci-senha` com conta existente vs. inexistente →
+  resposta HTTP idêntica (confirmado campo a campo); token gravado só
+  como hash; `POST /redefinir-senha` com token válido → 200; sessão
+  aberta ANTES do reset → invalidada depois (`GET /auth/me` retorna
+  `user: null`); reuso do mesmo token → 400 "Link inválido ou
+  expirado."; login com senha antiga → 401; login com senha nova →
+  200; ação registrada em `AuditLog`.
+
+--------------------------------------------------------------------
+11. VALIDAÇÃO VISUAL
+--------------------------------------------------------------------
+
+Navegador real (Browser pane): tela de login → "Esqueci minha senha"
+→ preencher e-mail → toast "Se o e-mail existir, enviaremos
+instruções para redefinir a senha." (mesma mensagem sempre, visível na
+UI). Link de redefinição capturado do log do servidor (modo dev, sem
+`RESEND_API_KEY`) → navegado → página `/redefinir-senha` renderizada
+corretamente, mesmo padrão visual da tela de login → preencher nova
+senha + confirmação → "Salvando…" → toast "Senha redefinida. Faça
+login com a nova senha." → volta à tela de login automaticamente.
+Nenhuma alteração de UI foi necessária para B9 (sem tela própria, por
+decisão do usuário).
+
+--------------------------------------------------------------------
+12. LIMPEZA E CONFIRMAÇÃO
+--------------------------------------------------------------------
+
+Zero resíduo confirmado por varredura completa nas 22 tabelas de dados
+(incluindo `AuditLog`). Tabela `"User"` com exatamente 1 registro: o
+admin real. Admin real (`contato.atlazcompany@gmail.com`) confirmado
+intacto: `active=true`, `tokenVersion=0`, `role=ADMIN`, nunca tocado.
+Nenhum segredo exposto: `.env`/`.env.backup` confirmados fora do
+controle de versão; nenhuma chave de API hardcoded em código (só via
+`process.env`). Servidor de validação encerrado corretamente (PID real
+via `netstat`/`taskkill`); porta 4000 livre.
+
+--------------------------------------------------------------------
+13. ARQUIVOS ALTERADOS NESTA ETAPA (Lotes 5+6 combinados)
+--------------------------------------------------------------------
+
+Backend: `server/routes/oportunidades.js` (B19), `server/auth.js`
+(B21 + B14), `public/src/router.js` (B20), `server/audit.js` (novo,
+B9), `server/mail.js` (novo, B14), `server/setup-audit-log.mjs` (novo
++ corrigido nesta etapa), `server/config.js` (B14), `server/
+routes/usuarios.js`, `financeiro.js`, `contratos.js` (B9 aplicado),
+`server/package.json`/`package-lock.json` (dependência `resend`).
+Frontend: `public/src/views/login.js`, `public/src/auth.js`,
+`public/src/app.js` (B14).
+Testes novos: `server/tests/audit-log.test.js` (B9), `server/
+tests/password-reset.test.js` (B14); `server/tests/
+fk-write-guards.test.js` estendido (+2, B19).
+Documentação: `audit/phase5/08-auditoria-releitura.txt`,
+`09-lote5-b19-b20-b21.txt`, `10-lote6-fechamento...txt` (este
+arquivo), `CHECKPOINT.md` (atualizado).
+Config local (fora do Git): `.claude/settings.local.json` — regra de
+permissão criada durante esta etapa para viabilizar scripts de
+diagnóstico; não afeta o projeto em si.
+
+--------------------------------------------------------------------
+14. PENDÊNCIAS QUE DEPENDEM DO CONSULTOR/USUÁRIO
+--------------------------------------------------------------------
+
+- **B2, B3, B4, B5, B10, B18** — regra de negócio, congelados, nada
+  implementado, nada decidido por conta própria.
+- **B14 — ativação real do e-mail**: `RESEND_API_KEY` precisa ser
+  provisionada (conta Resend + chave) para o envio de verdade
+  funcionar em produção. Até lá, o sistema funciona em modo de
+  desenvolvimento (link no console do servidor) — não bloqueia nada,
+  mas não envia e-mail real. Decisão/custo do usuário, não tomada por
+  mim.
+
+Nenhum P0, P1 ou P2 técnico simples conhecido em aberto.
+
+--------------------------------------------------------------------
+FIM DO LOTE 6 — CRITÉRIOS DE ENCERRAMENTO DA ETAPA CONFIRMADOS
+--------------------------------------------------------------------

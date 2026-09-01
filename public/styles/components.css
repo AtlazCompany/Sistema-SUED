@@ -201,3 +201,134 @@ table.table { width: 100%; border-collapse: collapse; }
 .mt-2 { margin-top: 8px; } .mt-4 { margin-top: 16px; } .mt-6 { margin-top: 24px; }
 .flex { display: flex; } .items-center { align-items: center; } .justify-between { justify-content: space-between; }
 .gap-2 { gap: 8px; } .gap-3 { gap: 12px; }
+
+/* ---- Botão sutil (champagne) ---- */
+.btn--subtle { background: var(--sued-champagne-soft); color: var(--sued-gold-dark); }
+.btn--subtle:hover:not(:disabled) { background: var(--sued-champagne); }
+
+/* ---- Modal largo (detalhes) ---- */
+.modal--wide { max-width: 640px; }
+
+/* ---- Kanban (funil comercial) ---- */
+.kanban {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding-bottom: 16px;
+}
+.kanban__col {
+  flex: 0 0 250px;
+  display: flex;
+  flex-direction: column;
+}
+.kanban__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0 4px;
+}
+.kanban__title { font-size: 13px; font-weight: 600; color: var(--sued-ink); }
+.kanban__count { font-size: 12px; color: var(--sued-muted); }
+.kanban__sum { padding: 2px 4px 10px; font-size: 12px; color: var(--sued-muted); }
+.kanban__cards { display: flex; flex-direction: column; gap: 10px; }
+.kanban__card {
+  background: #fff;
+  border: 1px solid var(--sued-border);
+  border-radius: var(--radius);
+  box-shadow: var(--sued-shadow-sm);
+  padding: 12px;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.kanban__card:hover { box-shadow: var(--sued-shadow); border-color: var(--sued-gold-soft); }
+.kanban__card-title { font-size: 13px; font-weight: 600; color: var(--sued-ink); }
+.kanban__card-client { font-size: 12px; color: var(--sued-muted); margin-top: 2px; }
+.kanban__card-value { font-size: 13px; font-weight: 600; color: var(--sued-gold-dark); margin-top: 6px; }
+.kanban__stage-sel {
+  width: 100%;
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--sued-ink-soft);
+  background: var(--sued-marble);
+  border: 1px solid var(--sued-border);
+  border-radius: 8px;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+.kanban__empty {
+  border: 1px dashed var(--sued-border-strong);
+  border-radius: var(--radius);
+  padding: 18px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--sued-muted);
+}
+
+/* ---- Resumo da oportunidade (modal) ---- */
+.opp-summary { display: flex; flex-direction: column; gap: 8px; }
+.opp-summary__row { display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
+
+/* ---- Timeline de interações ---- */
+.timeline { list-style: none; border-left: 1px solid var(--sued-border); padding-left: 16px; }
+.timeline__item { position: relative; padding-bottom: 14px; }
+.timeline__item::before {
+  content: "";
+  position: absolute;
+  left: -21px;
+  top: 5px;
+  width: 9px; height: 9px;
+  border-radius: 999px;
+  background: var(--sued-gold);
+  border: 2px solid #fff;
+}
+.timeline__meta { font-size: 12px; color: var(--sued-muted); }
+.timeline__type { color: var(--sued-gold-dark); font-weight: 600; }
+.timeline__content { font-size: 13px; color: var(--sued-ink); margin-top: 2px; white-space: pre-wrap; }
+
+/* ---- Filter chips (status) ---- */
+.filter-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.chip {
+  border: 1px solid var(--sued-border);
+  background: #fff;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--sued-ink-soft);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.chip:hover { background: var(--sued-marble-2); }
+.chip.is-active {
+  border-color: var(--sued-gold);
+  background: var(--sued-champagne-soft);
+  color: var(--sued-gold-dark);
+}
+
+/* ---- Orçamento: tabela de itens + totais ---- */
+.input--mini { height: 34px; padding: 0 8px; font-size: 13px; }
+.budget-items { width: 100%; border-collapse: collapse; font-size: 13px; }
+.budget-items th {
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--sued-muted);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--sued-border);
+}
+.budget-items td { padding: 8px; border-bottom: 1px solid var(--sued-border); vertical-align: middle; }
+.budget-totals { display: flex; flex-direction: column; gap: 10px; }
+.budget-totals__row { display: flex; align-items: center; justify-content: space-between; }
+.budget-totals__row:nth-child(3) {
+  padding-top: 10px;
+  border-top: 1px solid var(--sued-border);
+}
+
+/* ---- Operacional ---- */
+.op-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; margin-bottom: 14px; color: var(--sued-ink); }
+.op-title svg { color: var(--sued-gold); }
+.op-item { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--sued-border); }
+.op-item:last-child { border-bottom: 0; }
+.select--mini { height: 32px; padding: 0 8px; font-size: 12px; max-width: 150px; }
+.checklist { border: 1px solid var(--sued-border); border-radius: var(--radius); padding: 12px; background: var(--sued-marble); }

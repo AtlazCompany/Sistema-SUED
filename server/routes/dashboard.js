@@ -1,10 +1,12 @@
 import { Router } from "express";
 import { sql } from "../supabaseClient.js";
-import { requireAuth } from "../auth.js";
+import { requireAuth, requireRole } from "../auth.js";
+import { rolesForModule } from "../../public/src/roles.js";
 import { asyncHandler } from "../utils.js";
 
 export const dashboardRouter = Router();
 dashboardRouter.use(requireAuth);
+dashboardRouter.use(requireRole(...rolesForModule("dashboard")));
 
 const ACTIVE = ["CONFIRMADO", "EM_PLANEJAMENTO", "EM_EXECUCAO"];
 const OPEN_STAGES = ["PROSPECCAO", "QUALIFICACAO", "PROPOSTA", "NEGOCIACAO"];

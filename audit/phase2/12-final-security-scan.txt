@@ -1,0 +1,54 @@
+SUED SYSTEM — FASE 2 — 12. VARREDURA FINAL DE SEGURANÇA
+=============================================================
+Executada ao final de todas as alterações desta fase.
+
+BUSCA POR: password, passwordHash, JWT_SECRET, DATABASE_URL, .env,
+.env.backup, token, secret, api key — em todo o código-fonte
+(excluindo node_modules/.git).
+
+RESULTADO: nenhum valor de segredo hardcoded encontrado em nenhum
+arquivo .js/.mjs/.json/.md do projeto. Todas as ocorrências de
+JWT_SECRET/DATABASE_URL são leituras de process.env, concentradas em
+server/config.js (regra do projeto respeitada: "nenhum outro arquivo
+lê process.env diretamente").
+
+Todas as ocorrências de "passwordHash" no código são: (a) nomes de
+coluna em queries SQL, (b) uso interno para bcrypt.compare/bcrypt.hash,
+ou (c) asserções de teste confirmando que o campo NUNCA aparece numa
+resposta HTTP. Nenhuma delas devolve o valor ao cliente.
+
+GIT
+-----
+git ls-files | grep -i .env  ->  vazio (nenhum .env versionado)
+git status --short  ->  nenhum arquivo .env aparece (server/.env e
+  server/.env.backup existem só localmente, não rastreados)
+git check-ignore -v server/.env       -> ignorado por ".env"/".env.*"
+git check-ignore -v server/.env.backup -> ignorado por "*.backup"
+
+FRONTEND
+----------
+Nenhum segredo é enviado ao navegador — confirmado tanto por leitura de
+código (nenhuma view/componente referencia JWT_SECRET/DATABASE_URL, que
+sequer existem no contexto do frontend) quanto pela varredura de
+network requests durante os testes reais no navegador (nenhuma resposta
+JSON observada continha campo de senha ou segredo).
+
+LOGS
+------
+O único log do servidor é console.log("SUED backend on
+http://localhost:4000") na subida e console.error(err) no handler
+central de erro para status >= 500 — o console.error loga o objeto de
+erro completo no SERVIDOR (não no cliente), o que é esperado para
+depuração operacional; não foi observado nenhum log contendo senha,
+hash ou segredo durante toda a bateria de testes desta fase (inclusive
+os casos de erro 500 gerados propositalmente).
+
+RESPOSTAS HTTP
+-----------------
+Todas as ~230 respostas HTTP observadas nesta fase (132 do harness
+funcional + ~50 de RBAC + as do frontend real) foram inspecionadas
+programaticamente quanto à ausência de passwordHash — nenhuma
+ocorrência.
+
+CONCLUSÃO: PASS. Nenhum segredo exposto encontrado em código, Git,
+frontend, logs ou respostas HTTP.

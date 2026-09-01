@@ -1,0 +1,138 @@
+SUED SYSTEM — FASE 2 — 13. INVENTÁRIO DE ENDPOINTS
+=============================================================
+Lista completa de rotas da API, com o módulo RBAC que cada uma exige.
+"usuarios" é o único módulo novo desta fase; todas as outras 79 rotas
+já existiam e foram reconfirmadas ativas nesta fase (nenhuma removida,
+nenhuma teve seu método HTTP alterado).
+
+/api/auth (público / autoatendimento — sem módulo RBAC)
+  POST   /login                    público (rate limit: 8/10min por IP)
+  POST   /logout                   requer sessão válida (cookie)
+  GET    /me                       público (devolve null se sem sessão)
+  PUT    /senha                    requireAuth (qualquer papel — NOVO
+                                    NESTA FASE)
+
+/api/usuarios (módulo "usuarios" — NOVO NESTA FASE, exceto /opcoes)
+  GET    /opcoes                   requireAuth (qualquer papel —
+                                    JÁ EXISTIA, transversal)
+  GET    /                         requireRole(ADMIN,SOCIO) — NOVO
+  POST   /                         requireRole(ADMIN,SOCIO) — NOVO
+  PUT    /:id                      requireRole(ADMIN,SOCIO) — NOVO
+  POST   /:id/redefinir-senha      requireRole(ADMIN,SOCIO) — NOVO
+  DELETE /:id                      requireRole(ADMIN,SOCIO) — NOVO
+
+/api/dashboard (módulo "dashboard")
+  GET    /                         requireRole(todos os 5 papéis)
+
+/api/clientes (módulo "crm")
+  GET    /                         requireRole(ADMIN,SOCIO,COMERCIAL)
+  GET    /:id
+  POST   /
+  PUT    /:id
+  DELETE /:id
+
+/api/leads (módulo "crm")
+  GET    /                         requireRole(ADMIN,SOCIO,COMERCIAL)
+  POST   /
+  PUT    /:id
+  DELETE /:id
+  POST   /:id/converter
+
+/api/oportunidades (módulo "crm")
+  GET    /                         requireRole(ADMIN,SOCIO,COMERCIAL)
+  GET    /:id
+  POST   /
+  PUT    /:id
+  PATCH  /:id/estagio
+  DELETE /:id
+  POST   /:id/interacoes
+
+/api/eventos (módulo "eventos")
+  GET    /                         requireRole(todos os 5 papéis)
+  GET    /opcoes
+  GET    /:id
+  POST   /                         + sub-regra: OPERACIONAL não pode
+                                    definir campos financeiros (Fase 1)
+  PUT    /:id                      + sub-regra: OPERACIONAL não pode
+                                    ALTERAR campos financeiros (Fase 1)
+  DELETE /:id
+
+/api/locais (módulo "eventos")
+  GET    /                         requireRole(todos os 5 papéis)
+  POST   /
+  DELETE /:id
+  (sem PUT — confirmado ausente, não é lacuna desta fase)
+
+/api/fornecedores (módulo "fornecedores")
+  GET    /                         requireRole(ADMIN,SOCIO,OPERACIONAL)
+  GET    /:id
+  POST   /
+  PUT    /:id
+  DELETE /:id
+
+/api/catalogo (módulo "fornecedores")
+  GET    /                         requireRole(ADMIN,SOCIO,OPERACIONAL)
+  GET    /categorias
+  POST   /categorias
+  DELETE /categorias/:id
+  GET    /:id
+  POST   /
+  PUT    /:id
+  DELETE /:id
+  POST   /:id/fornecedores
+  DELETE /fornecedores/:linkId
+
+/api/orcamentos (módulo "orcamentos")
+  GET    /                         requireRole(ADMIN,SOCIO,COMERCIAL)
+  GET    /opcoes
+  GET    /:id
+  POST   /                         numeração via Budget_number_seq
+  PUT    /:id
+  DELETE /:id
+
+/api/operacional (módulo "operacional")
+  GET    /eventos                  requireRole(ADMIN,SOCIO,OPERACIONAL)
+  GET    /evento/:eventId
+  POST   /tarefas
+  PATCH  /tarefas/:id
+  DELETE /tarefas/:id
+  POST   /checklists
+  DELETE /checklists/:id
+  POST   /checklists/:id/itens
+  PATCH  /checklists/itens/:id
+  DELETE /checklists/itens/:id
+  POST   /cronograma
+  DELETE /cronograma/:id
+
+/api/financeiro (módulo "financeiro")
+  GET    /opcoes                   requireRole(ADMIN,SOCIO,FINANCEIRO)
+  GET    /resumo
+  GET    /receber
+  POST   /receber
+  POST   /receber/:id/receber
+  DELETE /receber/:id
+  GET    /pagar
+  POST   /pagar
+  POST   /pagar/:id/pagar
+  DELETE /pagar/:id
+  GET    /fluxo
+
+/api/contratos (módulo "contratos")
+  GET    /                         requireRole(ADMIN,SOCIO,COMERCIAL,
+                                    FINANCEIRO)
+  GET    /opcoes
+  GET    /:id
+  POST   /                         numeração via Contract_number_seq
+  PUT    /:id                      (assinar grava signedAt)
+  DELETE /:id
+
+/api/relatorios (módulo "relatorios")
+  GET    /                         requireRole(ADMIN,SOCIO,COMERCIAL,
+                                    FINANCEIRO)
+
+TOTAL: 85 endpoints (79 pré-existentes + 6 novos: 5 de gestão de
+usuários + 1 de troca de senha).
+
+Todos os 85 exigem requireAuth (sessão válida), exceto POST
+/api/auth/login (público, com rate limit) e GET /api/auth/me (público,
+devolve null sem sessão).

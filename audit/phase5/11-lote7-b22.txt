@@ -1,0 +1,145 @@
+FASE 5 / LOTE 7 — B22 (ESCRITA + LOGAUDIT NÃO-ATÔMICOS)
+======================================================================
+Achado técnico encontrado numa nova rodada de releitura pedida pelo
+usuário (sem item liberado específico), focada no que B9/B14
+adicionaram desde a última auditoria.
+
+--------------------------------------------------------------------
+ACHADO
+--------------------------------------------------------------------
+
+**B22 (P2)** — `server/routes/usuarios.js`, `financeiro.js`,
+`contratos.js`: 9 das 11 rotas de escrita instrumentadas pelo B9
+gravavam a operação principal (INSERT/UPDATE/DELETE) e a chamada de
+`logAudit()` como duas instruções SQL separadas, fora de transação.
+
+Isso contradiz diretamente a recomendação técnica já registrada e
+aprovada na proposta original do B9
+(`audit/phase5/05-proposta-b9.txt`, seção 9): "recomendação técnica:
+síncrona — para algo cujo propósito é confiança ('isso realmente
+aconteceu, tenho certeza'), vale a fração de milissegundo extra."
+
+**Risco concreto**: se o processo Node ou a conexão com o banco
+falhar exatamente entre a operação principal e o INSERT em
+`"AuditLog"`, a operação principal fica persistida mas SEM nenhum
+registro correspondente na trilha de auditoria — uma lacuna silenciosa
+que só seria percebida se alguém precisasse investigar aquele evento
+específico depois. Janela de falha extremamente pequena (dois
+`await` consecutivos, poucos milissegundos de diferença), mas real e
+evitável.
+
+Curiosamente, 2 das 11 rotas (`financeiro.js`: marcar conta a
+receber/pagar como recebida/paga) já faziam isso certo — mas por
+acaso, porque já usavam `sql.begin` por outro motivo (criar a
+`Transaction` e atualizar o `Event` na mesma transação), não porque a
+recomendação do B9 tivesse sido aplicada deliberadamente.
+
+--------------------------------------------------------------------
+CORREÇÃO
+--------------------------------------------------------------------
+
+As 9 rotas passaram a envolver a operação principal + `logAudit(tx,
+...)` no mesmo `sql.begin(async (tx) => {...})`:
+
+  server/routes/usuarios.js:
+    POST /               (criar usuário)
+    PUT /:id             (editar usuário)
+    POST /:id/redefinir-senha
+    DELETE /:id
+
+  server/routes/financeiro.js:
+    POST /receber
+    DELETE /receber/:id
+    POST /pagar
+    DELETE /pagar/:id
+
+  server/routes/contratos.js:
+    POST /
+    PUT /:id
+    DELETE /:id
+
+Mesmo padrão já usado em `orcamentos.js` desde o Lote 1 (Fase 5) e nas
+2 rotas do `financeiro.js` que já faziam certo — nenhuma técnica nova,
+só aplicação consistente do que já existia no projeto. `HttpError`
+lançado dentro do `sql.begin` (ex.: "usuário não encontrado" na rota
+de redefinir-senha) continua funcionando exatamente como antes — o
+`postgres.js` já propaga esse tipo de erro para fora do
+`sql.begin`/`ROLLBACK` corretamente, mesmo padrão já usado em
+`orcamentos.js` desde o Lote 1.
+
+Nenhuma mudança de comportamento observável pelo usuário final —
+mesmas respostas HTTP, mesmos efeitos colaterais, só a garantia de
+atomicidade a mais.
+
+--------------------------------------------------------------------
+TESTES
+--------------------------------------------------------------------
+
+Suíte completa reexecutada de forma isolada (nada mais tocando o
+banco durante a execução, lição aprendida do fechamento do Lote 6):
+**255/255 PASS, 0 FAIL** — sem alteração no número de testes (as
+rotas afetadas já tinham cobertura funcional em
+`audit-log.test.js`, `fk-write-guards.test.js` e `usuarios.test.js`,
+que continuam validando o comportamento observável).
+
+Não foi criado um teste de "falha no meio da transação" (fault
+injection) para provar o rollback sob crash — mesma decisão já tomada
+para os achados B20/B21 do Lote 5: desproporcional para o tamanho do
+achado, e a garantia de atomicidade é uma propriedade do
+`sql.begin`/`ROLLBACK` do Postgres em si (já usado e confiado em todo
+o resto do projeto desde o Lote 1), não uma lógica nova a testar do
+zero.
+
+`node --check`: 100% OK em toda a árvore (`server/` e `public/src/`).
+
+--------------------------------------------------------------------
+VALIDAÇÃO HTTP REAL
+--------------------------------------------------------------------
+
+Servidor Express real + Supabase real, admin temporário
+`AUDIT-FASE5-LOTE7`:
+  - Contrato: criar → 201 + `AuditLog` CREATE confirmado; editar → 200
+    + `AuditLog` UPDATE confirmado; excluir → 200 + `AuditLog` DELETE
+    confirmado.
+  - Conta a receber: criar → 201 + `AuditLog` CREATE confirmado;
+    excluir → 200 + `AuditLog` DELETE confirmado (2 registros no
+    total: CREATE e DELETE).
+  - Usuário: criar → 201 + `AuditLog` CREATE confirmado.
+
+Nenhuma regressão funcional — todas as respostas e efeitos colaterais
+idênticos aos de antes da correção.
+
+--------------------------------------------------------------------
+LIMPEZA E INTEGRIDADE
+--------------------------------------------------------------------
+
+Todo dado de validação (`AUDIT-FASE5-LOTE7*`, `audit.fase5.lote7*`,
+incluindo os registros de `AuditLog` gerados) removido. Varredura
+exaustiva (`information_schema`, todas as colunas de texto de todas
+as 24 tabelas) confirma **zero resíduo**. `"User"` com exatamente 1
+registro — o admin real (`contato.atlazcompany@gmail.com`,
+`active=true`, `tokenVersion=0`), nunca tocado. Servidor de validação
+encerrado (PID real via `netstat`/`taskkill`), porta 4000 livre.
+
+--------------------------------------------------------------------
+ARQUIVOS ALTERADOS
+--------------------------------------------------------------------
+
+`server/routes/usuarios.js`, `server/routes/financeiro.js`,
+`server/routes/contratos.js`. Nenhum teste novo (cobertura existente
+já valida o comportamento). Documentação: `audit/phase5/
+11-lote7-b22.txt` (este arquivo), `CHECKPOINT.md` (atualizado).
+
+--------------------------------------------------------------------
+AMBIGUIDADES / DECISÕES DE REGRA DE NEGÓCIO
+--------------------------------------------------------------------
+
+Nenhuma — correção puramente técnica, mesma classe de "alinhar a
+implementação a um design já aprovado" já usada para corrigir a
+constraint do `AuditLog` no Lote 6. Nenhum schema alterado. B2, B3,
+B4, B5, B9 (as 6 decisões já tomadas), B10, B14, B18 não foram
+tocados além do já registrado.
+
+--------------------------------------------------------------------
+FIM DO LOTE 7
+--------------------------------------------------------------------

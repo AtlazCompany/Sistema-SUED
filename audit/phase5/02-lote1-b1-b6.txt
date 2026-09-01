@@ -1,0 +1,180 @@
+FASE 5 / LOTE 1 — IMPLEMENTAÇÃO DOS ACHADOS B1 E B6
+======================================================
+(Autorização explícita do usuário, restrita a B1 e B6 — nenhum outro
+achado da auditoria foi tocado, nenhum schema alterado.)
+
+--------------------------------------------------------------------
+INVENTÁRIO (confirmado antes de alterar qualquer arquivo)
+--------------------------------------------------------------------
+
+B1 — rotas POST/PUT com campo de referência (FK) sem tratamento do
+erro Postgres 23503:
+
+  server/routes/eventos.js       POST /, PUT /:id
+  server/routes/oportunidades.js POST /, PUT /:id
+  server/routes/orcamentos.js    POST /, PUT /:id
+  server/routes/contratos.js     POST /, PUT /:id
+  server/routes/operacional.js   POST /tarefas, PATCH /tarefas/:id,
+                                  POST /checklists,
+                                  POST /checklists/:id/itens,
+                                  POST /cronograma
+  server/routes/financeiro.js    POST /receber, POST /pagar
+  server/routes/catalogo.js      POST /, PUT /:id,
+                                  POST /:id/fornecedores
+
+B6 — server/auth.js, rota PUT /senha (sem limite de tentativas).
+
+--------------------------------------------------------------------
+IMPLEMENTAÇÃO
+--------------------------------------------------------------------
+
+B1 — em cada uma das 15 rotas listadas acima, o INSERT/UPDATE passou a
+ser protegido por `try/catch`, mapeando `e.code === "23503"` para
+`HttpError(400, <mensagem amigável específica da rota>)` — mesmo
+padrão exato já usado e validado nas rotas `DELETE` desde a Fase 4,
+adaptado para o código HTTP correto do cenário (400 = "a referência
+que você mandou não existe", diferente do 409 usado no DELETE = "não
+posso apagar porque outros registros dependem disto"). Onde já
+existia um `catch` (ex.: `eventos.js` e `catalogo.js`, que já tratavam
+`23505` para duplicidade), o `23503` foi adicionado como um branch a
+mais no mesmo bloco, sem duplicar `try/catch`.
+
+Em `orcamentos.js`, o `POST`/`PUT` usam uma transação
+(`sql.begin(async (tx) => {...})`) — o `try/catch` envolve a chamada
+inteira a `sql.begin(...)`: se qualquer INSERT/UPDATE dentro da
+transação falhar com 23503, a biblioteca `postgres` já garante o
+ROLLBACK antes de relançar o erro, então um único `catch` externo é
+suficiente (confirmado por teste real: nenhuma linha órfã fica no
+banco quando um item de orçamento referencia um `productServiceId`
+inexistente).
+
+Nenhuma regra de negócio foi alterada além do tratamento técnico do
+erro — nenhum campo passou a ser obrigatório/opcional diferente do que
+já era, nenhuma validação de conteúdo foi adicionada (só "essa
+referência existe no banco?", que é exatamente o que a FK do Postgres
+já impunha — antes só vazava feio, agora vaza com uma mensagem
+decente).
+
+B6 — `server/auth.js`: novo rate limit em memória para
+`PUT /api/auth/senha`, no mesmo padrão do `loginRateLimit` existente
+(mesma janela: 10 minutos; mesmo limite: 8 tentativas; mesmo cabeçalho
+`Retry-After`; mesmo código de status 429). Diferença deliberada:
+chaveado por `req.user.id` (não por IP) — a rota já exige sessão
+autenticada (`requireAuth` roda antes), então a chave correta pra
+isolar o "abuso" é a CONTA sob ataque, não o IP de quem está batendo
+(evita punir outras pessoas atrás do mesmo IP/proxy corporativo por
+causa de uma única conta comprometida). Só tentativas com a senha
+ATUAL errada contam para o limite — erros de validação (senha nova
+curta, confirmação ausente ou diferente) não consomem a cota, porque
+não são tentativas de adivinhação de senha. Nenhuma dependência nova
+(`Map` em memória, mesma técnica já usada no login).
+
+--------------------------------------------------------------------
+ARQUIVOS ALTERADOS
+--------------------------------------------------------------------
+
+Backend (B1): `server/routes/eventos.js`, `oportunidades.js`,
+`orcamentos.js`, `contratos.js`, `operacional.js`, `financeiro.js`,
+`catalogo.js`.
+Backend (B6): `server/auth.js`.
+Testes novos: `server/tests/fk-write-guards.test.js` (28 subtestes,
+banco real, dados `AUDIT-FASE5-*`), `server/tests/
+password-change-rate-limit.test.js` (4 testes, banco mockado).
+Documentação: `audit/phase5/02-lote1-b1-b6.txt` (este arquivo),
+`CHECKPOINT.md` (atualizado).
+
+Nenhum arquivo fora dessa lista foi tocado. Nenhuma migration/alteração
+de schema. B2, B3, B4, B5, B7 (tokenVersion), B8 (Contact), B9
+(trilha de auditoria), B10, B18 e os achados P3 seguem exatamente como
+estavam — não implementados, conforme instrução explícita.
+
+--------------------------------------------------------------------
+TESTES
+--------------------------------------------------------------------
+
+Antes deste lote: 139/139 PASS.
+Depois: **171/171 PASS, 0 FAIL** (+32: 28 em `fk-write-guards.test.js`,
+4 em `password-change-rate-limit.test.js`).
+
+`fk-write-guards.test.js` cobre, com asserção real de banco (não
+mockado), as 19 combinações rota×campo-FK identificadas no inventário
+(um teste por campo quebrado, usando um UUID válido mas garantidamente
+inexistente), mais smoke tests confirmando que a criação com
+referências VÁLIDAS continua funcionando normalmente (a correção não
+regrediu nenhum fluxo normal) — Evento, Oportunidade, Orçamento (com
+item), Contrato, Tarefa, Checklist, todos criados com sucesso durante
+a mesma suíte.
+
+`password-change-rate-limit.test.js` cobre: dentro do limite continua
+401 normal; 8 tentativas + a 9ª bloqueada com 429 e `Retry-After`;
+bloqueio vale mesmo com a senha certa (mesma regra do login); erro de
+validação não consome a cota (testado com 8 tentativas de validação
+seguidas de uma troca válida bem-sucedida).
+
+node --check: 100% OK em todo `.js` de `server/` e `public/`.
+inspect-db.mjs: 23 tabelas, schema íntegro — nenhuma migration rodou.
+
+--------------------------------------------------------------------
+VALIDAÇÃO HTTP REAL (servidor + banco reais)
+--------------------------------------------------------------------
+
+Servidor real iniciado (porta 4000; um processo zumbi de sessão
+anterior foi encontrado já ocupando a porta ANTES de eu iniciar o meu
+— identificado via `tasklist`/`curl`, confirmado ser um SUED backend
+antigo respondendo com código desatualizado, encerrado com PID real do
+`netstat` antes de subir a versão corrigida). Usuário temporário
+`AUDIT-FASE5-SESSION` criado só para esta validação.
+
+  - POST /api/eventos com `clientId` inexistente → 400 "Cliente, tipo
+    de evento, local, oportunidade, comercial ou operacional
+    selecionado não existe mais."                                  OK
+  - POST /api/catalogo com `categoryId` inexistente → 400 "Categoria
+    selecionada não existe mais."                                   OK
+  - POST /api/financeiro/pagar com `supplierId` inexistente → 400
+    "Evento ou fornecedor selecionado não existe mais."             OK
+  - PUT /api/auth/senha: 8× senha atual errada → 401 cada vez; 9ª
+    tentativa → 429 com `Retry-After: 596` e mensagem amigável.      OK
+  - Login normal (endpoint diferente) confirmado NÃO afetado pelo
+    bloqueio de troca de senha — mesma conta consegue logar
+    normalmente enquanto a troca de senha está bloqueada.           OK
+
+Nenhuma das tentativas de escrita com referência inválida deixou linha
+órfã no banco (confirmado: nada para limpar nos casos de teste que
+deveriam ter sido rejeitados — a rejeição aconteceu ANTES do INSERT
+persistir, como esperado de uma constraint de FK).
+
+--------------------------------------------------------------------
+LIMPEZA E INTEGRIDADE
+--------------------------------------------------------------------
+
+Todo dado temporário (`AUDIT-FASE5-*` e `audit.fase5.*`) removido e
+confirmado por contagem — zero resíduo. Admin real de produção
+(`contato.atlazcompany@gmail.com`) confirmado intacto antes e depois:
+`active=true`, papel/senha inalterados, nunca usado em nenhum teste.
+Servidor de validação encerrado corretamente (PID real confirmado via
+`netstat` antes do `taskkill`).
+
+--------------------------------------------------------------------
+AMBIGUIDADES ENCONTRADAS
+--------------------------------------------------------------------
+
+Nenhuma exigiu parar e perguntar. As únicas decisões tomadas durante a
+implementação foram técnicas, dentro do escopo já autorizado:
+  - Código HTTP 400 (não 404) para toda referência inválida em
+    POST/PUT, reservando 409 só para o padrão já existente de DELETE
+    bloqueado por FK — escolha de consistência de API, não de regra de
+    negócio.
+  - Mensagens de erro nomeiam os campos possíveis em linguagem
+    simples, sem tentar identificar qual EXATAMENTE falhou (evitado
+    de propósito: inspecionar `constraint_name` do erro do Postgres
+    acoplaria o código a nomes internos de constraint, mais frágil
+    para o mesmo benefício).
+  - B6 chaveado por usuário (não por IP), pela razão técnica já
+    explicada — não é uma mudança de política de segurança além do
+    que foi pedido ("mesmo padrão de segurança já utilizado no
+    login", adaptado ao fato de que aqui já existe usuário
+    autenticado).
+
+--------------------------------------------------------------------
+FIM DO LOTE 1 — AGUARDANDO AUTORIZAÇÃO PARA O PRÓXIMO LOTE
+--------------------------------------------------------------------

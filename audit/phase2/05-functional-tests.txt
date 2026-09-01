@@ -1,0 +1,301 @@
+SUED SYSTEM — FASE 2 — 05. TESTES FUNCIONAIS POR MÓDULO
+=============================================================
+Todos os testes abaixo foram executados via chamada HTTP REAL contra o
+servidor rodando em localhost:4000 e o banco Supabase real, usando um
+usuário ADMIN de teste (audit.fase2.admin@sued.local) e, onde indicado,
+o usuário OPERACIONAL de teste. Dados marcados "AUDIT-FASE2" foram
+removidos ao final (ver 14-final-status.txt).
+
+Legenda: VALIDADO = executado e confirmado. NÃO VALIDADO = não testado
+nesta rodada. N/A = observação registrada, não é pass/fail binário.
+
+DASHBOARD
+-----------
+Carregamento .............. VALIDADO (GET /api/dashboard -> 200)
+Indicadores ................ VALIDADO (kpis.activeEvents, kpis.clients,
+                             kpis.receivableThisMonthCents todos number)
+Estado vazio (0 eventos
+ativos) .................... VALIDADO — o evento de teste ficou em
+                             status RASCUNHO (default), por isso não
+                             contou como "ativo" (a query do dashboard
+                             só considera CONFIRMADO/EM_PLANEJAMENTO/
+                             EM_EXECUCAO) — comportamento CORRETO, não é
+                             falha.
+Permissões .................. VALIDADO — todos os 5 papéis acessam (ver
+                             06-rbac-tests.txt)
+Valores financeiros ......... VALIDADO — receivableThisMonthCents
+                             refletiu 0 corretamente (nenhuma conta a
+                             receber com vencimento no mês corrente
+                             criada no teste)
+Erros ........................ NÃO VALIDADO explicitamente (não foi
+                             forçado um erro de banco neste módulo)
+
+LEADS
+-------
+Listar ....................... VALIDADO (200)
+Criar ........................ VALIDADO (201)
+Editar (mudar status) ........ VALIDADO (200, status refletiu EM_CONTATO)
+Converter em cliente ......... VALIDADO (200, Client criado + Lead
+                             marcado CONVERTIDO + clientId preenchido)
+Validações (nome obrigatório) NÃO VALIDADO explicitamente neste módulo
+                             (mas o mesmo padrão de validação foi
+                             confirmado em Clientes — ver abaixo — e o
+                             código de Leads usa a mesma função pick())
+Exclusão ...................... NÃO EXERCIDA nesta rodada (a rota existe
+                             e segue o mesmo padrão de outras que FORAM
+                             testadas com sucesso — DELETE /clientes,
+                             /fornecedores etc.)
+
+CLIENTES
+----------
+Criar PF ...................... VALIDADO (201, personType=PF)
+Criar PJ ...................... VALIDADO (201, personType=PJ, tradeName
+                             preservado)
+Editar ........................ NÃO EXERCIDO nesta rodada (padrão igual
+                             a Fornecedores, que FOI testado com sucesso)
+Visualizar (detalhe) .......... VALIDADO — GET /clientes/:id devolve
+                             contacts[], opportunities[], events[] no
+                             formato esperado
+Contatos ...................... N/A — tabela Contact não tem nenhuma
+                             rota de criação em todo o código (só
+                             leitura) desde antes desta fase; não é uma
+                             regressão desta fase, é uma lacuna pré-
+                             existente já registrada na Fase 0 (auditoria
+                             de schema)
+PF/PJ .......................... VALIDADO (ambos criados corretamente)
+Documentos ..................... VALIDADO (campo document aceito e
+                             persistido em ambos os testes)
+Validações (nome obrigatório) . VALIDADO (ver 05: teste de erro "criar
+                             cliente sem nome -> 400")
+Busca (?q=) .................... VALIDADO — encontrou os 3 clientes de
+                             teste por nome (?q=AUDIT-FASE2)
+Duplicidade .................... N/A — não há UNIQUE em document/email
+                             de Client no schema (confirmado em
+                             08-database.txt); o sistema permite
+                             clientes com o mesmo documento hoje. Não é
+                             um bug introduzido nesta fase, é o
+                             comportamento original.
+
+FUNIL / OPORTUNIDADES
+------------------------
+Criação ........................ VALIDADO (201, vinculada ao cliente
+                             convertido do lead de teste)
+Edição .......................... NÃO EXERCIDA nesta rodada (PUT existe,
+                             mesmo padrão de outras rotas testadas)
+Mudança de estágio .............. VALIDADO (PATCH /estagio, PROSPECCAO
+                             -> PROPOSTA)
+Cliente .......................... VALIDADO (clientId obrigatório,
+                             confirmado tanto no caminho feliz quanto no
+                             teste de erro "sem clientId -> 400")
+Responsável (ownerId) ............ VALIDADO (setado com o id do usuário
+                             ADMIN de teste)
+Valor (estimatedCents) ........... VALIDADO (toCents aplicado
+                             corretamente: "5000,00" armazenado)
+Data esperada ..................... NÃO EXERCIDA explicitamente nesta
+                             rodada
+Interações ......................... VALIDADO (criada 1 interação tipo
+                             LIGACAO, refletida no detalhe da
+                             oportunidade)
+
+EVENTOS
+---------
+Criação ........................... VALIDADO (201, vinculado a
+                             cliente+oportunidade+local)
+Edição ............................. VALIDADO (via OPERACIONAL alterando
+                             campo não financeiro)
+Cliente/Tipo/Local ................. VALIDADO (clientId, venueId
+                             persistidos; eventTypeId não testado por
+                             não haver EventType cadastrado — ver
+                             04-seed-data.txt)
+Datas/horários ...................... NÃO EXERCIDO explicitamente
+                             startTime/endTime nesta rodada (eventDate
+                             foi testado com sucesso)
+Quantidade de convidados ............ VALIDADO (guestCount alterado de
+                             80 para 120 pela edição)
+Valores ............................. VALIDADO (plannedRevenue/
+                             plannedCost aceitos na criação)
+Status .............................. VALIDADO (default RASCUNHO
+                             confirmado)
+PERMISSÕES FINANCEIRAS (Fase 1/A2) .. RECONFIRMADO nesta fase com dado
+                             real: OPERACIONAL tentando alterar valor
+                             financeiro -> 403; OPERACIONAL alterando
+                             campo não financeiro -> 200; OPERACIONAL
+                             criando evento com valor financeiro -> 403.
+                             As 3 proteções continuam funcionando sem
+                             regressão.
+UNIQUE opportunityId ................ VALIDADO — 2º evento tentando usar
+                             a mesma oportunidade -> 400 (constraint
+                             respeitada)
+
+LOCAIS
+--------
+Criar ................................ VALIDADO (201)
+Editar ................................ N/A — não existe rota PUT para
+                             Venue em todo o código (só POST e DELETE,
+                             confirmado em server/routes/eventos.js) —
+                             lacuna pré-existente, não desta fase.
+Capacidade ............................ VALIDADO (capacity=100 aceito)
+Endereço ............................... VALIDADO (city/state aceitos)
+Próprio/terceiro ....................... VALIDADO (isOwn=true persistido)
+
+FORNECEDORES
+--------------
+CRUD (criar+editar) .................... VALIDADO
+Categoria ............................... VALIDADO (campo texto livre,
+                             editado de "buffet" para "som" com sucesso)
+Contatos ................................. N/A — Supplier não tem
+                             conceito de "contatos" separados no schema
+                             (só email/phone diretos na própria tabela)
+Vínculo com produtos ..................... VALIDADO (SupplierProduct
+                             criado e refletido nos dois lados)
+
+CATÁLOGO
+----------
+Produtos/serviços ......................... VALIDADO (criado com
+                             sucesso)
+Custos ...................................... VALIDADO
+                             (referenceCostCents=5000)
+Preço sugerido .............................. VALIDADO
+                             (suggestedPriceCents=10000)
+Categoria .................................... VALIDADO (categoryId
+                             vinculado; duplicidade de nome de categoria
+                             corretamente rejeitada)
+Fornecedor .................................... VALIDADO (vínculo
+                             SupplierProduct criado com isDefault=true)
+Ativo/inativo .................................. NÃO EXERCIDO
+                             explicitamente (campo "active" tem default
+                             true, confirmado no schema — comportamento
+                             padrão não testado explicitamente nesta
+                             rodada)
+
+ORÇAMENTOS
+------------
+Criação ......................................... VALIDADO (201, com
+                             item do catálogo)
+Itens ............................................ VALIDADO
+                             (productServiceId, description, quantity,
+                             unitPrice, unitCost todos persistidos
+                             corretamente)
+Quantidade/preço/custo .......................... VALIDADO
+Desconto ......................................... VALIDADO
+                             (discountCents=5000 aceito)
+Validade ......................................... NÃO EXERCIDA
+                             explicitamente nesta rodada
+Status ............................................ VALIDADO (default
+                             RASCUNHO)
+Cliente/Evento/Oportunidade ...................... VALIDADO (os 3 FKs
+                             preenchidos simultaneamente com sucesso)
+NUMERAÇÃO ......................................... VALIDADO — dois
+                             orçamentos criados em sequência receberam
+                             ORC-0009 e ORC-0010 (sem colisão; o número
+                             exato depende de quantos orçamentos de
+                             teste já passaram pela sequence nesta
+                             sessão de auditoria — ver observação em
+                             14-final-status.txt sobre o contador da
+                             sequence não retroceder, que é o
+                             comportamento CORRETO e esperado)
+CONCORRÊNCIA ....................................... RECONFIRMADO nesta
+                             fase que a criação sequencial não colide;
+                             o teste de concorrência simultânea (várias
+                             chamadas nextval() em paralelo) já havia
+                             sido validado na Fase 1 com 10/10 e 20/20
+                             valores únicos — não repetido nesta fase
+                             por já estar coberto por
+                             server/tests/numbering.test.js (rodado
+                             nesta fase também, dentro do npm test).
+
+OPERACIONAL
+-------------
+Tarefas ............................................ VALIDADO (criar +
+                             mudar status A_FAZER -> EM_ANDAMENTO)
+Checklist ........................................... VALIDADO (criado
+                             vinculado ao evento)
+Checklist items ..................................... VALIDADO (criado +
+                             marcado concluído, doneAt preenchido)
+Agenda (ScheduleItem) ............................... VALIDADO (criado
+                             com startsAt)
+Responsáveis (assigneeId) ........................... NÃO EXERCIDO
+                             explicitamente nesta rodada (campo aceito
+                             pela API, não passado no teste)
+Status/Prioridade ................................... VALIDADO
+                             (priority=ALTA na criação, status alterado
+                             via PATCH)
+Datas ................................................ VALIDADO
+                             (startsAt aceito em formato datetime-local)
+
+FINANCEIRO
+------------
+Contas a pagar ........................................ VALIDADO (criada
+                             vinculada a evento+fornecedor, liquidada
+                             com sucesso)
+Contas a receber ....................................... VALIDADO
+                             (criada vinculada a evento, liquidada com
+                             sucesso)
+Transações .............................................. VALIDADO (2
+                             transações — 1 ENTRADA, 1 SAÍDA — refletidas
+                             em GET /financeiro/fluxo)
+Valores (centavos) ...................................... VALIDADO COM
+                             PRECISÃO: conta a pagar de R$300,00 gerou
+                             delta exato de 30000 centavos em
+                             actualCostCents do evento; conta a receber
+                             de R$1.000,00 gerou delta exato de 100000
+                             centavos em actualRevenueCents — SEM
+                             arredondamento nem erro de casas decimais.
+Datas .................................................... VALIDADO
+                             (dueDate aceito)
+Status .................................................... VALIDADO
+                             (PENDENTE -> PAGO / PENDENTE -> RECEBIDO)
+Relacionamento com eventos ............................... VALIDADO —
+                             ver 07-integration-tests.txt para o
+                             detalhamento do fluxo completo
+
+CONTRATOS
+-----------
+Criação ................................................... VALIDADO
+                             (201, vinculado a cliente+evento)
+Cliente/Evento ............................................. VALIDADO
+Valor ....................................................... VALIDADO
+                             (valueCents=500000 para R$5.000,00)
+Status ....................................................... VALIDADO
+                             (RASCUNHO -> ASSINADO)
+Conteúdo ..................................................... VALIDADO
+                             (campo content persistido)
+Assinatura .................................................... VALIDADO
+                             — mudar status para ASSINADO gravou
+                             signedAt automaticamente
+NUMERAÇÃO ...................................................... VALIDADO
+                             — CT-0004 gerado sem colisão (número
+                             depende de quantos contratos de teste já
+                             passaram pela sequence nesta sessão — ver
+                             observação em 14-final-status.txt)
+
+RELATÓRIOS
+------------
+Carregamento .................................................. VALIDADO
+                             (200)
+Filtros ......................................................... N/A —
+                             o endpoint /api/relatorios não tem filtros
+                             de query (retorna sempre a visão
+                             consolidada completa) — não é uma falha,
+                             é o desenho atual do módulo (herdado, não
+                             alterado nesta fase)
+Cálculos ......................................................... VALIDADO
+                             indiretamente — os valores agregados usam
+                             os mesmos actualRevenueCents/
+                             actualCostCents já validados com precisão
+                             de centavos no bloco Financeiro
+Estados vazios ................................................... N/A —
+                             não testado explicitamente com banco
+                             totalmente vazio nesta rodada (o teste
+                             correu com dados de teste presentes)
+Permissões ........................................................ VALIDADO
+                             (ver 06-rbac-tests.txt — ADMIN, SOCIO,
+                             COMERCIAL, FINANCEIRO permitidos;
+                             OPERACIONAL negado)
+Consistência dos valores .......................................... VALIDADO
+                             parcialmente — o evento de teste não
+                             apareceu necessariamente no top-10 de
+                             "lucroPorEvento" (lista limitada, ordenada
+                             por receita) — isso é esperado pelo desenho
+                             da query (LIMIT 10 ORDER BY receita DESC),
+                             não é uma inconsistência.

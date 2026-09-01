@@ -1,0 +1,117 @@
+FASE 3 — ALTERAÇÕES REALIZADAS
+================================
+
+Dois achados reais na auditoria (`01-auditoria-usuarios.txt`, seção 5,
+A1 e A2), mais dois ajustes descobertos só ao rodar os novos testes
+(seção "ajustes encontrados ao testar" abaixo). Nada exigiu mudança de
+schema ou de arquitetura.
+
+--------------------------------------------------------------------
+A1. Confirmação da nova senha (troca da PRÓPRIA senha)
+--------------------------------------------------------------------
+
+Backend — `server/auth.js`, `PUT /api/auth/senha`:
+  - Passa a exigir `confirmNewPassword` no corpo da requisição.
+  - `!confirmNewPassword` → 400 "Confirme a nova senha."
+  - `newPassword !== confirmNewPassword` → 400 "A confirmação da senha
+    não confere."
+  - Validado DEPOIS da senha atual/tamanho mínimo, então não muda a
+    ordem/comportamento das validações já existentes.
+
+Frontend:
+  - `public/src/auth.js` — `changePassword()` agora recebe e envia
+    também `confirmNewPassword`.
+  - `public/src/components/shell.js` — modal "Alterar minha senha"
+    ganhou o campo "Confirmar nova senha", com checagem no cliente
+    (`body.newPassword !== body.confirmNewPassword`) antes de chamar a
+    API (evita uma volta desnecessária ao servidor por erro de digitação).
+
+Escopo: só a troca da PRÓPRIA senha (`PUT /api/auth/senha`). A
+redefinição ADMINISTRATIVA de senha de outro usuário
+(`POST /api/usuarios/:id/redefinir-senha`) continua sem exigir
+confirmação nem senha antiga — comportamento já existente e correto: é
+o admin autenticado (já autorizado por `requireRole`) definindo uma
+senha nova para outra conta, não a pessoa confirmando a própria senha.
+
+Contrato de API: `PUT /api/auth/senha` passou a exigir um campo a mais.
+É uma mudança de contrato pontual, dentro do escopo desta fase (a Fase
+3 pede explicitamente essa confirmação) — todos os pontos de chamada no
+próprio projeto (frontend e os 5 testes que já existiam contra esse
+endpoint) foram atualizados junto.
+
+--------------------------------------------------------------------
+A2. Validação de formato de e-mail na criação/edição de usuário
+--------------------------------------------------------------------
+
+`server/routes/usuarios.js`, função `pick()` (compartilhada por criar e
+editar): antes só checava presença do e-mail; agora também valida um
+formato mínimo (`/^[^\s@]+@[^\s@]+\.[^\s@]+$/` — não é validação
+exaustiva de RFC 5322, só o suficiente para rejeitar valores
+obviamente inválidos, sem trazer biblioteca nova). E-mail sem `@` ou
+sem domínio → 400 "E-mail inválido."
+
+--------------------------------------------------------------------
+Ajustes encontrados ao escrever os testes desta fase (não eram bugs
+conhecidos antes — apareceram ao tentar comprovar o comportamento)
+--------------------------------------------------------------------
+
+1. Nome só com espaços não era rejeitado na criação de usuário.
+   `pick()` normalizava e-mail com `.trim()` mas NÃO fazia o mesmo com
+   `name` — um nome `"   "` passava a checagem de presença (só ficava
+   vazio de verdade se fosse string vazia `""`). Corrigido: `name`
+   agora também passa por `.trim()` antes de validar/gravar
+   (`server/routes/usuarios.js`).
+
+2. UUID inválido em `/api/usuarios/:id` (PUT/DELETE) devolvia 500, não
+   400, DENTRO DOS TESTES — mas o comportamento em produção real
+   (`server/index.js`) já estava correto desde a Fase 2. Causa: o app
+   Express de teste em `server/tests/usuarios.test.js` monta seu
+   PRÓPRIO handler de erro (para não depender do `server/index.js`
+   inteiro), e esse handler de teste tinha ficado desatualizado — não
+   tinha o mapeamento do erro Postgres `22P02` → 400 que existe no
+   handler real desde a Fase 2. Corrigido apenas no arquivo de teste,
+   alinhando com `server/index.js` (nenhuma mudança de código de
+   produção foi necessária para este item — confirmado também pelo
+   teste real contra o servidor rodando de verdade, seção 05).
+
+--------------------------------------------------------------------
+NÃO alterado (confirmado já correto na auditoria, sem necessidade de
+mudança)
+--------------------------------------------------------------------
+
+- CRUD de usuários (listar/criar/editar/excluir) — lógica já correta.
+- RBAC (`requireRole`, `rolesForModule`, `ROLE_MODULES`) — inalterado.
+- Trava de último administrador (`countOtherActiveAdmins`) — mantida
+  como está (ver achado A3 no relatório 01: é defesa-em-profundidade,
+  não uma falha).
+- Tratamento de usuário vinculado a registros (FK → 409) — inalterado.
+- Tratamento de UUID inválido → 400 em produção (`server/index.js`) —
+  inalterado, só reconfirmado.
+- `requireAuth`/revalidação de sessão (correção da Fase 2) — inalterado,
+  reconfirmado intacto e usado por todos os testes novos.
+- Schema do banco — nenhuma coluna adicionada/removida/alterada.
+- Dashboard, Financeiro, Operacional, CRM, Eventos, Orçamentos,
+  Contratos, Catálogo, Relatórios, CSP, menu mobile — não tocados.
+
+--------------------------------------------------------------------
+ARQUIVOS ALTERADOS NESTA FASE
+--------------------------------------------------------------------
+
+Backend:
+  - `server/auth.js` — confirmação de senha em `PUT /api/auth/senha`
+  - `server/routes/usuarios.js` — validação de formato de e-mail; trim
+    do nome
+  - `server/tests/usuarios.test.js` — handler de erro de teste alinhado
+    com produção (22P02→400); +18 subtestes novos (ver `03-testes.txt`);
+    3 subtestes existentes de troca de senha atualizados com
+    `confirmNewPassword`
+
+Frontend:
+  - `public/src/auth.js` — `changePassword()` aceita/envia
+    `confirmNewPassword`
+  - `public/src/components/shell.js` — campo "Confirmar nova senha" no
+    modal de troca da própria senha
+
+Documentação:
+  - `audit/phase3/01-auditoria-usuarios.txt` — **novo**
+  - `audit/phase3/02-alteracoes.txt` — **novo** (este arquivo)

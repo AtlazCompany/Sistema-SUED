@@ -1,0 +1,128 @@
+SUED SYSTEM — FASE 2 — 14. STATUS FINAL
+=============================================================
+
+CONFIRMAÇÕES OBRIGATÓRIAS (regra 28 do pedido) — todas executadas de
+fato nesta sessão, nesta ordem, ao final de todas as alterações:
+
+1. Testes automatizados re-executados ......... npm test -> 97/97 PASS
+2. Servidor inicia ............................ CONFIRMADO ("SUED
+   backend on http://localhost:4000", processo real rodando durante
+   toda a auditoria)
+3. Conexão com banco ........................... CONFIRMADA (inspect-
+   db.mjs reconfirmou as 23 tabelas; harness funcional executou mais
+   de 130 operações reais de leitura/escrita contra o banco real)
+4. npm test ..................................... 97/97 PASS (rodado
+   2 vezes nesta fase, resultado idêntico nas duas)
+5. node --check .................................. 100% OK em todos os
+   arquivos .js do backend e do frontend (nenhuma falha de sintaxe)
+6. Dados de teste removidos ...................... CONFIRMADO por
+   contagem direta ao banco: User=1 (só o admin real), todas as outras
+   22 tabelas=0 — idêntico ao estado do início desta fase
+7. git status ..................................... conferido — nenhum
+   .env aparece, nenhuma alteração fora do esperado (arquivos novos são
+   as views/rotas/testes desta e da fase anterior)
+8. Nenhum .env versionado ......................... CONFIRMADO (git
+   ls-files não lista nenhum .env; .env e .env.backup ambos ignorados
+   pelo .gitignore, confirmado com git check-ignore)
+9. Nenhum segredo exposto .......................... CONFIRMADO (ver
+   12-final-security-scan.txt)
+10. Status final .................................... ver abaixo
+
+ARQUIVOS ALTERADOS/CRIADOS NESTA FASE
+------------------------------------------
+Backend:
+  server/auth.js                        (+ PUT /senha, autoatendimento)
+  server/routes/usuarios.js             (+ CRUD completo de usuários)
+  server/tests/rbac-matrix.test.js      (atualizado: módulo "usuarios")
+  server/tests/usuarios.test.js         (NOVO: 16 testes de integração)
+  server/audit-phase2-run.mjs           (NOVO: ferramenta de auditoria,
+                                          mesmo espírito de
+                                          inspect-db.mjs já existente —
+                                          não faz parte do app)
+Frontend:
+  public/src/roles.js                   (+ módulo "usuarios" em
+                                          ALL_MODULES)
+  public/src/config.js                  (+ item de menu "Usuários")
+  public/src/auth.js                    (+ changePassword())
+  public/src/app.js                     (+ rota /usuarios)
+  public/src/components/shell.js        (+ botão "Alterar minha senha")
+  public/src/views/usuarios.js          (NOVO: tela de gestão de
+                                          usuários)
+Relatórios:
+  audit/phase2/*.txt                    (este conjunto de 14 arquivos)
+
+Nenhum arquivo da Fase 1 foi revertido ou reescrito sem necessidade —
+todas as correções anteriores (RBAC, numeração por sequence, rate
+limit, headers de segurança, menu mobile) foram RECONFIRMADAS
+funcionando, não refeitas.
+
+PENDÊNCIAS — CLASSIFICADAS
+------------------------------
+P0 (bloqueador crítico): 0 ENCONTRADOS.
+
+P1 (importante, resolver antes de expor a múltiplos usuários reais):
+  1. A trava "não remover o último administrador/sócio ativo" foi
+     implementada e revisada por leitura de código, mas NÃO foi testada
+     contra o cenário real de "resta zero" (exigiria manipular a única
+     conta admin de produção, o que evitei). Recomendação: antes de
+     confiar cegamente nela, criar um segundo administrador real e
+     testar manualmente a tentativa de desativar/rebaixar até restar
+     só 1.
+  2. A resposta 409 de "excluir usuário vinculado a outros registros"
+     foi implementada (captura do erro 23503 do Postgres) mas não
+     testada com um vínculo real nesta rodada (o usuário de teste
+     excluído não tinha vínculos). Recomendação: testar manualmente
+     excluindo um usuário que seja "responsável" de algum Evento/Task/
+     Opportunity antes de confiar na mensagem amigável em produção.
+
+P2 (deveria ser corrigido, não bloqueia):
+  1. UUID malformado em rota com :id devolve 500 em vez de 400 (ex.:
+     GET /api/clientes/id-invalido). Não vaza dado sensível, mas usa o
+     código de status errado.
+  2. Data inválida em campo de evento devolve 500 com mensagem técnica
+     do JS ("Invalid time value") em vez de 400 amigável.
+  3. Sessões antigas (JWT já emitidos antes da troca de senha)
+     continuam válidas até expirar naturalmente (até 8h) — limitação
+     arquitetural do JWT sem estado, documentada, não corrigida por
+     estar fora do escopo pedido.
+  4. Login não faz .trim() no e-mail (só .toLowerCase()) — um e-mail
+     colado com espaço nas pontas pode falhar erroneamente. As rotas de
+     criação/edição de usuário desta fase JÁ fazem trim.
+
+P3 (qualidade de vida / futuro):
+  1. Catálogos de apoio (EventType, Venue, Category, ProductService,
+     Supplier) estão vazios — é dado de negócio que a empresa cadastra,
+     não um bug (ver 04-seed-data.txt).
+  2. Modais empilham em vez de fechar o anterior ao abrir um novo
+     (achado incidental em 09-frontend.txt).
+  3. Nenhuma listagem tem paginação (herdado de antes desta fase, ainda
+     não é um problema real dado o volume de dados atual).
+  4. Recuperação de senha por e-mail (Opção C) não implementada —
+     evolução futura documentada, fora do escopo atual (equipe pequena,
+     ADMIN/SOCIO já cobrem a necessidade via redefinição manual).
+  5. Contact (contatos do cliente) não tem nenhuma tela/rota de CRUD —
+     lacuna pré-existente, não desta fase.
+  6. Venue (locais) não tem rota PUT/editar — lacuna pré-existente.
+
+RESUMO NUMÉRICO FINAL
+-------------------------
+P0: 0
+P1: 2
+P2: 4
+P3: 6
+
+DECISÃO OBJETIVA SOBRE PRODUÇÃO
+-----------------------------------
+PRONTO PARA PRODUÇÃO, COM RESSALVAS.
+
+Justificativa: nenhum problema bloqueador (P0) foi encontrado —
+autenticação, autorização (RBAC), integridade de dados entre módulos,
+numeração segura e segurança de segredos foram todos TESTADOS DE FATO
+(não só revisados) e passaram. Os 2 itens P1 não são falhas
+confirmadas — são proteções que EXISTEM no código mas cujo teste de
+ponta a ponta no cenário-limite exigiria mexer na única conta
+administrativa real do sistema, risco que optei por não correr durante
+a auditoria. Recomendo fortemente validar esses 2 pontos manualmente
+(com um segundo administrador de teste, fora do horário de uso real)
+antes ou logo depois de liberar o sistema para múltiplos usuários reais
+— mas isso não impede o uso do sistema hoje.

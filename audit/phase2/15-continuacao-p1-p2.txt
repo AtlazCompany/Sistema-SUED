@@ -1,0 +1,158 @@
+FASE 2 — CONTINUAÇÃO (P1 + parte do P2)
+=========================================
+
+Sessão de continuação a partir de CHECKPOINT.md. Objetivo: resolver as
+pendências P1 (validação real das travas de segurança de usuário) e
+avançar nos P2 (respostas 400 amigáveis em vez de 500; trim no e-mail do
+login), como indicado em CHECKPOINT.md seção 9 ("Próximo passo exato").
+
+Antes de qualquer alteração, o estado atual dos arquivos foi relido (não
+presumido a partir do checkpoint) e a suíte de testes foi rodada para
+confirmar a base: 97/97 PASS, idêntico ao registrado.
+
+--------------------------------------------------------------------
+1) P1 — "último administrador/sócio ativo": trava validada
+--------------------------------------------------------------------
+
+Achado importante ANTES de validar: este ambiente conecta no Supabase
+REAL de produção, que já tem um administrador real ativo
+(contato.atlazcompany@gmail.com). Isso torna literalmente impossível
+(e incorreto tentar) forçar o cenário "restam zero administradores no
+sistema inteiro" sem mexer na conta real — exatamente a razão pela qual
+a Fase 2 anterior evitou esse teste deliberadamente.
+
+O que foi validado com segurança em vez disso (server/tests/usuarios.test.js,
+subteste "trava de último administrador"):
+  1. A trava NÃO bloqueia falsamente uma desativação legítima quando existe
+     outro admin ativo no sistema (aqui: o admin real de produção conta
+     normalmente na fórmula) — prova que a trava não quebra o fluxo normal.
+  2. A fórmula de contagem (role = any(['ADMIN','SOCIO']), active = true,
+     id <> alvo) foi testada em isolamento, com dados 100% de teste
+     (filtrados por e-mail), provando que a matemática está correta: ao
+     desativar o segundo admin de teste, restava exatamente 1 (o
+     bootstrap); ao desativar também o bootstrap, restava exatamente 0
+     entre os admins de teste.
+
+Toda a manipulação usou try/finally para garantir limpeza mesmo se uma
+asserção falhasse no meio (isso já pegou um bug do próprio teste durante
+o desenvolvimento — ver seção 4). Confirmado ao final: zero admins de
+teste residuais, admin real de produção com active=true, inalterado.
+
+--------------------------------------------------------------------
+2) P1 — "excluir usuário vinculado" → 409: validado com FK real
+--------------------------------------------------------------------
+
+Criado um usuário de teste, vinculado via Event.commercialId (inserção
+SQL direta, só as colunas NOT NULL da tabela — não existe endpoint para
+criar Event fora do fluxo comercial completo, e não era isso que o teste
+precisava exercitar). Confirmado:
+  - DELETE do usuário vinculado → 409, mensagem amigável mencionando
+    "vinculado".
+  - Após remover o vínculo (apagar o Event de teste), o DELETE do mesmo
+    usuário passa a funcionar (200).
+
+--------------------------------------------------------------------
+3) P2 — UUID malformado → 400 (era 500)
+--------------------------------------------------------------------
+
+server/index.js: o tratamento central de erros agora mapeia o erro
+Postgres 22P02 ("invalid text representation" — ex.: UUID malformado em
+`where id = ${req.params.id}`) para 400 "ID inválido.", em vez de deixar
+cair no 500 genérico. Validado com teste real (novo arquivo
+server/tests/error-handling.test.js) contra GET e PUT
+/api/clientes/:id com um id inválido.
+
+--------------------------------------------------------------------
+4) P2 — Data inválida em Evento (e outros formulários) → 400 (era 500)
+--------------------------------------------------------------------
+
+Novo utilitário em server/utils.js: toDateOrNull(value, label) e
+toDate(value, label) — validam a data e lançam HttpError(400,
+"<label> inválida.") em vez de deixar o `new Date(...)` inválido
+propagar até o INSERT/UPDATE e estourar "Invalid time value" (500,
+mensagem técnica).
+
+Aplicado em todos os pontos que faziam `new Date(body.X)` diretamente:
+  - server/routes/eventos.js — eventDate
+  - server/routes/orcamentos.js — validUntil
+  - server/routes/oportunidades.js — expectedDate
+  - server/routes/financeiro.js — dueDate (contas a receber E a pagar)
+  - server/routes/operacional.js — dueDate (Task), startsAt/endsAt
+    (ScheduleItem; startsAt agora obrigatório de verdade via toDate())
+
+Validado com teste real: POST /api/eventos com eventDate inválida → 400
+"Data do evento inválida."; com eventDate válida, segue funcionando
+normalmente (201).
+
+--------------------------------------------------------------------
+5) P2 — Login sem trim() no e-mail → corrigido
+--------------------------------------------------------------------
+
+server/auth.js: `.trim().toLowerCase()` no e-mail do login (antes só
+`.toLowerCase()`). Validado com teste (server/tests/auth-login.test.js,
+mock de banco que agora captura o valor efetivamente enviado ao SQL):
+e-mail colado com espaços nas pontas e/ou maiúsculas agora normaliza
+corretamente antes da consulta.
+
+--------------------------------------------------------------------
+6) Achado NOVO (não estava no checkpoint anterior) — ainda NÃO corrigido
+--------------------------------------------------------------------
+
+Durante a validação do item (1), foi descoberto que o pendente P2-5 do
+checkpoint anterior ("sessões antigas não revogadas na troca de senha")
+é mais amplo do que documentado: `requireAuth`/`requireRole`
+(server/auth.js) usam só o papel/estado gravados no JWT no momento do
+login — nunca revalidam contra o banco a cada requisição. Isso significa
+que desativar um usuário, ou mudar seu papel, NÃO revoga o acesso da
+sessão já aberta dele: o cookie continua funcionando normalmente por até
+8h (TTL do token), com o papel ANTIGO, mesmo que o usuário já esteja
+inativo no banco. Reproduzido na prática durante o desenvolvimento do
+teste do item (1) (um admin desativado por outro ainda conseguiu, com o
+cookie antigo, executar uma ação de gestão de usuários).
+
+Isso é uma troca de arquitetura deliberada (JWT sem estado) que a Fase 2
+anterior já havia identificado — mas só para troca de senha, não para
+desativação/mudança de papel. Corrigir isso de verdade (checar
+`active`/`role` do banco em toda requisição autenticada, ou versionar o
+token) é uma mudança estrutural em `requireAuth`, usado por TODAS as
+rotas, e exigiria reescrever server/tests/middleware.test.js (hoje testa
+requireAuth de forma síncrona e sem banco). Por ser uma decisão de
+arquitetura (custo de uma consulta a mais por requisição vs. revogação
+imediata), e não um bug de lógica isolado, NÃO foi implementado nesta
+sessão — fica registrado como decisão pendente do usuário, não como
+pendência técnica menor.
+
+--------------------------------------------------------------------
+7) Testes
+--------------------------------------------------------------------
+
+npm test: 107/107 PASS, 0 FAIL (97 anteriores + 10 novos: 2 subtestes de
+trava/vínculo em usuarios.test.js reescreveram 1 subteste antigo em 2
+mais um extra de contagem isolada; 4 em error-handling.test.js [novo
+arquivo]; 2 de trim de e-mail em auth-login.test.js).
+
+node --check em 100% dos .js de server/ e public/: OK.
+
+Um bug de isolamento entre arquivos de teste foi encontrado e corrigido
+durante esta sessão: server/tests/error-handling.test.js (novo) e
+server/tests/usuarios.test.js rodam em paralelo (Node test runner) e
+inicialmente usavam o mesmo prefixo de e-mail "audit.fase2.jsonwebtoken" para
+limpeza por LIKE — um arquivo apagava a conta de admin de bootstrap que o
+outro ainda estava usando, causando falhas em cascata (404 em vez de 200,
+etc.). Corrigido dando ao novo arquivo um prefixo próprio
+("audit.fase2err.") e trocando a limpeza para ser por id específico, não
+por LIKE de prefixo — revalidado com sucesso total depois.
+
+Confirmação final de banco: zero linhas residuais de teste (usuários e
+eventos), admin real de produção intacto (active=true, papel inalterado).
+
+--------------------------------------------------------------------
+8) Nada da Fase 1 nem do restante da Fase 2 foi revertido
+--------------------------------------------------------------------
+
+Todas as alterações desta sessão foram aditivas (novo utilitário, novos
+testes, um novo mapeamento de erro, uma correção pontual de
+.trim()) ou substituições estritamente equivalentes (new Date() por
+toDate()/toDateOrNull(), que fazem a mesma coisa e só adicionam validação
+amigável). Nenhuma rota, coluna, papel ou comportamento existente foi
+removido ou alterado além do descrito acima.

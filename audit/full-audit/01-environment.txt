@@ -1,0 +1,14 @@
+=== NODE ===
+v24.18.0
+
+=== NPM ===
+11.16.0
+
+=== SISTEMA ===
+Microsoft Windows NT 10.0.26200.0
+
+=== DIRETÓRIO ===
+C:\Users\hardf\Desktop\SUED SYSTEM
+
+=== DATA ===
+2026-08-24 23:17:30

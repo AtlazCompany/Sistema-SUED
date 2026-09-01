@@ -1,0 +1,77 @@
+SUED SYSTEM — FASE 2 — 08. BANCO DE DADOS
+=============================================================
+Reconfirmado nesta fase via server/inspect-db.mjs e
+server/inspect-db-rules.mjs (consultas diretas a information_schema e
+pg_indexes/pg_constraint — não suposição). Nenhuma alteração de schema
+foi feita nesta fase (nem CREATE, nem ALTER, nem DROP).
+
+TOTAL DE TABELAS: 23 (reconfirmado — idêntico à Fase 1 e à auditoria de
+reconstrução do schema).
+
+FOREIGN KEYS: todas as FKs esperadas pelo código (mapeadas na auditoria
+de reconstrução do schema) EXISTEM de fato no banco. Reconfirmadas
+nesta fase, entre outras: Event_opportunityId_fkey, Event_venueId_fkey,
+Event_clientId_fkey, Event_commercialId_fkey, Event_operationalId_fkey,
+Event_eventTypeId_fkey, Budget_clientId_fkey/_eventId_fkey/
+_opportunityId_fkey, BudgetItem_budgetId_fkey/_productServiceId_fkey,
+Contract_clientId_fkey/_eventId_fkey, AccountPayable_eventId_fkey/
+_supplierId_fkey, AccountReceivable_eventId_fkey, Task_eventId_fkey/
+_assigneeId_fkey, Checklist_eventId_fkey, ChecklistItem_checklistId_fkey,
+ScheduleItem_eventId_fkey, SupplierProduct_productServiceId_fkey/
+_supplierId_fkey, ProductService_categoryId_fkey, Opportunity_clientId_
+fkey/_ownerId_fkey, Lead_clientId_fkey, Interaction_opportunityId_fkey/
+_userId_fkey, Contact_clientId_fkey, Transaction_eventId_fkey.
+
+Nenhuma dessas FKs tem ON DELETE CASCADE configurado (comportamento
+padrão do Postgres = RESTRICT) — CONFIRMADO NA PRÁTICA nesta fase:
+tentar excluir um Budget que ainda tinha BudgetItem apontando para ele
+falhou com erro 23503 até os itens serem removidos primeiro (ver
+07-integration-tests.txt, seção "nota honesta"). Isso é uma
+característica real do banco, não uma suposição — e é coerente com o
+código da aplicação, que SEMPRE apaga os filhos manualmente antes do
+pai nas rotas que fazem isso (ex.: server/routes/orcamentos.js apaga
+BudgetItem antes de Budget; server/routes/operacional.js apaga
+ChecklistItem antes de Checklist).
+
+UNIQUE CONSTRAINTS confirmadas: User_email_key (email), Category_name_
+key (name), Event_code_key (code), Event_opportunityId_key
+(opportunityId), SupplierProduct_productServiceId_supplierId_key
+(par productServiceId+supplierId), Budget_number_key (number, criada na
+Fase 1 por server/setup-numbering.mjs), Contract_number_key (number,
+idem).
+
+SEQUENCES confirmadas: Budget_number_seq e Contract_number_seq (criadas
+na Fase 1, reconfirmadas existentes e funcionais nesta fase — usadas
+ativamente durante os testes desta auditoria, gerando ORC-0009,
+ORC-0010, CT-0004 sem colisão).
+
+NULLABLE/DEFAULT: reconfirmados idênticos ao levantamento da Fase 0/1
+(ver histórico do projeto) — nenhuma divergência nova encontrada nesta
+fase entre o que o código espera e o que o banco realmente tem.
+
+DIVERGÊNCIA CÓDIGO x BANCO ENCONTRADA (JÁ CONHECIDA DESDE A FASE 1,
+RECONFIRMADA AQUI)
+------------------------------------------------------------------------
+CÓDIGO (server/utils.js prepInsert) ESPERA: toda tabela populada via
+  prepInsert() ganha createdAt e updatedAt automaticamente.
+BANCO POSSUI: a tabela "User" NÃO TEM as colunas createdAt/updatedAt.
+  Isso não causa problema porque nenhuma rota usa prepInsert() para
+  criar User — as novas rotas de criação de usuário (Fase 2) montam o
+  registro manualmente, sem essas colunas, exatamente por isso.
+  CONFIRMADO nesta fase por tentativa real de INSERT com essas colunas,
+  que falhou com "column does not exist" — usado para corrigir o código
+  ANTES de ele ir para produção (o server/routes/usuarios.js já foi
+  escrito sem createdAt/updatedAt, então não houve bug em produção, só
+  uma confirmação da hipótese já registrada como incerteza na auditoria
+  de schema anterior).
+
+Nenhuma outra divergência código x banco foi encontrada nesta fase.
+
+INTEGRIDADE REFERENCIAL: testada na prática (não só inspecionada) pelos
+4 fluxos de integração do arquivo 07-integration-tests.txt — todas as
+FKs se comportaram exatamente como o schema declara.
+
+NENHUMA ALTERAÇÃO DE SCHEMA FOI FEITA NESTA FASE. As sequences e UNIQUE
+de numeração já existiam desde a Fase 1 (server/setup-numbering.mjs) —
+o script foi apenas re-executado mentalmente por inspeção (não
+re-executado de fato, pois já é idempotente e nada mudou desde então).

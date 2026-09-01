@@ -1,0 +1,79 @@
+SUED SYSTEM — FASE 2 — 09. FRONTEND (testado no navegador de verdade)
+=============================================================
+Testado no Browser pane real (não simulação), contra o servidor real,
+com um usuário de teste real (audit.fase2.frontend@sued.local, removido
+ao final).
+
+LARGURAS TESTADAS
+--------------------
+390px  (mobile) ....... VALIDADO — menu abre/fecha, backdrop aparece,
+                        navega corretamente, tela de Usuários (nova)
+                        sem overflow horizontal (tabela usa scroll
+                        interno .table-wrap, herdado do resto do
+                        sistema).
+1280px (desktop) ...... VALIDADO — sidebar fixa 256px, sem overflow,
+                        menu mobile corretamente OCULTO (a correção da
+                        Fase 1 continua funcionando, sem regressão).
+1920px (desktop
+        grande) ........ VALIDADO — mesmo comportamento de 1280px,
+                        sidebar 256px, sem overflow horizontal.
+375/430/768/1024/1440px NÃO TESTADOS EXPLICITAMENTE NESTA RODADA (mas a
+                        lógica de responsividade é só CSS por
+                        breakpoint — @media max-width:640px — já
+                        validada nos extremos 390/1280/1920; não há
+                        motivo estrutural para esperar comportamento
+                        diferente nos intermediários, mas isso é uma
+                        inferência, não um teste, e está sendo
+                        declarado como tal).
+
+TELAS TESTADAS DE FATO NESTA RODADA
+---------------------------------------
+Login ................. VALIDADO — carrega, autentica, redireciona
+Dashboard .............. VALIDADO — KPIs zerados corretamente exibidos
+Usuários (NOVA) ......... VALIDADO — lista os 2 usuários existentes
+                        (admin real + usuário de teste) com nome/e-
+                        mail/papel/status corretos; modal "Novo
+                        usuário" abre com todos os campos certos
+                        (nome, e-mail, select de papel com as 5
+                        opções, senha inicial); modal "Alterar minha
+                        senha" abre com os campos certos (senha atual,
+                        nova senha)
+Eventos ................. VALIDADO — estado vazio exibido corretamente
+                        ("Nenhum evento encontrado"), filtros de status
+                        renderizados
+Financeiro ............... VALIDADO — resumo com KPIs zerados
+                        corretamente
+
+Outras telas (Leads, Clientes, Funil, Locais, Fornecedores, Catálogo,
+Orçamentos, Operacional, Contratos, Relatórios) NÃO FORAM abertas
+manualmente no navegador nesta rodada — mas TODAS foram exercitadas com
+sucesso via API real no harness funcional (ver 05-functional-tests.txt),
+o que confirma que o backend que essas telas consomem está correto.
+Registrando honestamente: a renderização visual específica dessas
+telas não foi reconferida nesta fase (não houve regressão de código
+nelas — nenhum arquivo dessas views foi alterado nesta fase).
+
+CONSOLE DO NAVEGADOR
+-----------------------
+Nenhum erro JS em nenhuma das interações testadas (login, navegação,
+abertura de modais, troca de tela, redimensionamento) — CONFIRMADO,
+console lido explicitamente após cada ação.
+Nenhum recurso bloqueado por CSP.
+Nenhum 401/403 inesperado (só os esperados, ex.: sessão perdida ao usar
+"navigate" do próprio browser de teste para recarregar a página raiz —
+comportamento da ferramenta de teste, não da aplicação; resolvido
+relogando).
+Nenhum erro de CORS (aplicação é same-origin, não há CORS envolvido).
+
+ACHADO DE UX (não crítico, registrado por transparência)
+----------------------------------------------------------
+Modais empilham: abrir um segundo modal (ex.: "Alterar minha senha")
+enquanto o primeiro ("Novo usuário") ainda está aberto NÃO fecha o
+anterior — os dois ficam sobrepostos no DOM. Isso é um comportamento
+pré-existente do componente public/src/components/modal.js (openModal
+sempre anexa um novo backdrop ao body, sem fechar os existentes), não
+uma regressão desta fase. Encontrado incidentalmente ao testar
+interações rápidas em sequência. Classificado como P3 (melhoria de
+qualidade de vida, não bloqueia uso).
+
+STATUS: PASS — nenhum erro de frontend encontrado que bloqueie o uso.

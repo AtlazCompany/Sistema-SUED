@@ -1,0 +1,123 @@
+FASE 3 — TESTES AUTOMATIZADOS
+================================
+
+--------------------------------------------------------------------
+RESULTADO
+--------------------------------------------------------------------
+
+Antes desta fase: 116/116 PASS (herdado da Fase 2).
+Depois desta fase: **132/132 PASS, 0 FAIL** (`npm test`).
+
+Todos os 16 testes novos estão em `server/tests/usuarios.test.js`
+(banco real, dados prefixados `audit.fase2.*`, removidos ao final —
+mesmo padrão já usado nas fases anteriores). Nenhum teste existente foi
+removido; 3 testes existentes de troca de senha foram ATUALIZADOS
+(passaram a enviar `confirmNewPassword`, sem perder nenhuma asserção
+anterior).
+
+--------------------------------------------------------------------
+COBERTURA NOVA, POR CATEGORIA (seção 17 do pedido da Fase 3)
+--------------------------------------------------------------------
+
+CRIAÇÃO
+  [novo] nome vazio (só espaços) → 400
+  [novo] e-mail com formato inválido → 400
+  [novo] e-mail com espaços e maiúsculas → normalizado, cria com
+         sucesso, e a checagem de duplicidade também reconhece a
+         mesma conta normalizada
+  [já existia] criação válida; e-mail duplicado; senha curta; papel
+         inválido
+
+EDIÇÃO
+  [novo] alteração de nome
+  [novo] alteração de e-mail (com normalização)
+  [novo] e-mail duplicado na edição → 409
+  [novo] desativar e depois reativar (ativação)
+  [já existia] alteração de papel
+
+SEGURANÇA
+  [novo] acesso não autenticado a /api/usuarios → 401
+  [novo] RBAC real via HTTP: SOCIO → 200 (paridade com ADMIN),
+         OPERACIONAL → 403, FINANCEIRO → 403
+  [já existia] COMERCIAL → 403; passwordHash nunca aparece (listagem e
+         criação); "trava de último administrador" (ver observação
+         abaixo sobre A3)
+
+  Sobre "tentativa de manipular outro usuário" e "último ADMIN": a
+  autoproteção absoluta (não pode alterar o próprio papel, não pode se
+  autodesativar, não pode se autoexcluir) já era testada antes desta
+  fase e continua sendo — é ela que cobre, na prática, o cenário
+  "ADMIN único tenta se remover", porque bloqueia isso
+  INCONDICIONALMENTE, não só quando é o último. Ver
+  `01-auditoria-usuarios.txt` achado A3 para a análise completa de por
+  que o caminho "outro admin reduz para zero" é hoje inalcançável via
+  API (não é uma lacuna de teste — é uma propriedade do sistema depois
+  da correção de sessão da Fase 2).
+
+EXCLUSÃO
+  [novo] UUID inválido em DELETE /api/usuarios/:id → 400 (não 500)
+  [novo] usuário inexistente (UUID válido, sem registro) → 404
+         (explícito — o comportamento já existia, faltava o teste)
+  [novo, bônus] UUID inválido em PUT /api/usuarios/:id → 400 (não 500)
+  [já existia] usuário sem vínculo (sucesso); usuário com vínculo (FK
+         real, 409); último ADMIN (autoproteção, ver acima)
+
+ÚLTIMO ADMINISTRADOR (seção 7 do pedido)
+  [já existia] ADMIN único (== ele mesmo) tenta se autodesativar → 400
+  [já existia] ADMIN único (== ele mesmo) tenta trocar o próprio
+         papel → 400
+  [já existia] ADMIN único (== ele mesmo) tenta se autoexcluir → 400
+  [já existia] 2 admins → desativar 1 → permitido (dentro do teste da
+         trava)
+  [novo] 2 admins → remover o papel ADMIN de 1 (vira COMERCIAL) →
+         permitido
+  [novo] 2 admins → excluir 1 → permitido
+
+SENHA
+  [já existia] senha atual correta (troca funciona); senha atual
+         incorreta → 401; senha nova curta → 400
+  [novo] troca sem confirmação → 400 "Confirme a nova senha."
+  [novo] troca com confirmação diferente → 400 "A confirmação da senha
+         não confere."
+  [novo] hash gravado no banco tem prefixo bcrypt (`$2a$`/`$2b$`/`$2y$`)
+         e nunca é igual à senha em texto puro (assert direto contra a
+         coluna `"passwordHash"`)
+  [já existia] senha nunca retornada em nenhuma resposta (listagem,
+         criação, edição, login, /me)
+
+--------------------------------------------------------------------
+COMO OS TESTES SÃO EXECUTADOS
+--------------------------------------------------------------------
+
+`npm test` → `node --env-file=.env --experimental-test-module-mocks
+--test tests/*.test.js`. Arquivos:
+  - `middleware.test.js` — requireAuth/requireRole com banco mockado
+    (`mock.module`) — 27 testes, inalterado nesta fase
+  - `auth-login.test.js` — login/logout/me/rate-limit com banco
+    mockado — inalterado nesta fase
+  - `numbering.test.js`, `rbac-matrix.test.js`, `error-handling.test.js`
+    — inalterados
+  - `usuarios.test.js` — banco REAL, 34 subtestes (era 18) dentro de 1
+    suíte "gestão de usuários — fluxo completo"
+
+Todos os testes contra o banco real usam um admin de "bootstrap" criado
+só para o teste (nunca a conta administrativa real de produção) e
+dados com e-mail prefixado `audit.fase2.` (mesmo prefixo já usado desde
+a Fase 2 — mantido por continuidade dentro do mesmo arquivo de teste;
+os testes reais desta fase feitos à mão, fora da suíte automatizada,
+usam o prefixo `audit.fase3.` — ver `05-validacao-real.txt`), removidos
+ao final com uma checagem que falha o processo se sobrar algum.
+
+--------------------------------------------------------------------
+node --check
+--------------------------------------------------------------------
+
+100% OK em todo `.js` de `server/` e `public/` (checado arquivo por
+arquivo com `node --check`, sem exceção).
+
+--------------------------------------------------------------------
+BANCO (inspect-db.mjs)
+--------------------------------------------------------------------
+
+23 tabelas, schema íntegro. Tabela `User` reconfirmada sem
+`createdAt`/`updatedAt` — nenhuma migration rodou nesta fase.

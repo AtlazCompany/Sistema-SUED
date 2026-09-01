@@ -1,0 +1,215 @@
+FASE 2 — CORREÇÃO DO ACHADO P1: SESSÃO NÃO REVALIDADA CONTRA O BANCO
+=======================================================================
+
+--------------------------------------------------------------------
+PROBLEMA
+--------------------------------------------------------------------
+
+`requireAuth` (server/auth.js) só validava a assinatura/expiração do JWT.
+Nunca conferia, a cada requisição, se o usuário ainda existia, se
+continuava `active`, ou se o `role` gravado no token ainda era o atual no
+banco. Consequência: desativar um usuário, excluí-lo, ou trocar seu
+papel NÃO revogava o acesso da sessão já aberta dele — o cookie
+continuava funcionando, com os dados antigos, por até 8h (TTL do JWT).
+Reproduzido na prática (relatório 15, seção 6) durante a validação do
+achado P1 anterior ("último administrador").
+
+--------------------------------------------------------------------
+CAUSA
+--------------------------------------------------------------------
+
+`requireAuth` populava `req.user` diretamente com o payload decodificado
+do JWT (`req.user = jwt.verify(token, ...)`), sem nenhuma consulta ao
+banco. O JWT é assinado uma única vez no login (`sign()`), então tudo que
+ele carrega (active implícito, role, nome, e-mail) é uma fotografia do
+momento do login — correto até um admin mudar esse estado depois.
+
+--------------------------------------------------------------------
+SOLUÇÃO
+--------------------------------------------------------------------
+
+Mudança mínima, sem trocar a arquitetura de sessão (continua sendo JWT em
+cookie httpOnly, sem servidor de sessão/Redis/blacklist): o JWT continua
+autenticando QUEM é o usuário (via `id`), mas o banco passa a ser
+consultado a cada requisição autenticada para confirmar existência,
+`active` e `role` atuais — e `req.user` é reconstruído a partir do banco,
+nunca do token.
+
+Implementação em `server/auth.js`:
+
+- Nova função privada `resolveSession(token)`: verifica o JWT, busca
+  `select id, name, email, role, active from "User" where id = $1`
+  (nunca seleciona `passwordHash`), e devolve:
+    - `{ ok: false, reason: "no_token" }` — sem cookie
+    - `{ ok: false, reason: "invalid_token" }` — JWT inválido/expirado
+    - `{ ok: false, reason: "not_found" }` — usuário não existe mais
+    - `{ ok: false, reason: "inactive" }` — usuário existe, `active=false`
+    - `{ ok: true, user: {...} }` — id/name/email/role atuais do banco
+- `requireAuth` (agora `async`) usa `resolveSession`; em qualquer `!ok`
+  devolve 401 com mensagem amigável específica por motivo; em `ok`,
+  `req.user = session.user` (dados do banco) e chama `next()`.
+- `GET /api/auth/me` passou a usar a mesma `resolveSession` (elimina
+  duplicação de lógica) — devolve `{ user: null }` (200, não erro) sempre
+  que a sessão não é mais válida, inclusive usuário desativado/excluído.
+- `requireRole` **não foi alterado** — já lia `req.user.role`, e agora
+  esse valor vem do banco por causa da mudança acima. É assim que a
+  troca de papel passa a valer na próxima requisição, sem tocar em
+  `requireRole` nem em nenhuma rota individual.
+- Erros de consulta ao banco dentro de `requireAuth` (ex.: Supabase fora
+  do ar) devolvem 500 "Erro interno.", logado só com `e.message` — nunca
+  o objeto de erro completo, para não arriscar vazar string de conexão.
+
+Nenhuma rota individual foi tocada — a centralização em `requireAuth`
+(pedida explicitamente) significa que todo o sistema (13 routers)
+ganhou o comportamento automaticamente, sem duplicar consulta em lugar
+nenhum.
+
+--------------------------------------------------------------------
+PERFORMANCE
+--------------------------------------------------------------------
+
+Uma consulta a mais por requisição autenticada: `select ... from "User"
+where id = $1`, contra a chave primária (index único), tabela `User` com
+poucas dezenas de linhas nesta escala de projeto. Custo desprezível.
+Não foi adicionado cache — o pedido explícito era revalidar a cada
+requisição; cachear reintroduziria uma janela de acesso indevido.
+
+--------------------------------------------------------------------
+TROCA DE SENHA — análise, não implementado
+--------------------------------------------------------------------
+
+`PUT /api/auth/senha` já reemite um cookie novo para a aba atual, mas
+sessões antigas (outro dispositivo/aba) continuam válidas até expirar
+(até 8h) — isso NÃO foi alterado nesta correção porque o JWT em si não
+muda quando só a senha muda (o `id` continua o mesmo, `active`/`role`
+não mudam). Diferente de desativação/exclusão/troca de papel, que agora
+SÃO detectadas imediatamente pela correção acima, a troca de senha
+continuaria exigindo um mecanismo à parte (versionamento de token ou
+blacklist) para revogar sessões antigas de outros dispositivos — não foi
+implementado, conforme pedido explícito de não inventar arquitetura
+complexa sem necessidade. Documentado aqui como limitação conhecida e
+aceita, separada do achado P1 que motivou esta correção.
+
+--------------------------------------------------------------------
+ARQUIVOS ALTERADOS
+--------------------------------------------------------------------
+
+- `server/auth.js` — `resolveSession()` (novo), `requireAuth` (agora
+  async, revalida contra o banco), `GET /me` (usa `resolveSession`).
+  `requireRole` inalterado.
+- `server/tests/middleware.test.js` — reescrito para usar
+  `node:test` `mock.module` (dublê do banco), cobrindo os 10 cenários
+  pedidos: usuário ativo, desativado, removido, role trocado, requireRole
+  com role do banco (positivo e negativo), sem cookie, JWT inválido, JWT
+  expirado, usuário nunca existiu.
+- `server/tests/auth-login.test.js` — 4 testes novos de `GET /me`
+  (usuário ativo sem passwordHash, usuário desativado depois do login,
+  usuário removido depois do login, sem cookie).
+- `server/tests/usuarios.test.js` — o subteste "trava de último
+  administrador" (criado na correção P1 anterior) foi redesenhado: usava
+  o cookie de um admin já desativado para agir em seguida — exatamente o
+  bug que esta correção elimina. Agora usa 3 admins de teste, cada ator
+  agindo enquanto ainda está ativo, e adiciona uma checagem explícita de
+  que o cookie de um admin recém-desativado deixa de funcionar
+  imediatamente.
+
+--------------------------------------------------------------------
+TESTES — ANTES / DEPOIS
+--------------------------------------------------------------------
+
+ANTES desta correção (checkpoint anterior): 107/107 PASS.
+DEPOIS desta correção: **116/116 PASS, 0 FAIL** (npm test).
+
+  +1  server/tests/middleware.test.js — reescrito, 10 testes com banco
+      mockado (era 7 testes sem banco, síncronos)
+  +4  server/tests/auth-login.test.js — GET /me (4 testes novos)
+  (subteste de usuarios.test.js redesenhado, não soma no total, mesma
+   contagem de asserções)
+
+node --check em 100% dos `.js` de `server/` e `public/`: OK.
+`inspect-db.mjs`: 23 tabelas, schema íntegro, nenhuma mudança estrutural
+(esta correção não tocou o banco, só a camada de autenticação).
+
+TESTE REAL (servidor Express real, porta 4000, banco real, usuário
+temporário `AUDIT-FASE2-SESSION` criado só para este teste):
+
+  1. Login → 200, cookie setado, sem passwordHash.                 OK
+  2. Cookie válido em rota protegida (GET /api/usuarios) → 200.    OK
+  3. GET /api/auth/me → usuário correto, sem passwordHash.         OK
+  4. Usuário desativado DIRETO NO BANCO (simulando outro admin
+     agindo em paralelo) — MESMO cookie, ainda dentro do TTL.
+  5. Mesmo cookie, GET /api/usuarios → 401 "Sua conta foi
+     desativada. Fale com um administrador."                       OK
+  6. Mesmo cookie, GET /api/auth/me → {"user":null}, HTTP 200.      OK
+  7. Usuário reativado E role trocado para COMERCIAL direto no
+     banco (token antigo continua dizendo role=ADMIN).
+  8. Mesmo cookie, GET /api/usuarios (só ADMIN/SOCIO) → 403 "Sem
+     permissão." — perdeu o acesso de ADMIN imediatamente.          OK
+  9. Mesmo cookie, GET /api/clientes (COMERCIAL tem acesso via
+     módulo crm) → 200 — ganhou o novo acesso imediatamente, sem
+     logout/login.                                                  OK
+  10. Mesmo cookie, GET /api/auth/me → role "COMERCIAL" (atual).    OK
+  11. Usuário excluído do banco.
+  12. Mesmo cookie, GET /api/clientes → 401 "Sessão inválida. Faça
+      login novamente."                                             OK
+  13. Mesmo cookie, GET /api/auth/me → {"user":null}.                OK
+  14. Cookie adulterado/inválido → 401 "Sessão expirada."            OK
+  15. Sem cookie nenhum → 401 "Não autenticado."                     OK
+
+Confirmado ao final: zero resíduo `audit.fase2*` no banco; admin real de
+produção (`contato.atlazcompany@gmail.com`) com `active=true`, papel
+inalterado. Servidor de teste encerrado (PID real do Windows confirmado
+via `netstat` antes do `taskkill`, conforme armadilha já documentada).
+
+--------------------------------------------------------------------
+COMPORTAMENTO ANTIGO vs NOVO
+--------------------------------------------------------------------
+
+ANTIGO: usuário desativado/excluído/com papel trocado continuava com
+acesso total (ou com o papel antigo) por até 8h, usando o cookie já
+emitido — sem forma de revogar na hora.
+
+NOVO: a próxima requisição desse usuário, depois de qualquer uma dessas
+três mudanças, reflete o estado atual do banco imediatamente — bloqueio
+total se desativado/excluído (401), permissões corretas se o papel
+mudou (nem mais, nem menos do que o papel atual permite) — sem exigir
+logout/login.
+
+--------------------------------------------------------------------
+IMPACTO
+--------------------------------------------------------------------
+
+- Todas as 13 rotas protegidas por `requireAuth` (praticamente o sistema
+  inteiro) ganham o comportamento automaticamente — nenhuma rota
+  individual foi alterada.
+- Uma consulta a mais ao banco por requisição autenticada (custo
+  desprezível na escala atual).
+- Nenhuma mudança de contrato para o frontend: os formatos de resposta
+  de `/login`, `/me`, e o comportamento 401/403 já esperados pelo
+  frontend continuam os mesmos; só o MOMENTO em que um 401 passa a
+  acontecer mudou (mais cedo, corretamente).
+- RBAC, sequences de numeração, CSP, headers, menu mobile, estrutura do
+  banco e rotas funcionais não foram tocados.
+
+--------------------------------------------------------------------
+RISCOS RESTANTES
+--------------------------------------------------------------------
+
+1. Troca de senha não revoga sessões antigas de OUTROS dispositivos/abas
+   (só a aba que fez a troca ganha cookie novo) — limitação conhecida,
+   documentada acima, fora do escopo desta correção por exigir
+   versionamento de token ou blacklist (arquitetura adicional).
+2. Se o Supabase ficar inacessível, TODA rota autenticada passa a
+   devolver 500 (antes, uma queda do banco não afetava rotas que só
+   validavam o JWT em memória) — troca deliberada: sem consulta ao
+   banco não há como confirmar `active`/`role` atuais, então uma falha
+   seca (500) é mais segura que assumir "ainda válido". Não há
+   mitigação adicional implementada (ex.: retry, circuit breaker) —
+   não fazia parte do pedido e adicionaria complexidade não solicitada.
+3. TTL do JWT continua em 8h — não foi reduzido. Como a revalidação
+   agora é por requisição, o TTL longo deixou de ser um risco de acesso
+   indevido pós-desativação (esse era o problema original, já
+   corrigido); ele ainda define por quanto tempo um cookie roubado
+   continuaria fisicamente aceito pelo `jwt.verify` caso o usuário
+   correspondente permaneça ativo — mesmo risco que já existia antes,
+   não alterado por esta correção.

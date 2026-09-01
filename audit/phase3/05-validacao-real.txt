@@ -1,0 +1,102 @@
+FASE 3 — VALIDAÇÃO REAL (SERVIDOR + BANCO REAIS)
+====================================================
+
+Depois dos testes automatizados/mockados (132/132 PASS), validação
+manual contra o servidor Express REAL (`npm run dev`, porta 4000) e o
+Supabase/PostgreSQL REAL do projeto — não o app de teste em memória.
+
+Confirmado ANTES de começar: porta 4000 livre, nenhum servidor zumbi.
+`npm run dev` iniciado e confirmado no log: "SUED backend on
+http://localhost:4000". PID real do Windows confirmado via `netstat
+-ano` (o PID relatado pelo Git Bash para o processo em background NÃO
+bate com o PID real do Windows — armadilha já documentada nas fases
+anteriores, reconfirmada aqui: usado o PID de `netstat`, não o do
+`$!` do bash).
+
+Usuário administrativo real de produção (`contato.atlazcompany@
+gmail.com`) identificado ANTES de qualquer teste destrutivo e NUNCA
+tocado (nem login, nem alteração de papel, nem desativação, nem
+exclusão, nem redefinição de senha) — confirmado por consulta direta ao
+banco antes e depois, com `active=true` e papel inalterado nos dois
+momentos.
+
+Todo dado de teste usou o prefixo `audit.fase3.*`, criado e removido
+nesta sessão via chamadas HTTP reais contra o servidor rodando (não
+inserção direta, exceto a criação do primeiro admin de bootstrap —
+necessária porque ainda não existe uma segunda conta administrativa de
+teste no ambiente e o objetivo aqui era testar a API de verdade, não
+recriar o próprio bootstrap).
+
+--------------------------------------------------------------------
+FLUXO EXECUTADO (todos os passos pedidos pela seção 18 da Fase 3)
+--------------------------------------------------------------------
+
+ 1. Criado usuário temporário administrador `AUDIT-FASE3`
+    (audit.fase3.session@sued.local) direto no banco — só o bootstrap
+    inicial, para ter uma sessão administrativa de teste sem tocar no
+    admin real.
+ 2. Login (`POST /api/auth/login`) → 200, cookie setado.                OK
+ 3. `GET /api/auth/me` → usuário correto, sem passwordHash.             OK
+ 4. Permissão: `GET /api/usuarios` com esse cookie → 200, sem
+    passwordHash em nenhuma linha da lista.                             OK
+ 5. Criado usuário-alvo `AUDIT-FASE3-TARGET` via
+    `POST /api/usuarios`, e-mail enviado com espaços e maiúsculas
+    (`  AUDIT.FASE3.target@sued.local  `) → gravado normalizado
+    (`audit.fase3.target@sued.local`), confirmando trim+lowercase
+    também em teste real (não só mockado).                              OK
+ 6. Alterar dados do alvo (`PUT /api/usuarios/:id`, nome) → 200,
+    nome atualizado.                                                    OK
+ 7. Desativar o alvo (`active:false`) → 200; login do alvo com a senha
+    certa, imediatamente depois → 401 "E-mail ou senha inválidos."      OK
+ 8. Reativar o alvo (`active:true`) → 200; login do alvo volta a
+    funcionar (200).                                                    OK
+ 9. Trocar o papel do alvo (COMERCIAL → FINANCEIRO) → 200.              OK
+10. Senha — troca da PRÓPRIA senha pelo alvo, autenticado como o alvo:
+    a) sem `confirmNewPassword` → 400 "Confirme a nova senha."          OK
+    b) `confirmNewPassword` diferente de `newPassword` → 400
+       "A confirmação da senha não confere."                            OK
+    c) dados corretos → 200 `{"ok":true}`.                              OK
+    d) login com a senha ANTIGA → 401.                                  OK
+    e) login com a senha NOVA → 200.                                    OK
+11. Redefinição ADMINISTRATIVA de senha
+    (`POST /api/usuarios/:id/redefinir-senha`, pelo AUDIT-FASE3, sem
+    exigir a senha antiga do alvo) → 200; login do alvo com a senha
+    redefinida → 200.                                                   OK
+12. Excluir o alvo (`DELETE /api/usuarios/:id`) → 200.                  OK
+13. Confirmar remoção: login do alvo (agora excluído) → 401.            OK
+14. UUID inválido em `DELETE /api/usuarios/:id` → 400 "ID inválido."
+    (não 500) — reconfirmado contra o servidor real.                    OK
+15. Autoproteção contra o servidor real: AUDIT-FASE3 tenta se
+    autoexcluir → 400 "Você não pode excluir sua própria conta.";
+    tenta se autodesativar → 400 "Você não pode alterar seu próprio
+    papel ou se desativar."                                             OK
+16. Acesso sem cookie a `/api/usuarios` → 401 "Não autenticado."        OK
+
+--------------------------------------------------------------------
+LIMPEZA
+--------------------------------------------------------------------
+
+`DELETE FROM "User" WHERE email ILIKE '%audit.fase3%'` executado ao
+final — confirmado por SELECT imediatamente depois: **zero linhas**
+residuais (`audit.fase3.*`, incluindo o admin de bootstrap E o alvo,
+que já tinha sido removido no passo 12).
+
+Confirmação final do estado de administradores no banco: só
+`contato.atlazcompany@gmail.com`, `role=ADMIN`, `active=true` —
+idêntico ao estado antes de qualquer teste desta fase.
+
+--------------------------------------------------------------------
+ENCERRAMENTO DO SERVIDOR
+--------------------------------------------------------------------
+
+PID real confirmado via `netstat -ano | grep LISTENING | grep :4000`
+antes do `taskkill //F //PID <PID>`. Confirmado depois: porta 4000
+livre, nenhum processo residual.
+
+--------------------------------------------------------------------
+RESULTADO
+--------------------------------------------------------------------
+
+16/16 passos do fluxo real confirmados com o resultado esperado. Zero
+divergência entre o comportamento testado de forma mockada e o
+comportamento real do servidor + banco de produção.

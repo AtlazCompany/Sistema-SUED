@@ -1,0 +1,167 @@
+SUED SYSTEM — FASE 2 — 02. GESTÃO DE USUÁRIOS
+=============================================================
+
+AUDITORIA DA TABELA "User" (schema real, via information_schema — não
+suposição; ver 08-database.txt para o dump completo)
+------------------------------------------------------------------------
+Colunas reais confirmadas:
+  id            uuid        NOT NULL  (PK)
+  name          text        NOT NULL
+  email         text        NOT NULL  UNIQUE (User_email_key)
+  role          text        NOT NULL
+  active        boolean     NOT NULL  default true
+  passwordHash  text        NOT NULL
+
+CONFIRMADO: a tabela "User" NÃO tem colunas createdAt/updatedAt — isso
+já havia sido levantado como incerteza na Fase 1 e agora está confirmado
+empiricamente (tentativa de INSERT com createdAt/updatedAt falhou com
+"column does not exist" durante a auditoria).
+
+Constraints/índices confirmados: PRIMARY KEY (id), UNIQUE (email),
+índice em "active" (User_active_idx). Nenhum CHECK de formato de e-mail
+ou de valores de "role" a nível de banco — validação de "role" é feita
+100% na aplicação (contra a lista ADMIN/SOCIO/COMERCIAL/OPERACIONAL/
+FINANCEIRO de public/src/roles.js).
+
+Estado no início da Fase 2: 1 usuário (o admin real, role ADMIN, active).
+Estado ao final da Fase 2: idêntico — 1 usuário (confirmado por consulta
+direta ao banco; todos os usuários de teste criados durante a auditoria
+foram removidos).
+
+Papéis existentes no sistema (modelados, não necessariamente todos em
+uso): ADMIN, SOCIO, COMERCIAL, OPERACIONAL, FINANCEIRO.
+Usuários ativos hoje: 1. Usuários inativos hoje: 0.
+
+Senha: armazenada só como hash bcrypt (custo 10 no login original da
+Fase 1/Fase 0; custo 12 nas novas rotas de criação/redefinição de senha
+implementadas nesta fase — ambos os custos são seguros, bcrypt aceita
+comparação entre hashes de custos diferentes normalmente).
+
+passwordHash nunca é devolvido ao frontend: CONFIRMADO por teste
+automatizado (server/tests/usuarios.test.js, server/tests/auth-
+login.test.js) e por grep manual em todo o código — todo SELECT que
+lê passwordHash é usado só para comparação/hash interno; todo endpoint
+que devolve o usuário usa "returning id, name, email, role, active"
+(sem passwordHash) explicitamente.
+
+Risco de exposição do hash: NÃO ENCONTRADO. Nenhuma rota devolve a
+coluna, nenhum log imprime, nenhuma resposta de erro inclui.
+
+E-mail tratado de forma consistente: login normaliza para minúsculas
+(String(email).toLowerCase()) antes de comparar; a criação/edição de
+usuário faz o mesmo (trim + toLowerCase) — CONFIRMADO no código
+(server/auth.js, server/routes/usuarios.js).
+
+Usuário inativo realmente não consegue logar: VALIDADO com teste real
+(criei um usuário active=false, tentei login, recebi 401 com a mesma
+mensagem genérica de credenciais inválidas — sem indicar que a conta
+existe mas está desativada, o que seria um vazamento de informação).
+
+O QUE O SISTEMA TINHA ANTES DESTA FASE (Fase 1)
+--------------------------------------------------
+  Listar usuários .......... NÃO EXISTIA (só GET /opcoes, lista leve
+                              para selects, sem papel de gestão)
+  Criar usuário ............ NÃO EXISTIA
+  Editar usuário ........... NÃO EXISTIA
+  Alterar papel ............ NÃO EXISTIA
+  Ativar/desativar .......... NÃO EXISTIA
+  Alterar a própria senha ... NÃO EXISTIA
+  Resetar senha de outro .... NÃO EXISTIA
+  Impedir e-mail duplicado .. só a nível de banco (UNIQUE), sem
+                              tratamento amigável de erro
+  Impedir login de inativo .. JÁ EXISTIA e funcionava (auth.js sempre
+                              checou user.active no login)
+
+O QUE FOI IMPLEMENTADO NESTA FASE
+-------------------------------------
+Backend:
+  server/routes/usuarios.js
+    GET    /api/usuarios                    listar (sem passwordHash)
+    POST   /api/usuarios                    criar
+    PUT    /api/usuarios/:id                editar nome/e-mail/papel/ativo
+    POST   /api/usuarios/:id/redefinir-senha  ADMIN/SOCIO redefine a
+                                             senha de outro usuário
+    DELETE /api/usuarios/:id                excluir
+    GET    /api/usuarios/opcoes             (já existia — preservado
+                                             sem alteração, continua
+                                             aberto a qualquer papel
+                                             autenticado)
+  server/auth.js
+    PUT    /api/auth/senha                  o próprio usuário troca a
+                                             senha (exige a atual)
+
+Frontend:
+  public/src/views/usuarios.js (novo)       tela de gestão de usuários
+  public/src/components/shell.js            botão "Alterar minha senha"
+                                             no cabeçalho (todos os papéis)
+  public/src/config.js                      item de menu "Usuários"
+  public/src/roles.js                       módulo "usuarios" adicionado
+                                             a ALL_MODULES (ver decisão
+                                             de RBAC abaixo)
+  public/src/app.js                         rota /usuarios registrada
+
+DECISÃO DE RBAC (conflito identificado e documentado ANTES de decidir,
+conforme pedido)
+------------------------------------------------------------------------
+Conflito: a tarefa sugeriu ADMIN com poder total e pediu para "avaliar
+cuidadosamente" se SOCIO deveria ter o mesmo poder.
+
+Investigação: em public/src/roles.js, ROLE_MODULES.SOCIO já é
+literalmente o MESMO array que ROLE_MODULES.ADMIN (ambos apontam para
+ALL_MODULES) em toda a matriz existente, para todos os 9 módulos
+anteriores. Não existe hoje NENHUMA distinção de poder entre ADMIN e
+SOCIO em lugar nenhum do sistema.
+
+Decisão: manter a consistência já estabelecida. O módulo "usuarios" foi
+adicionado a ALL_MODULES (não a uma lista separada), então ADMIN e SOCIO
+ganham acesso igual automaticamente — nenhuma exceção nova foi criada.
+Criar uma assimetria só para este módulo teria sido uma mudança de
+comportamento não solicitada e sem precedente no resto do sistema.
+
+REGRAS DE PROTEÇÃO IMPLEMENTADAS (e VALIDADAS com teste real)
+------------------------------------------------------------------------
+- Um usuário não pode alterar o próprio papel nem se autodesativar via
+  PUT /api/usuarios/:id -> VALIDADO (400).
+- Um usuário não pode excluir a própria conta -> VALIDADO (400).
+- Não é possível remover (desativar/rebaixar/excluir) o último
+  administrador/sócio ATIVO do sistema -> implementado
+  (countOtherActiveAdmins), mas NÃO VALIDADO em teste automatizado
+  contra o cenário real de "resta zero", porque isso exigiria
+  desativar/rebaixar o único admin de produção existente — risco que
+  optei por não correr. A lógica foi revisada por leitura de código e
+  é estruturalmente análoga à checagem de duplicidade de e-mail (mesmo
+  padrão "buscar estado atual, decidir, aplicar"), mas o cenário-limite
+  "0 restantes" fica como NÃO VALIDADO nesta fase — registrado como
+  pendência P1 (testar em ambiente com 2+ administradores antes de
+  confiar cegamente nesta trava em produção).
+- E-mail duplicado -> 409 com mensagem amigável -> VALIDADO.
+- Papel inválido -> 400 -> VALIDADO.
+- Senha curta (<8 caracteres) na criação/redefinição/troca -> 400 ->
+  VALIDADO.
+- Excluir usuário vinculado a outros registros (FK) -> 409 com mensagem
+  orientando a desativar em vez de excluir -> implementado (captura do
+  erro 23503 do Postgres), NÃO testado neste ciclo com um vínculo real
+  (o usuário de teste excluído não tinha vínculos) — pendência P2.
+- Troca de senha (PUT /api/auth/senha): exige senha atual correta (401
+  se errada) -> VALIDADO; login com a senha antiga deixa de funcionar
+  IMEDIATAMENTE após a troca -> VALIDADO (testei login com a senha
+  antiga logo depois da troca e recebi 401).
+
+OPÇÃO C (recuperação de senha por e-mail) — NÃO IMPLEMENTADA
+------------------------------------------------------------------------
+Conforme instruído: implementadas apenas as Opções A (admin redefine) e
+B (usuário troca a própria senha), que cobrem o escopo atual (equipe
+pequena, sem necessidade de fluxo de e-mail transacional). Recuperação
+por e-mail fica documentada como evolução futura (P3) — exigiria um
+provedor de e-mail transacional, que não existe no projeto hoje.
+
+LIMITAÇÃO CONHECIDA E DOCUMENTADA: invalidação de sessões antigas
+------------------------------------------------------------------------
+O sistema usa JWT sem estado no servidor. Ao trocar/redefinir uma senha,
+a sessão ATUAL de quem fez a troca é renovada (cookie reemitido), mas
+qualquer OUTRA sessão já aberta (outro navegador/dispositivo) com o
+token antigo continua válida até expirar naturalmente (até 8h) — não há
+como revogar um JWT já emitido sem um mecanismo adicional (blacklist ou
+versionamento de token), que não foi implementado por ser uma mudança
+arquitetural maior, fora do pedido explícito desta fase. Registrado como
+P2.

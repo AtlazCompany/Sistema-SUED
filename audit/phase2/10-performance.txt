@@ -1,0 +1,55 @@
+SUED SYSTEM — FASE 2 — 10. PERFORMANCE
+=============================================================
+Nenhuma otimização prematura foi feita. Só o que segue foi observado
+concretamente durante a auditoria funcional real.
+
+REQUISIÇÕES DUPLICADAS: NÃO OBSERVADO. Durante os testes no navegador
+(read_network_requests do harness), cada navegação de tela disparou
+exatamente as chamadas de API esperadas (uma vez cada), sem duplicação
+visível.
+
+LOOPS / RENDERIZAÇÕES EXCESSIVAS: NÃO OBSERVADO no código revisado
+nesta fase (server/routes/usuarios.js, public/src/views/usuarios.js,
+public/src/components/shell.js) — cada view refaz o DOM inteiro a cada
+load() (padrão já existente em todo o projeto, não é regressão desta
+fase), sem loops adicionais introduzidos.
+
+LISTENERS DUPLICADOS: verificado especificamente em shell.js (arquivo
+tocado duas vezes agora, Fase 1 e Fase 2) — cada botão novo
+(changePasswordBtn) tem exatamente 1 listener attachado 1 vez por
+renderização do shell (renderShell roda uma única vez no login, não a
+cada navegação), sem acúmulo.
+
+CONSULTAS SQL DESNECESSÁRIAS: revisão do novo código
+(server/routes/usuarios.js) — cada endpoint faz o mínimo de consultas
+necessário:
+  - GET /usuarios: 1 query
+  - POST /usuarios: 1 INSERT (+ 1 SELECT implícito do returning)
+  - PUT /usuarios/:id: no pior caso (mudança de papel/status) 1 SELECT
+    de verificação + 1 SELECT de contagem + 1 UPDATE = 3 queries; no
+    caso comum (edição sem tocar em papel/status "perigoso") só 1
+    UPDATE.
+  - POST /usuarios/:id/redefinir-senha: 1 UPDATE
+  - DELETE /usuarios/:id: 1 SELECT de verificação + (se for admin/sócio
+    ativo) 1 SELECT de contagem + 1 DELETE
+  Nenhuma consulta em loop, nenhum N+1 encontrado.
+
+ENDPOINTS QUE RETORNAM DADOS DEMAIS: GET /api/usuarios retorna a lista
+COMPLETA de usuários sem paginação — hoje irrelevante (1-poucos
+usuários numa equipe pequena), mas é o MESMO padrão de "sem paginação"
+já identificado como P3 em toda a Fase 0/1 para outras listagens
+(Clientes, Eventos, etc.) — não é uma regressão nova, é consistente
+com o resto do sistema. Não corrigido nesta fase (não é um problema
+concreto observado, é uma limitação teórica de escala futura).
+
+CARREGAMENTOS REPETIDOS: NÃO OBSERVADO.
+
+TABELAS GRANDES SEM PAGINAÇÃO: mesma observação acima — nenhuma tabela
+do sistema tem paginação hoje (herdado, não desta fase), e nenhuma
+delas tem volume de dados hoje que torne isso um problema real (banco
+majoritariamente vazio, conforme 04-seed-data.txt).
+
+CONCLUSÃO: nenhum problema de performance CONCRETO foi encontrado nesta
+fase que justificasse correção. As duas observações de "sem paginação"
+são teóricas/futuras, não atuais, e portanto não foram tratadas —
+consistente com a instrução de não fazer otimização prematura.

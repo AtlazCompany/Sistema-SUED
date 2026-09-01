@@ -2,7 +2,9 @@
 // A LÓGICA de autenticação é preservada — apenas a composição visual evolui.
 import { el } from "../utils.js";
 import { icon } from "../components/icons.js";
-import { login } from "../auth.js";
+import { login, requestPasswordReset, resetPassword } from "../auth.js";
+import { luminousCurves } from "../components/decor.js";
+import { toast } from "../components/toast.js";
 
 // Monograma SUED — losango com "S", inspirado na placa física do Espaço SUED.
 const MONOGRAM = `
@@ -94,7 +96,7 @@ function inputField({ id, name, type, placeholder, autocomplete, iconName, trail
   return { wrap, input };
 }
 
-export function renderLogin(onSuccess) {
+function buildLoginForm(onSuccess, onForgotPassword) {
   const error = el("div", { class: "login-error", style: "display:none" });
 
   const submit = el(
@@ -125,7 +127,10 @@ export function renderLogin(onSuccess) {
     pass.input.focus();
   });
 
-  const form = el(
+  const forgotLink = el("button", { class: "login-forgot", type: "button" }, "Esqueci minha senha");
+  forgotLink.onclick = onForgotPassword;
+
+  return el(
     "form",
     {
       class: "login__form",
@@ -166,11 +171,71 @@ export function renderLogin(onSuccess) {
       ]),
       error,
       submit,
+      forgotLink,
       el("p", { class: "login-foot" }, "Acesso restrito a colaboradores autorizados."),
     ],
   );
+}
 
+// Achado B14 (Fase 5): pedido de redefinição de senha por e-mail. A
+// resposta do backend é sempre a mesma (proteção contra enumeração de
+// contas) — o front nunca sabe (nem deveria saber) se o e-mail existe.
+function buildForgotForm(onBack) {
+  const submit = el(
+    "button",
+    { class: "login-submit", type: "submit" },
+    [el("span", { class: "login-submit__label" }, "Enviar instruções")],
+  );
+
+  const email = inputField({
+    id: "forgot-email", name: "email", type: "email",
+    placeholder: "voce@sued.com.br", autocomplete: "email", iconName: "mail",
+  });
+
+  const backLink = el("button", { class: "login-forgot", type: "button" }, "Voltar ao login");
+  backLink.onclick = onBack;
+
+  return el(
+    "form",
+    {
+      class: "login__form",
+      onsubmit: async (e) => {
+        e.preventDefault();
+        submit.disabled = true;
+        submit.classList.add("is-loading");
+        submit.querySelector(".login-submit__label").textContent = "Enviando…";
+        try {
+          await requestPasswordReset(email.input.value);
+          toast("Se o e-mail existir, enviaremos instruções para redefinir a senha.");
+          onBack();
+        } catch {
+          toast("Se o e-mail existir, enviaremos instruções para redefinir a senha.");
+          onBack();
+        }
+      },
+    },
+    [
+      brand("mobile"),
+      el("div", { class: "login-formhead" }, [
+        el("span", { class: "login-kicker" }),
+        el("h2", { class: "login-title" }, "Esqueci minha senha"),
+        el("p", { class: "login-subtitle" }, "Informe seu e-mail para receber um link de redefinição."),
+      ]),
+      el("div", { class: "login-fields" }, [
+        el("div", { class: "login-fieldrow" }, [
+          el("label", { class: "login-label", for: "forgot-email" }, "E-mail"),
+          email.wrap,
+        ]),
+      ]),
+      submit,
+      backLink,
+    ],
+  );
+}
+
+function loginShell(formHost) {
   const aside = el("aside", { class: "login__aside" }, [
+    el("div", { class: "login-lumi", html: luminousCurves() }),
     el("div", { class: "login-veins", html: VEINS }),
     el("div", { class: "login-aside__top" }, [brand("aside")]),
     el("div", { class: "login-aside__center" }, [
@@ -190,8 +255,95 @@ export function renderLogin(onSuccess) {
     ]),
   ]);
 
-  return el("div", { class: "login" }, [
-    aside,
-    el("section", { class: "login__form-wrap" }, [form]),
-  ]);
+  return el("div", { class: "login" }, [aside, formHost]);
+}
+
+export function renderLogin(onSuccess) {
+  const formHost = el("section", { class: "login__form-wrap" });
+  const showLoginForm = () => formHost.replaceChildren(buildLoginForm(onSuccess, showForgotForm));
+  const showForgotForm = () => formHost.replaceChildren(buildForgotForm(showLoginForm));
+  showLoginForm();
+  return loginShell(formHost);
+}
+
+// Achado B14 (Fase 5): tela acessada pelo link do e-mail de redefinição
+// (`/redefinir-senha?token=...`), fora do fluxo normal de login/sessão.
+export function renderResetPassword(onDone) {
+  const formHost = el("section", { class: "login__form-wrap" });
+  const token = new URLSearchParams(window.location.search).get("token");
+
+  if (!token) {
+    formHost.replaceChildren(
+      el("div", { class: "login__form" }, [
+        brand("mobile"),
+        el("div", { class: "login-formhead" }, [
+          el("h2", { class: "login-title" }, "Link inválido"),
+          el("p", { class: "login-subtitle" }, "Este link de redefinição de senha está incompleto."),
+        ]),
+        el("button", { class: "login-submit", type: "button", onclick: onDone }, "Voltar ao login"),
+      ]),
+    );
+    return loginShell(formHost);
+  }
+
+  const error = el("div", { class: "login-error", style: "display:none" });
+  const submit = el(
+    "button",
+    { class: "login-submit", type: "submit" },
+    [el("span", { class: "login-submit__label" }, "Definir nova senha")],
+  );
+  const newPass = inputField({
+    id: "new-password", name: "newPassword", type: "password",
+    placeholder: "mínimo 8 caracteres", autocomplete: "new-password", iconName: "lock",
+  });
+  const confirmPass = inputField({
+    id: "confirm-password", name: "confirmNewPassword", type: "password",
+    placeholder: "repita a nova senha", autocomplete: "new-password", iconName: "lock",
+  });
+
+  const form = el(
+    "form",
+    {
+      class: "login__form",
+      onsubmit: async (e) => {
+        e.preventDefault();
+        error.style.display = "none";
+        submit.disabled = true;
+        submit.classList.add("is-loading");
+        submit.querySelector(".login-submit__label").textContent = "Salvando…";
+        try {
+          await resetPassword(token, newPass.input.value, confirmPass.input.value);
+          toast("Senha redefinida. Faça login com a nova senha.");
+          onDone();
+        } catch (err) {
+          error.textContent = err.message || "Não foi possível redefinir a senha.";
+          error.style.display = "block";
+          submit.disabled = false;
+          submit.classList.remove("is-loading");
+          submit.querySelector(".login-submit__label").textContent = "Definir nova senha";
+        }
+      },
+    },
+    [
+      brand("mobile"),
+      el("div", { class: "login-formhead" }, [
+        el("h2", { class: "login-title" }, "Nova senha"),
+        el("p", { class: "login-subtitle" }, "Escolha uma nova senha para sua conta."),
+      ]),
+      el("div", { class: "login-fields" }, [
+        el("div", { class: "login-fieldrow" }, [
+          el("label", { class: "login-label", for: "new-password" }, "Nova senha"),
+          newPass.wrap,
+        ]),
+        el("div", { class: "login-fieldrow" }, [
+          el("label", { class: "login-label", for: "confirm-password" }, "Confirmar nova senha"),
+          confirmPass.wrap,
+        ]),
+      ]),
+      error,
+      submit,
+    ],
+  );
+  formHost.replaceChildren(form);
+  return loginShell(formHost);
 }

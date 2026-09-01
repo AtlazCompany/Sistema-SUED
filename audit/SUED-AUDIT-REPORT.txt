@@ -1,0 +1,942 @@
+SUED SYSTEM — AUDITORIA AUTOMÁTICA
+Data: 2026-08-24 23:05:58
+Diretório: C:\Users\hardf\Desktop\SUED SYSTEM
+
+IMPORTANTE:
+Esta auditoria é SOMENTE LEITURA.
+Nenhum arquivo do projeto será alterado.
+
+
+================================================================================
+1. ESTRUTURA DO PROJETO
+================================================================================
+[AUSENTE] package.json
+[AUSENTE] package-lock.json
+[AUSENTE] vercel.json
+[AUSENTE] .env
+[AUSENTE] .env.local
+[AUSENTE] .env.example
+[OK] public
+[OK] public/index.html
+[OK] public/src
+[OK] server
+[OK] server/auth.js
+[OK] server/utils.js
+[OK] server/config.js
+[OK] server/supabaseClient.js
+
+================================================================================
+2. PACKAGE.JSON
+================================================================================
+[ERRO] package.json não encontrado.
+
+================================================================================
+3. NPM AUDIT
+================================================================================
+
+================================================================================
+4. VARIÁVEIS DE AMBIENTE / SEGREDOS
+================================================================================
+[ENCONTRADO] server\.env
+  PORT
+  [SENSÍVEL] JWT_SECRET = [OCULTO]
+  [SENSÍVEL] DATABASE_URL = [OCULTO]
+[ENCONTRADO] server\.env.backup
+  PORT
+  [SENSÍVEL] JWT_SECRET = [OCULTO]
+  [SENSÍVEL] DATABASE_URL = [OCULTO]
+
+================================================================================
+5. POSSÍVEIS SEGREDOS NO CÓDIGO
+================================================================================
+[ATENÇÃO] Possível segredo em: server\.env
+  Padrão detectado: secret\s*[:=]
+[ATENÇÃO] Possível segredo em: server\.env
+  Padrão detectado: jwt[_-]?secret\s*[:=]
+[ATENÇÃO] Possível segredo em: server\.env
+  Padrão detectado: DATABASE_URL\s*[:=]
+[ATENÇÃO] Possível segredo em: server\config.js
+  Padrão detectado: secret\s*[:=]
+[ATENÇÃO] Possível segredo em: server\config.js
+  Padrão detectado: jwt[_-]?secret\s*[:=]
+
+================================================================================
+6. FETCH DIRETO NO FRONTEND
+================================================================================
+[FETCH] public\src\api.js : linha 10
+  res = await fetch(BASE + path, {
+
+================================================================================
+7. ROTAS BACKEND
+================================================================================
+server\auth.js : linha 29
+  authRouter.post(
+server\auth.js : linha 51
+  authRouter.post("/logout", (req, res) => {
+server\auth.js : linha 57
+  authRouter.get("/me", (req, res) => {
+server\index.js : linha 51
+  app.get(/^(?!\/api).*/, (req, res) => {
+server\node_modules\express\lib\application.js : linha 155
+  env: this.get('env'),
+server\node_modules\express\lib\application.js : linha 353
+  // app.get(setting)
+server\node_modules\express\lib\application.js : linha 474
+  // app.get(setting)
+server\node_modules\express\lib\application.js : linha 550
+  var View = this.get('view');
+server\node_modules\express\lib\application.js : linha 553
+  defaultEngine: this.get('view engine'),
+server\node_modules\express\lib\application.js : linha 554
+  root: this.get('views'),
+server\node_modules\express\lib\application.js : linha 617
+  if (this.get('env') !== 'test') console.error(err.stack || err.toString());
+server\node_modules\express\lib\request.js : linha 47
+  *     req.get('Content-Type');
+server\node_modules\express\lib\request.js : linha 50
+  *     req.get('content-type');
+server\node_modules\express\lib\request.js : linha 53
+  *     req.get('Something');
+server\node_modules\express\lib\request.js : linha 202
+  var range = this.get('Range');
+server\node_modules\express\lib\request.js : linha 218
+  var queryparse = this.app.get('query parser fn');
+server\node_modules\express\lib\request.js : linha 288
+  var trust = this.app.get('trust proxy fn');
+server\node_modules\express\lib\request.js : linha 296
+  var header = this.get('X-Forwarded-Proto') || proto
+server\node_modules\express\lib\request.js : linha 328
+  var trust = this.app.get('trust proxy fn');
+server\node_modules\express\lib\request.js : linha 345
+  var trust = this.app.get('trust proxy fn');
+server\node_modules\express\lib\request.js : linha 375
+  var offset = this.app.get('subdomain offset');
+server\node_modules\express\lib\request.js : linha 406
+  var trust = this.app.get('trust proxy fn');
+server\node_modules\express\lib\request.js : linha 407
+  var val = this.get('X-Forwarded-Host');
+server\node_modules\express\lib\request.js : linha 410
+  val = this.get('Host');
+server\node_modules\express\lib\request.js : linha 467
+  'etag': res.get('ETag'),
+server\node_modules\express\lib\request.js : linha 468
+  'last-modified': res.get('Last-Modified')
+server\node_modules\express\lib\request.js : linha 496
+  var val = this.get('X-Requested-With') || '';
+server\node_modules\express\lib\response.js : linha 98
+  var link = this.get('Link') || '';
+server\node_modules\express\lib\response.js : linha 137
+  if (!this.get('Content-Type')) {
+server\node_modules\express\lib\response.js : linha 147
+  if (!this.get('Content-Type')) {
+server\node_modules\express\lib\response.js : linha 159
+  type = this.get('Content-Type');
+server\node_modules\express\lib\response.js : linha 168
+  var etagFn = app.get('etag fn')
+server\node_modules\express\lib\response.js : linha 169
+  var generateETag = !this.get('ETag') && typeof etagFn === 'function'
+server\node_modules\express\lib\response.js : linha 242
+  var escape = app.get('json escape')
+server\node_modules\express\lib\response.js : linha 243
+  var replacer = app.get('json replacer');
+server\node_modules\express\lib\response.js : linha 244
+  var spaces = app.get('json spaces');
+server\node_modules\express\lib\response.js : linha 248
+  if (!this.get('Content-Type')) {
+server\node_modules\express\lib\response.js : linha 270
+  var escape = app.get('json escape')
+server\node_modules\express\lib\response.js : linha 271
+  var replacer = app.get('json replacer');
+server\node_modules\express\lib\response.js : linha 272
+  var spaces = app.get('json spaces');
+server\node_modules\express\lib\response.js : linha 274
+  var callback = this.req.query[app.get('jsonp callback name')];
+server\node_modules\express\lib\response.js : linha 277
+  if (!this.get('Content-Type')) {
+server\node_modules\express\lib\response.js : linha 362
+  *     app.get('/user/:uid/photos/:file', function(req, res){
+server\node_modules\express\lib\response.js : linha 637
+  var prev = this.get(field);
+server\node_modules\express\lib\response.js : linha 843
+  address = this.location(address).get('Location');
+server\node_modules\postgres\cf\polyfills.js : linha 225
+  tasks.delete(id)
+server\node_modules\postgres\cf\polyfills.js : linha 232
+  tasks.delete(id)
+server\node_modules\postgres\cf\src\index.js : linha 505
+  const x = o.target_session_attrs || url.searchParams.get('target_session_attrs') || env.PGTARGETSESSIONATTRS
+server\node_modules\postgres\cf\src\query.js : linha 43
+  ? originStackCache.get(this.strings)
+server\node_modules\postgres\cf\src\query.js : linha 44
+  : originStackCache.set(this.strings, this[originError].stack).get(this.strings)
+server\node_modules\postgres\cf\src\query.js : linha 166
+  return originCache.get(xs)
+server\node_modules\postgres\cf\src\query.js : linha 172
+  return originCache.get(xs)
+server\node_modules\postgres\cf\src\subscribe.js : linha 59
+  ? subscribers.get(event).add(subscriber)
+server\node_modules\postgres\cf\src\subscribe.js : linha 60
+  : subscribers.set(event, new Set([subscriber])).get(event)
+server\node_modules\postgres\cf\src\subscribe.js : linha 63
+  fns.delete(subscriber)
+server\node_modules\postgres\cf\src\subscribe.js : linha 64
+  fns.size === 0 && subscribers.delete(event)
+server\node_modules\postgres\cf\src\subscribe.js : linha 140
+  subscribers.has(x) && subscribers.get(x).forEach(({ fn }) => fn(a, b, x))
+server\node_modules\postgres\cjs\src\index.js : linha 504
+  const x = o.target_session_attrs || url.searchParams.get('target_session_attrs') || env.PGTARGETSESSIONATTRS
+server\node_modules\postgres\cjs\src\query.js : linha 43
+  ? originStackCache.get(this.strings)
+server\node_modules\postgres\cjs\src\query.js : linha 44
+  : originStackCache.set(this.strings, this[originError].stack).get(this.strings)
+server\node_modules\postgres\cjs\src\query.js : linha 166
+  return originCache.get(xs)
+server\node_modules\postgres\cjs\src\query.js : linha 172
+  return originCache.get(xs)
+server\node_modules\postgres\cjs\src\subscribe.js : linha 58
+  ? subscribers.get(event).add(subscriber)
+server\node_modules\postgres\cjs\src\subscribe.js : linha 59
+  : subscribers.set(event, new Set([subscriber])).get(event)
+server\node_modules\postgres\cjs\src\subscribe.js : linha 62
+  fns.delete(subscriber)
+server\node_modules\postgres\cjs\src\subscribe.js : linha 63
+  fns.size === 0 && subscribers.delete(event)
+server\node_modules\postgres\cjs\src\subscribe.js : linha 139
+  subscribers.has(x) && subscribers.get(x).forEach(({ fn }) => fn(a, b, x))
+server\node_modules\postgres\src\index.js : linha 504
+  const x = o.target_session_attrs || url.searchParams.get('target_session_attrs') || env.PGTARGETSESSIONATTRS
+server\node_modules\postgres\src\query.js : linha 43
+  ? originStackCache.get(this.strings)
+server\node_modules\postgres\src\query.js : linha 44
+  : originStackCache.set(this.strings, this[originError].stack).get(this.strings)
+server\node_modules\postgres\src\query.js : linha 166
+  return originCache.get(xs)
+server\node_modules\postgres\src\query.js : linha 172
+  return originCache.get(xs)
+server\node_modules\postgres\src\subscribe.js : linha 58
+  ? subscribers.get(event).add(subscriber)
+server\node_modules\postgres\src\subscribe.js : linha 59
+  : subscribers.set(event, new Set([subscriber])).get(event)
+server\node_modules\postgres\src\subscribe.js : linha 62
+  fns.delete(subscriber)
+server\node_modules\postgres\src\subscribe.js : linha 63
+  fns.size === 0 && subscribers.delete(event)
+server\node_modules\postgres\src\subscribe.js : linha 139
+  subscribers.has(x) && subscribers.get(x).forEach(({ fn }) => fn(a, b, x))
+server\node_modules\qs\dist\qs.js : linha 11
+  "use strict";var getSideChannel=require(46),utils=require(5),formats=require(1),has=Object.prototype.hasOwnProperty,arrayPrefixGenerators={brackets:function brackets(e){return e+"[]"},comma:"comma",indices:function indices(e,r){return e+"["+r+"]"},repeat:function repeat(e){return e}},isArray=Array.isArray,push=Array.prototype.push,pushToArray=function(e,r){push.apply(e,isArray(r)?r:[r])},toISO=Date.prototype.toISOString,defaultFormat=formats.default,defaults={addQueryPrefix:!1,allowDots:!1,allowEmptyArrays:!1,arrayFormat:"indices",charset:"utf-8",charsetSentinel:!1,commaRoundTrip:!1,delimiter:"&",encode:!0,encodeDotInKeys:!1,encoder:utils.encode,encodeValuesOnly:!1,filter:void 0,format:defaultFormat,formatter:formats.formatters[defaultFormat],indices:!1,serializeDate:function serializeDate(e){return toISO.call(e)},skipNulls:!1,strictNullHandling:!1},isNonNullishPrimitive=function isNonNullishPrimitive(e){return"string"==typeof e||"number"==typeof e||"boolean"==typeof e||"symbol"==typeof e||"bigint"==typeof e},sentinel={},stringify=function stringify(e,r,t,o,a,n,i,l,s,f,u,d,y,c,p,m,h,v){for(var g=e,w=v,b=0,A=!1;void 0!==(w=w.get(sentinel))&&!A;){var D=w.get(e);if(b+=1,void 0!==D){if(D===b)throw new RangeError("Cyclic object value");A=!0}void 0===w.get(sentinel)&&(b=0)}if("function"==typeof f?g=f(r,g):g instanceof Date?g=y(g):"comma"===t&&isArray(g)&&(g=utils.maybeMap(g,function(e){return e instanceof Date?y(e):e})),null===g){if(n)return p(s&&!m?s(r,defaults.encoder,h,"key",c):r);g=""}if(isNonNullishPrimitive(g)||utils.isBuffer(g))return s?[p(m?r:s(r,defaults.encoder,h,"key",c))+"="+p(s(g,defaults.encoder,h,"value",c))]:[p(r)+"="+p(String(g))];var S,E=[];if(void 0===g)return E;if("comma"===t&&isArray(g))m&&s&&(g=utils.maybeMap(g,function(e){return null==e?e:s(e)})),S=[{value:g.length>0?g.join(",")||null:void 0}];else if(isArray(f))S=f;else{var N=Object.keys(g);S=u?N.sort(u):N}var T=l?String(r).replace(/\./g,"%2E"):String(r),O=o&&isArray(g)&&1===g.length?T+"[]":T;if(a&&isArray(g)&&0===g.length)return O+"[]";for(var k=0;k<S.length;++k){var I=S[k],P="object"==typeof I&&I&&void 0!==I.value?I.value:g[I];if(!i||null!==P){var x=d&&l?String(I).replace(/\./g,"%2E"):String(I),z=isArray(g)?"function"==typeof t?t(O,x):O:O+(d?"."+x:"["+x+"]");v.set(e,b);var K=getSideChannel();K.set(sentinel,v),pushToArray(E,stringify(P,z,t,o,a,n,i,l,"comma"===t&&m&&isArray(g)?null:s,f,u,d,y,c,p,m,h,K))}}return E},normalizeStringifyOptions=function normalizeStringifyOptions(e){if(!e)return defaults;if(void 0!==e.allowEmptyArrays&&"boolean"!=typeof e.allowEmptyArrays)throw new TypeError("`allowEmptyArrays` option can only be `true` or `false`, when provided");if(void 0!==e.encodeDotInKeys&&"boolean"!=typeof e.encodeDotInKeys)throw new TypeError("`encodeDotInKeys` option can only be `true` or `false`, when provided");if(null!==e.encoder&&void 0!==e.encoder&&"function"!=typeof e.encoder)throw new TypeError("Encoder has to be a function.");var r=e.charset||defaults.charset;if(void 0!==e.charset&&"utf-8"!==e.charset&&"iso-8859-1"!==e.charset)throw new TypeError("The charset option must be either utf-8, iso-8859-1, or undefined");var t=formats.default;if(void 0!==e.format){if(!has.call(formats.formatters,e.format))throw new TypeError("Unknown format option provided.");t=e.format}var o,a=formats.formatters[t],n=defaults.filter;if(("function"==typeof e.filter||isArray(e.filter))&&(n=e.filter),o=e.arrayFormat in arrayPrefixGenerators?e.arrayFormat:"indices"in e?e.indices?"indices":"repeat":defaults.arrayFormat,"commaRoundTrip"in e&&"boolean"!=typeof e.commaRoundTrip)throw new TypeError("`commaRoundTrip` must be a boolean, or absent");var i=void 0===e.allowDots?!0===e.encodeDotInKeys||defaults.allowDots:!!e.allowDots;return{addQueryPrefix:"boolean"==typeof e.addQueryPrefix?e.addQueryPrefix:defaults.addQueryPrefix,allowDots:i,allowEmptyArrays:"boolean"==typeof e.allowEmptyArrays?!!e.allowEmptyArrays:defaults.allowEmptyArrays,arrayFormat:o,charset:r,charsetSentinel:"boolean"==typeof e.charsetSentinel?e.charsetSentinel:defaults.charsetSentinel,commaRoundTrip:!!e.commaRoundTrip,delimiter:void 0===e.delimiter?defaults.delimiter:e.delimiter,encode:"boolean"==typeof e.encode?e.encode:defaults.encode,encodeDotInKeys:"boolean"==typeof e.encodeDotInKeys?e.encodeDotInKeys:defaults.encodeDotInKeys,encoder:"function"==typeof e.encoder?e.encoder:defaults.encoder,encodeValuesOnly:"boolean"==typeof e.encodeValuesOnly?e.encodeValuesOnly:defaults.encodeValuesOnly,filter:n,format:t,formatter:a,serializeDate:"function"==typeof e.serializeDate?e.serializeDate:defaults.serializeDate,skipNulls:"boolean"==typeof e.skipNulls?e.skipNulls:defaults.skipNulls,sort:"function"==typeof e.sort?e.sort:null,strictNullHandling:"boolean"==typeof e.strictNullHandling?e.strictNullHandling:defaults.strictNullHandling}};module.exports=function(e,r){var t,o=e,a=normalizeStringifyOptions(r);"function"==typeof a.filter?o=(0,a.filter)("",o):isArray(a.filter)&&(t=a.filter);var n=[];if("object"!=typeof o||null===o)return"";var i=arrayPrefixGenerators[a.arrayFormat],l="comma"===i&&a.commaRoundTrip;t||(t=Object.keys(o)),a.sort&&t.sort(a.sort);for(var s=getSideChannel(),f=0;f<t.length;++f){var u=t[f];if(null!=u){var d=o[u];a.skipNulls&&null===d||pushToArray(n,stringify(d,u,i,l,a.allowEmptyArrays,a.strictNullHandling,a.skipNulls,a.encodeDotInKeys,a.encode?a.encoder:null,a.filter,a.sort,a.allowDots,a.serializeDate,a.format,a.formatter,a.encodeValuesOnly,a.charset,s))}}var y=n.join(a.delimiter),c=!0===a.addQueryPrefix?"?":"";return a.charsetSentinel&&("iso-8859-1"===a.charset?c+="utf8=%26%2310003%3B"+a.delimiter:c+="utf8=%E2%9C%93"+a.delimiter),y.length>0?c+y:""};
+server\node_modules\qs\dist\qs.js : linha 14
+  "use strict";var formats=require(1),getSideChannel=require(46),defineProperty=require(14),has=Object.prototype.hasOwnProperty,isArray=Array.isArray,overflowChannel=getSideChannel(),markOverflow=function markOverflow(e,r){return overflowChannel.set(e,r),e},isOverflow=function isOverflow(e){return overflowChannel.has(e)},getMaxIndex=function getMaxIndex(e){return overflowChannel.get(e)},setMaxIndex=function setMaxIndex(e,r){overflowChannel.set(e,r)},hexTable=function(){for(var e=[],r=0;r<256;++r)e[e.length]="%"+((r<16?"0":"")+r.toString(16)).toUpperCase();return e}(),compactQueue=function compactQueue(e){for(;e.length>1;){var r=e.pop(),t=r.obj[r.prop];if(isArray(t)){for(var n=[],a=0;a<t.length;++a)void 0!==t[a]&&(n[n.length]=t[a]);r.obj[r.prop]=n}}},arrayToObject=function arrayToObject(e,r){for(var t=r&&r.plainObjects?{__proto__:null}:{},n=0;n<e.length;++n)void 0!==e[n]&&(t[n]=e[n]);return t},setProperty=function setProperty(e,r,t){"__proto__"===r&&defineProperty?defineProperty(e,r,{configurable:!0,enumerable:!0,value:t,writable:!0}):e[r]=t},merge=function merge(e,r,t){if(!r)return e;if("object"!=typeof r&&"function"!=typeof r){if(isArray(e)){var n=e.length;if(t&&"number"==typeof t.arrayLimit&&n>=t.arrayLimit){if(t.throwOnLimitExceeded)throw new RangeError("Array limit exceeded. Only "+t.arrayLimit+" element"+(1===t.arrayLimit?"":"s")+" allowed in an array.");return markOverflow(arrayToObject(e.concat(r),t),n)}e[n]=r}else{if(!e||"object"!=typeof e)return[e,r];if(isOverflow(e)){var a=getMaxIndex(e)+1;e[a]=r,setMaxIndex(e,a)}else{if(t&&t.strictMerge)return[e,r];(t&&(t.plainObjects||t.allowPrototypes)||!has.call(Object.prototype,r))&&(e[r]=!0)}}return e}if(!e||"object"!=typeof e){if(isOverflow(r)){for(var o=Object.keys(r),i=t&&t.plainObjects?{__proto__:null,0:e}:{0:e},l=0;l<o.length;l++)i[parseInt(o[l],10)+1]=r[o[l]];return markOverflow(i,getMaxIndex(r)+1)}var c=[e].concat(r);if(t&&"number"==typeof t.arrayLimit&&c.length>t.arrayLimit){if(t.throwOnLimitExceeded)throw new RangeError("Array limit exceeded. Only "+t.arrayLimit+" element"+(1===t.arrayLimit?"":"s")+" allowed in an array.");return markOverflow(arrayToObject(c,t),c.length-1)}return c}var f=e;if(isArray(e)&&!isArray(r)&&(f=arrayToObject(e,t)),isArray(e)&&isArray(r)){if(r.forEach(function(r,n){if(has.call(e,n)){var a=e[n];a&&"object"==typeof a&&r&&"object"==typeof r?e[n]=merge(a,r,t):e[e.length]=r}else e[n]=r}),t&&"number"==typeof t.arrayLimit&&e.length>t.arrayLimit){if(t.throwOnLimitExceeded)throw new RangeError("Array limit exceeded. Only "+t.arrayLimit+" element"+(1===t.arrayLimit?"":"s")+" allowed in an array.");return markOverflow(arrayToObject(e,t),e.length-1)}return e}return Object.keys(r).reduce(function(e,n){var a=r[n];if(has.call(e,n)?setProperty(e,n,merge(e[n],a,t)):setProperty(e,n,a),isOverflow(r)&&!isOverflow(e)&&markOverflow(e,getMaxIndex(r)),isOverflow(e)){var o=parseInt(n,10);String(o)===n&&o>=0&&o>getMaxIndex(e)&&setMaxIndex(e,o)}return e},f)},assign=function assignSingleSource(e,r){return Object.keys(r).reduce(function(e,t){return setProperty(e,t,r[t]),e},e)},decode=function(e,r,t){var n=e.replace(/\+/g," ");if("iso-8859-1"===t)return n.replace(/%[0-9a-f]{2}/gi,unescape);try{return decodeURIComponent(n)}catch(e){return n}},limit=1024,encode=function encode(e,r,t,n,a){if(0===e.length)return e;var o=e;if("symbol"==typeof e?o=Symbol.prototype.toString.call(e):"string"!=typeof e&&(o=String(e)),"iso-8859-1"===t)return escape(o).replace(/%u[0-9a-f]{4}/gi,function(e){return"%26%23"+parseInt(e.slice(2),16)+"%3B"});for(var i="",l=0;l<o.length;l+=limit){var c=o.length>=limit?o.slice(l,l+limit):o;if(l+limit<o.length){var f=c.charCodeAt(c.length-1);f>=55296&&f<=56319&&(c=c.slice(0,-1),l-=1)}for(var s=[],u=0;u<c.length;++u){var y=c.charCodeAt(u);45===y||46===y||95===y||126===y||y>=48&&y<=57||y>=65&&y<=90||y>=97&&y<=122||a===formats.RFC1738&&(40===y||41===y)?s[s.length]=c.charAt(u):y<128?s[s.length]=hexTable[y]:y<2048?s[s.length]=hexTable[192|y>>6]+hexTable[128|63&y]:y<55296||y>=57344?s[s.length]=hexTable[224|y>>12]+hexTable[128|y>>6&63]+hexTable[128|63&y]:(u+=1,y=65536+((1023&y)<<10|1023&c.charCodeAt(u)),s[s.length]=hexTable[240|y>>18]+hexTable[128|y>>12&63]+hexTable[128|y>>6&63]+hexTable[128|63&y])}i+=s.join("")}return i},compact=function compact(e){for(var r=[{obj:{o:e},prop:"o"}],t=getSideChannel(),n=0;n<r.length;++n)for(var a=r[n],o=a.obj[a.prop],i=Object.keys(o),l=0;l<i.length;++l){var c=i[l],f=o[c];"object"!=typeof f||null===f||t.has(f)||(r[r.length]={obj:o,prop:c},t.set(f,!0))}return compactQueue(r),e},isRegExp=function isRegExp(e){return"[object RegExp]"===Object.prototype.toString.call(e)},isBuffer=function isBuffer(e){return!(!e||"object"!=typeof e||!(e.constructor&&e.constructor.isBuffer&&e.constructor.isBuffer(e)))},combine=function combine(e,r,t,n,a){if(isOverflow(e)){if(a)throw new RangeError("Array limit exceeded. Only "+t+" element"+(1===t?"":"s")+" allowed in an array.");var o=getMaxIndex(e)+1;return e[o]=r,setMaxIndex(e,o),e}var i=[].concat(e,r);if(i.length>t){if(a)throw new RangeError("Array limit exceeded. Only "+t+" element"+(1===t?"":"s")+" allowed in an array.");return markOverflow(arrayToObject(i,{plainObjects:n}),i.length-1)}return i},maybeMap=function maybeMap(e,r){if(isArray(e)){for(var t=[],n=0;n<e.length;n+=1)t[t.length]=r(e[n]);return t}return r(e)};module.exports={/* common-shake removed: arrayToObject:arrayToObject *//* common-shake removed: assign:assign */combine:combine,compact:compact,decode:decode,encode:encode,isBuffer:isBuffer,isOverflow:isOverflow,isRegExp:isRegExp,markOverflow:markOverflow,maybeMap:maybeMap,merge:merge};
+server\node_modules\qs\dist\qs.js : linha 17
+  "use strict";var $TypeError=require(20),inspect=require(42),getSideChannelList=require(43),getSideChannelMap=require(44),getSideChannelWeakMap=require(45),makeChannel=getSideChannelWeakMap||getSideChannelMap||getSideChannelList;module.exports=function getSideChannel(){var e,n={assert:function(e){if(!n.has(e)){var t=e&&Object(e)===e?"the given object key":inspect(e);throw new $TypeError("Side channel does not contain "+t)}},delete:function(n){return!!e&&e.delete(n)},get:function(n){return e&&e.get(n)},has:function(n){return!!e&&e.has(n)},set:function(n,t){e||(e=makeChannel()),e.set(n,t)}};return n};
+server\node_modules\qs\dist\qs.js : linha 138
+  "use strict";var GetIntrinsic=require(25),callBound=require(12),inspect=require(42),getSideChannelMap=require(44),$TypeError=require(20),$WeakMap=GetIntrinsic("%WeakMap%",!0),$weakMapGet=callBound("WeakMap.prototype.get",!0),$weakMapSet=callBound("WeakMap.prototype.set",!0),$weakMapHas=callBound("WeakMap.prototype.has",!0),$weakMapDelete=callBound("WeakMap.prototype.delete",!0);module.exports=$WeakMap?function getSideChannelWeakMap(){var e,t,a={assert:function(e){if(!a.has(e))throw new $TypeError("Side channel does not contain "+inspect(e))},delete:function(a){if($WeakMap&&a&&("object"==typeof a||"function"==typeof a)){if(e)return $weakMapDelete(e,a)}else if(getSideChannelMap&&t)return t.delete(a);return!1},get:function(a){return $WeakMap&&a&&("object"==typeof a||"function"==typeof a)&&e?$weakMapGet(e,a):t&&t.get(a)},has:function(a){return $WeakMap&&a&&("object"==typeof a||"function"==typeof a)&&e?$weakMapHas(e,a):!!t&&t.has(a)},set:function(a,n){$WeakMap&&a&&("object"==typeof a||"function"==typeof a)?(e||(e=new $WeakMap),$weakMapSet(e,a,n)):getSideChannelMap&&(t||(t=getSideChannelMap()),t.set(a,n))}};return a}:getSideChannelMap;
+server\node_modules\qs\lib\stringify.js : linha 90
+  while ((tmpSc = tmpSc.get(sentinel)) !== void undefined && !findFlag) {
+server\node_modules\qs\lib\stringify.js : linha 92
+  var pos = tmpSc.get(object);
+server\node_modules\qs\lib\stringify.js : linha 101
+  if (typeof tmpSc.get(sentinel) === 'undefined') {
+server\node_modules\qs\lib\utils.js : linha 24
+  return overflowChannel.get(obj);
+server\node_modules\router\lib\route.js : linha 183
+  *   .get(function(req, res, next){
+server\node_modules\semver\classes\range.js : linha 110
+  const cached = cache.get(memoKey)
+server\node_modules\semver\classes\range.js : linha 165
+  rangeMap.delete('')
+server\node_modules\semver\internal\lrucache.js : linha 10
+  const value = this.map.get(key)
+server\node_modules\semver\internal\lrucache.js : linha 15
+  this.map.delete(key)
+server\node_modules\semver\internal\lrucache.js : linha 22
+  return this.map.delete(key)
+server\node_modules\semver\internal\lrucache.js : linha 26
+  const deleted = this.delete(key)
+server\node_modules\semver\internal\lrucache.js : linha 32
+  this.delete(firstKey)
+server\node_modules\side-channel\index.js : linha 31
+  return $channelData && $channelData.get(key);
+server\node_modules\side-channel\test\index.js : linha 70
+  st.equal(channel.get(o), undefined, 'nonexistent value yields undefined');
+server\node_modules\side-channel\test\index.js : linha 74
+  st.equal(channel.get(o), data, '"get" yields data set by "set"');
+server\node_modules\side-channel\test\index.js : linha 82
+  st.equal(channel.get(o), undefined, 'value not set');
+server\node_modules\side-channel\test\index.js : linha 85
+  st.equal(channel.get(o), 42, 'value was set');
+server\node_modules\side-channel\test\index.js : linha 88
+  st.equal(channel.get(o), Infinity, 'value was set again');
+server\node_modules\side-channel\test\index.js : linha 92
+  st.equal(channel.get(o), Infinity, 'o is not modified');
+server\node_modules\side-channel\test\index.js : linha 93
+  st.equal(channel.get(o2), 17, 'o2 is set');
+server\node_modules\side-channel\test\index.js : linha 96
+  st.equal(channel.get(o), 14, 'o is modified');
+server\node_modules\side-channel\test\index.js : linha 97
+  st.equal(channel.get(o2), 17, 'o2 is not modified');
+server\node_modules\side-channel-list\test\index.js : linha 54
+  st.equal(channel.get(o), undefined, 'nonexistent value yields undefined');
+server\node_modules\side-channel-list\test\index.js : linha 58
+  st.equal(channel.get(o), data, '"get" yields data set by "set"');
+server\node_modules\side-channel-list\test\index.js : linha 66
+  st.equal(channel.get(o), undefined, 'value not set');
+server\node_modules\side-channel-list\test\index.js : linha 69
+  st.equal(channel.get(o), 42, 'value was set');
+server\node_modules\side-channel-list\test\index.js : linha 72
+  st.equal(channel.get(o), Infinity, 'value was set again');
+server\node_modules\side-channel-list\test\index.js : linha 76
+  st.equal(channel.get(o), Infinity, 'o is not modified');
+server\node_modules\side-channel-list\test\index.js : linha 77
+  st.equal(channel.get(o2), 17, 'o2 is set');
+server\node_modules\side-channel-list\test\index.js : linha 80
+  st.equal(channel.get(o), 14, 'o is modified');
+server\node_modules\side-channel-list\test\index.js : linha 81
+  st.equal(channel.get(o2), 17, 'o2 is not modified');
+server\node_modules\side-channel-list\test\index.js : linha 112
+  st.equal(channel.get('a'), 1, 'second node value is intact after deleting first');
+server\node_modules\side-channel-list\test\index.js : linha 129
+  st.equal(channel.get('a'), undefined, 'get a yields undefined');
+server\node_modules\side-channel-list\test\index.js : linha 132
+  st.equal(channel.get('c'), 3, 'can set new values after emptying');
+server\node_modules\side-channel-list\test\index.js : linha 146
+  st.equal(channel.get('a'), 1, 'first node still intact');
+server\node_modules\side-channel-list\test\index.js : linha 148
+  st.equal(channel.get('c'), 3, 'last node still intact');
+server\node_modules\side-channel-map\test\index.js : linha 58
+  st.equal(channel.get(o), undefined, 'nonexistent value yields undefined');
+server\node_modules\side-channel-map\test\index.js : linha 62
+  st.equal(channel.get(o), data, '"get" yields data set by "set"');
+server\node_modules\side-channel-map\test\index.js : linha 70
+  st.equal(channel.get(o), undefined, 'value not set');
+server\node_modules\side-channel-map\test\index.js : linha 73
+  st.equal(channel.get(o), 42, 'value was set');
+server\node_modules\side-channel-map\test\index.js : linha 76
+  st.equal(channel.get(o), Infinity, 'value was set again');
+server\node_modules\side-channel-map\test\index.js : linha 80
+  st.equal(channel.get(o), Infinity, 'o is not modified');
+server\node_modules\side-channel-map\test\index.js : linha 81
+  st.equal(channel.get(o2), 17, 'o2 is set');
+server\node_modules\side-channel-map\test\index.js : linha 84
+  st.equal(channel.get(o), 14, 'o is modified');
+server\node_modules\side-channel-map\test\index.js : linha 85
+  st.equal(channel.get(o2), 17, 'o2 is not modified');
+server\node_modules\side-channel-weakmap\index.js : linha 55
+  return $m && $m.get(key);
+server\node_modules\side-channel-weakmap\test\index.js : linha 58
+  st.equal(channel.get(o), undefined, 'nonexistent value yields undefined');
+server\node_modules\side-channel-weakmap\test\index.js : linha 62
+  st.equal(channel.get(o), data, '"get" yields data set by "set"');
+server\node_modules\side-channel-weakmap\test\index.js : linha 70
+  st.equal(channel.get(o), undefined, 'value not set');
+server\node_modules\side-channel-weakmap\test\index.js : linha 73
+  st.equal(channel.get(o), 42, 'value was set');
+server\node_modules\side-channel-weakmap\test\index.js : linha 76
+  st.equal(channel.get(o), Infinity, 'value was set again');
+server\node_modules\side-channel-weakmap\test\index.js : linha 80
+  st.equal(channel.get(o), Infinity, 'o is not modified');
+server\node_modules\side-channel-weakmap\test\index.js : linha 81
+  st.equal(channel.get(o2), 17, 'o2 is set');
+server\node_modules\side-channel-weakmap\test\index.js : linha 84
+  st.equal(channel.get(o), 14, 'o is modified');
+server\node_modules\side-channel-weakmap\test\index.js : linha 85
+  st.equal(channel.get(o2), 17, 'o2 is not modified');
+server\routes\catalogo.js : linha 28
+  catalogoRouter.get(
+server\routes\catalogo.js : linha 42
+  catalogoRouter.get(
+server\routes\catalogo.js : linha 53
+  catalogoRouter.post(
+server\routes\catalogo.js : linha 71
+  catalogoRouter.delete(
+server\routes\catalogo.js : linha 80
+  catalogoRouter.get(
+server\routes\catalogo.js : linha 100
+  catalogoRouter.post(
+server\routes\catalogo.js : linha 110
+  catalogoRouter.put(
+server\routes\catalogo.js : linha 123
+  catalogoRouter.delete(
+server\routes\catalogo.js : linha 134
+  catalogoRouter.post(
+server\routes\catalogo.js : linha 164
+  catalogoRouter.delete(
+server\routes\clientes.js : linha 26
+  clientesRouter.get(
+server\routes\clientes.js : linha 49
+  clientesRouter.get(
+server\routes\clientes.js : linha 68
+  clientesRouter.post(
+server\routes\clientes.js : linha 78
+  clientesRouter.put(
+server\routes\clientes.js : linha 91
+  clientesRouter.delete(
+server\routes\contratos.js : linha 24
+  contratosRouter.get(
+server\routes\contratos.js : linha 38
+  contratosRouter.get(
+server\routes\contratos.js : linha 50
+  contratosRouter.get(
+server\routes\contratos.js : linha 70
+  contratosRouter.post(
+server\routes\contratos.js : linha 81
+  contratosRouter.put(
+server\routes\contratos.js : linha 101
+  contratosRouter.delete(
+server\routes\dashboard.js : linha 15
+  dashboardRouter.get(
+server\routes\dashboard.js : linha 45
+  count: funnelMap.get(stage)?.count ?? 0,
+server\routes\dashboard.js : linha 46
+  totalCents: Number(funnelMap.get(stage)?.total ?? 0),
+server\routes\eventos.js : linha 59
+  eventosRouter.get(
+server\routes\eventos.js : linha 84
+  eventosRouter.get(
+server\routes\eventos.js : linha 105
+  eventosRouter.get(
+server\routes\eventos.js : linha 130
+  eventosRouter.post(
+server\routes\eventos.js : linha 156
+  eventosRouter.put(
+server\routes\eventos.js : linha 193
+  eventosRouter.delete(
+server\routes\eventos.js : linha 206
+  locaisRouter.get(
+server\routes\eventos.js : linha 216
+  locaisRouter.post(
+server\routes\eventos.js : linha 235
+  locaisRouter.delete(
+server\routes\financeiro.js : linha 12
+  financeiroRouter.get(
+server\routes\financeiro.js : linha 24
+  financeiroRouter.get(
+server\routes\financeiro.js : linha 46
+  financeiroRouter.get(
+server\routes\financeiro.js : linha 57
+  financeiroRouter.post(
+server\routes\financeiro.js : linha 75
+  financeiroRouter.post(
+server\routes\financeiro.js : linha 93
+  financeiroRouter.delete(
+server\routes\financeiro.js : linha 102
+  financeiroRouter.get(
+server\routes\financeiro.js : linha 115
+  financeiroRouter.post(
+server\routes\financeiro.js : linha 134
+  financeiroRouter.post(
+server\routes\financeiro.js : linha 152
+  financeiroRouter.delete(
+server\routes\financeiro.js : linha 161
+  financeiroRouter.get(
+server\routes\fornecedores.js : linha 25
+  fornecedoresRouter.get(
+server\routes\fornecedores.js : linha 37
+  fornecedoresRouter.get(
+server\routes\fornecedores.js : linha 53
+  fornecedoresRouter.post(
+server\routes\fornecedores.js : linha 63
+  fornecedoresRouter.put(
+server\routes\fornecedores.js : linha 76
+  fornecedoresRouter.delete(
+server\routes\leads.js : linha 23
+  leadsRouter.get(
+server\routes\leads.js : linha 36
+  leadsRouter.post(
+server\routes\leads.js : linha 46
+  leadsRouter.put(
+server\routes\leads.js : linha 59
+  leadsRouter.delete(
+server\routes\leads.js : linha 68
+  leadsRouter.post(
+server\routes\operacional.js : linha 15
+  operacionalRouter.get(
+server\routes\operacional.js : linha 28
+  operacionalRouter.get(
+server\routes\operacional.js : linha 48
+  for (const it of items) byChecklist.get(it.checklistId)?.items.push(it);
+server\routes\operacional.js : linha 54
+  operacionalRouter.post(
+server\routes\operacional.js : linha 74
+  operacionalRouter.patch(
+server\routes\operacional.js : linha 88
+  operacionalRouter.delete(
+server\routes\operacional.js : linha 97
+  operacionalRouter.post(
+server\routes\operacional.js : linha 108
+  operacionalRouter.delete(
+server\routes\operacional.js : linha 117
+  operacionalRouter.post(
+server\routes\operacional.js : linha 128
+  operacionalRouter.patch(
+server\routes\operacional.js : linha 140
+  operacionalRouter.delete(
+server\routes\operacional.js : linha 149
+  operacionalRouter.post(
+server\routes\operacional.js : linha 168
+  operacionalRouter.delete(
+server\routes\oportunidades.js : linha 30
+  oportunidadesRouter.get(
+server\routes\oportunidades.js : linha 44
+  oportunidadesRouter.get(
+server\routes\oportunidades.js : linha 65
+  oportunidadesRouter.post(
+server\routes\oportunidades.js : linha 75
+  oportunidadesRouter.put(
+server\routes\oportunidades.js : linha 88
+  oportunidadesRouter.patch(
+server\routes\oportunidades.js : linha 102
+  oportunidadesRouter.delete(
+server\routes\oportunidades.js : linha 111
+  oportunidadesRouter.post(
+server\routes\orcamentos.js : linha 44
+  orcamentosRouter.get(
+server\routes\orcamentos.js : linha 58
+  orcamentosRouter.get(
+server\routes\orcamentos.js : linha 73
+  orcamentosRouter.get(
+server\routes\orcamentos.js : linha 95
+  orcamentosRouter.post(
+server\routes\orcamentos.js : linha 114
+  orcamentosRouter.put(
+server\routes\orcamentos.js : linha 136
+  orcamentosRouter.delete(
+server\routes\relatorios.js : linha 12
+  relatoriosRouter.get(
+server\routes\usuarios.js : linha 10
+  usuariosRouter.get(
+
+================================================================================
+8. AUTENTICAÇÃO / JWT / COOKIE
+================================================================================
+[OK] Cookie httpOnly encontrado.
+[OK] SameSite=Lax.
+[OK] Secure condicionado à produção.
+[OK] bcrypt utilizado para senha.
+[OK] JWT utilizado.
+
+================================================================================
+9. RBAC / PERMISSÕES
+================================================================================
+roles.js encontrado.
+[OK] Papel encontrado: ADMIN
+[OK] Papel encontrado: SOCIO
+[OK] Papel encontrado: COMERCIAL
+[OK] Papel encontrado: OPERACIONAL
+[OK] Papel encontrado: FINANCEIRO
+
+Rotas sem requireRole potencialmente relevantes:
+[REVISAR] server\node_modules\express\lib\application.js
+[REVISAR] server\routes\usuarios.js
+
+================================================================================
+10. OPERAÇÕES DELETE
+================================================================================
+[DELETE] server\node_modules\postgres\cf\polyfills.js : linha 225
+  tasks.delete(id)
+[DELETE] server\node_modules\postgres\cf\polyfills.js : linha 232
+  tasks.delete(id)
+[DELETE] server\node_modules\postgres\cf\src\subscribe.js : linha 63
+  fns.delete(subscriber)
+[DELETE] server\node_modules\postgres\cf\src\subscribe.js : linha 64
+  fns.size === 0 && subscribers.delete(event)
+[DELETE] server\node_modules\postgres\cjs\src\subscribe.js : linha 62
+  fns.delete(subscriber)
+[DELETE] server\node_modules\postgres\cjs\src\subscribe.js : linha 63
+  fns.size === 0 && subscribers.delete(event)
+[DELETE] server\node_modules\postgres\src\subscribe.js : linha 62
+  fns.delete(subscriber)
+[DELETE] server\node_modules\postgres\src\subscribe.js : linha 63
+  fns.size === 0 && subscribers.delete(event)
+[DELETE] server\node_modules\qs\dist\qs.js : linha 17
+  "use strict";var $TypeError=require(20),inspect=require(42),getSideChannelList=require(43),getSideChannelMap=require(44),getSideChannelWeakMap=require(45),makeChannel=getSideChannelWeakMap||getSideChannelMap||getSideChannelList;module.exports=function getSideChannel(){var e,n={assert:function(e){if(!n.has(e)){var t=e&&Object(e)===e?"the given object key":inspect(e);throw new $TypeError("Side channel does not contain "+t)}},delete:function(n){return!!e&&e.delete(n)},get:function(n){return e&&e.get(n)},has:function(n){return!!e&&e.has(n)},set:function(n,t){e||(e=makeChannel()),e.set(n,t)}};return n};
+[DELETE] server\node_modules\qs\dist\qs.js : linha 138
+  "use strict";var GetIntrinsic=require(25),callBound=require(12),inspect=require(42),getSideChannelMap=require(44),$TypeError=require(20),$WeakMap=GetIntrinsic("%WeakMap%",!0),$weakMapGet=callBound("WeakMap.prototype.get",!0),$weakMapSet=callBound("WeakMap.prototype.set",!0),$weakMapHas=callBound("WeakMap.prototype.has",!0),$weakMapDelete=callBound("WeakMap.prototype.delete",!0);module.exports=$WeakMap?function getSideChannelWeakMap(){var e,t,a={assert:function(e){if(!a.has(e))throw new $TypeError("Side channel does not contain "+inspect(e))},delete:function(a){if($WeakMap&&a&&("object"==typeof a||"function"==typeof a)){if(e)return $weakMapDelete(e,a)}else if(getSideChannelMap&&t)return t.delete(a);return!1},get:function(a){return $WeakMap&&a&&("object"==typeof a||"function"==typeof a)&&e?$weakMapGet(e,a):t&&t.get(a)},has:function(a){return $WeakMap&&a&&("object"==typeof a||"function"==typeof a)&&e?$weakMapHas(e,a):!!t&&t.has(a)},set:function(a,n){$WeakMap&&a&&("object"==typeof a||"function"==typeof a)?(e||(e=new $WeakMap),$weakMapSet(e,a,n)):getSideChannelMap&&(t||(t=getSideChannelMap()),t.set(a,n))}};return a}:getSideChannelMap;
+[DELETE] server\node_modules\semver\classes\range.js : linha 165
+  rangeMap.delete('')
+[DELETE] server\node_modules\semver\internal\lrucache.js : linha 15
+  this.map.delete(key)
+[DELETE] server\node_modules\semver\internal\lrucache.js : linha 22
+  return this.map.delete(key)
+[DELETE] server\node_modules\semver\internal\lrucache.js : linha 26
+  const deleted = this.delete(key)
+[DELETE] server\node_modules\semver\internal\lrucache.js : linha 32
+  this.delete(firstKey)
+[DELETE] server\routes\catalogo.js : linha 71
+  catalogoRouter.delete(
+[DELETE] server\routes\catalogo.js : linha 123
+  catalogoRouter.delete(
+[DELETE] server\routes\catalogo.js : linha 164
+  catalogoRouter.delete(
+[DELETE] server\routes\clientes.js : linha 91
+  clientesRouter.delete(
+[DELETE] server\routes\contratos.js : linha 101
+  contratosRouter.delete(
+[DELETE] server\routes\eventos.js : linha 193
+  eventosRouter.delete(
+[DELETE] server\routes\eventos.js : linha 235
+  locaisRouter.delete(
+[DELETE] server\routes\financeiro.js : linha 93
+  financeiroRouter.delete(
+[DELETE] server\routes\financeiro.js : linha 152
+  financeiroRouter.delete(
+[DELETE] server\routes\fornecedores.js : linha 76
+  fornecedoresRouter.delete(
+[DELETE] server\routes\leads.js : linha 59
+  leadsRouter.delete(
+[DELETE] server\routes\operacional.js : linha 88
+  operacionalRouter.delete(
+[DELETE] server\routes\operacional.js : linha 108
+  operacionalRouter.delete(
+[DELETE] server\routes\operacional.js : linha 140
+  operacionalRouter.delete(
+[DELETE] server\routes\operacional.js : linha 168
+  operacionalRouter.delete(
+[DELETE] server\routes\oportunidades.js : linha 102
+  oportunidadesRouter.delete(
+[DELETE] server\routes\orcamentos.js : linha 136
+  orcamentosRouter.delete(
+
+================================================================================
+11. TRANSAÇÕES SQL
+================================================================================
+[TRANSAÇÃO] server\node_modules\postgres\cf\src\connection.js
+[TRANSAÇÃO] server\node_modules\postgres\cf\src\large.js
+[TRANSAÇÃO] server\node_modules\postgres\cjs\src\connection.js
+[TRANSAÇÃO] server\node_modules\postgres\cjs\src\large.js
+[TRANSAÇÃO] server\node_modules\postgres\src\connection.js
+[TRANSAÇÃO] server\node_modules\postgres\src\large.js
+[TRANSAÇÃO] server\routes\financeiro.js
+[TRANSAÇÃO] server\routes\orcamentos.js
+
+================================================================================
+12. PADRÕES POTENCIALMENTE PROBLEMÁTICOS
+================================================================================
+
+PADRÃO: innerHTML
+  [REVISAR] graphify-out\graph.html : linha 135
+    document.getElementById('info-content').innerHTML = `
+  [REVISAR] graphify-out\graph.html : linha 184
+    document.getElementById('info-content').innerHTML = '<span class="empty">Click a node to inspect it</span>';
+  [REVISAR] graphify-out\graph.html : linha 192
+    searchResults.innerHTML = '';
+  [REVISAR] graphify-out\graph.html : linha 267
+    item.innerHTML = `<div class="legend-dot" style="background:${c.color}"></div>
+  [REVISAR] public\src\router.js : linha 36
+    container.innerHTML = '<div class="center-screen"><div class="spinner"></div></div>';
+  [REVISAR] public\src\utils.js : linha 9
+    else if (k === "html") node.innerHTML = v;
+  [REVISAR] public\src\views\login.js : linha 124
+    eyeBtn.innerHTML = icon(show ? "eyeOff" : "eye", 18);
+
+PADRÃO: eval
+  Nenhum encontrado.
+
+PADRÃO: count(*) + 1
+  Nenhum encontrado.
+
+PADRÃO: localStorage token
+  Nenhum encontrado.
+
+PADRÃO: sessionStorage token
+  Nenhum encontrado.
+
+PADRÃO: Math.random
+  Nenhum encontrado.
+
+================================================================================
+13. QUERIES SQL E INPUTS
+================================================================================
+server\auth.js : linha 32
+  const { email, password } = req.body ?? {};
+server\node_modules\body-parser\lib\read.js : linha 47
+  req.body = undefined
+server\node_modules\body-parser\lib\read.js : linha 162
+  req.body = parse(str, encoding)
+server\node_modules\express\lib\response.js : linha 363
+  *       var uid = req.params.uid
+server\node_modules\express\lib\response.js : linha 364
+  *         , file = req.params.file;
+server\node_modules\router\index.js : linha 169
+  const parentParams = req.params
+server\node_modules\router\index.js : linha 285
+  req.params = self.mergeParams
+server\node_modules\router\index.js : linha 605
+  paramVal = req.params[key]
+server\node_modules\router\index.js : linha 617
+  req.params[key] = paramCalled.value
+server\node_modules\router\index.js : linha 637
+  paramCalled.value = req.params[key]
+server\routes\catalogo.js : linha 56
+  const name = nn(req.body?.name);
+server\routes\catalogo.js : linha 74
+  await sql`delete from "Category" where id = ${req.params.id}`;
+server\routes\catalogo.js : linha 87
+  where p.id = ${req.params.id}`;
+server\routes\catalogo.js : linha 103
+  const data = prepInsert(pickProduct(req.body));
+server\routes\catalogo.js : linha 113
+  const data = pickProduct(req.body);
+server\routes\catalogo.js : linha 116
+  where id = ${req.params.id} returning *`;
+server\routes\catalogo.js : linha 126
+  await sql`delete from "ProductService" where id = ${req.params.id}`;
+server\routes\catalogo.js : linha 137
+  const supplierId = nn(req.body?.supplierId);
+server\routes\catalogo.js : linha 139
+  const isDefault = req.body?.isDefault === true || req.body?.isDefault === "true";
+server\routes\catalogo.js : linha 144
+  where "productServiceId" = ${req.params.id}`;
+server\routes\catalogo.js : linha 148
+  productServiceId: req.params.id,
+server\routes\catalogo.js : linha 150
+  costCents: toCents(req.body?.cost),
+server\routes\catalogo.js : linha 167
+  await sql`delete from "SupplierProduct" where id = ${req.params.linkId}`;
+server\routes\clientes.js : linha 52
+  const [client] = await sql`select * from "Client" where id = ${req.params.id}`;
+server\routes\clientes.js : linha 71
+  const data = prepInsert(pick(req.body));
+server\routes\clientes.js : linha 81
+  const data = pick(req.body);
+server\routes\clientes.js : linha 84
+  where id = ${req.params.id} returning *`;
+server\routes\clientes.js : linha 94
+  await sql`delete from "Client" where id = ${req.params.id}`;
+server\routes\contratos.js : linha 58
+  where ct.id = ${req.params.id}`;
+server\routes\contratos.js : linha 73
+  const data = prepInsert(pick(req.body));
+server\routes\contratos.js : linha 84
+  const data = pick(req.body);
+server\routes\contratos.js : linha 85
+  const [current] = await sql`select status, "signedAt" from "Contract" where id = ${req.params.id}`;
+server\routes\contratos.js : linha 95
+  where id = ${req.params.id} returning *`;
+server\routes\contratos.js : linha 104
+  await sql`delete from "Contract" where id = ${req.params.id}`;
+server\routes\eventos.js : linha 123
+  where e.id = ${req.params.id}`;
+server\routes\eventos.js : linha 136
+  const providedFinancial = FINANCIAL_BODY_FIELDS.some((f) => wasProvided(req.body?.[f]));
+server\routes\eventos.js : linha 141
+  const data = prepInsert(pick(req.body));
+server\routes\eventos.js : linha 159
+  const data = pick(req.body);
+server\routes\eventos.js : linha 169
+  from "Event" where id = ${req.params.id}`;
+server\routes\eventos.js : linha 181
+  where id = ${req.params.id} returning *`;
+server\routes\eventos.js : linha 196
+  await sql`delete from "Event" where id = ${req.params.id}`;
+server\routes\eventos.js : linha 219
+  const name = nn(req.body?.name);
+server\routes\eventos.js : linha 223
+  address: nn(req.body?.address),
+server\routes\eventos.js : linha 224
+  city: nn(req.body?.city),
+server\routes\eventos.js : linha 225
+  state: nn(req.body?.state),
+server\routes\eventos.js : linha 226
+  capacity: nn(req.body?.capacity) ? Number(req.body.capacity) : null,
+server\routes\eventos.js : linha 227
+  isOwn: req.body?.isOwn === true || req.body?.isOwn === "true",
+server\routes\eventos.js : linha 228
+  notes: nn(req.body?.notes),
+server\routes\eventos.js : linha 238
+  await sql`delete from "Venue" where id = ${req.params.id}`;
+server\routes\financeiro.js : linha 60
+  const b = req.body || {};
+server\routes\financeiro.js : linha 79
+  const [r] = await tx`select * from "AccountReceivable" where id = ${req.params.id}`;
+server\routes\financeiro.js : linha 96
+  await sql`delete from "AccountReceivable" where id = ${req.params.id}`;
+server\routes\financeiro.js : linha 118
+  const b = req.body || {};
+server\routes\financeiro.js : linha 138
+  const [p] = await tx`select * from "AccountPayable" where id = ${req.params.id}`;
+server\routes\financeiro.js : linha 155
+  await sql`delete from "AccountPayable" where id = ${req.params.id}`;
+server\routes\fornecedores.js : linha 40
+  const [supplier] = await sql`select * from "Supplier" where id = ${req.params.id}`;
+server\routes\fornecedores.js : linha 56
+  const data = prepInsert(pick(req.body));
+server\routes\fornecedores.js : linha 66
+  const data = pick(req.body);
+server\routes\fornecedores.js : linha 69
+  where id = ${req.params.id} returning *`;
+server\routes\fornecedores.js : linha 79
+  await sql`delete from "Supplier" where id = ${req.params.id}`;
+server\routes\leads.js : linha 39
+  const data = prepInsert(pick(req.body));
+server\routes\leads.js : linha 49
+  const data = pick(req.body);
+server\routes\leads.js : linha 52
+  where id = ${req.params.id} returning *`;
+server\routes\leads.js : linha 62
+  await sql`delete from "Lead" where id = ${req.params.id}`;
+server\routes\leads.js : linha 71
+  const [lead] = await sql`select * from "Lead" where id = ${req.params.id}`;
+server\routes\operacional.js : linha 31
+  const { eventId } = req.params;
+server\routes\operacional.js : linha 57
+  const b = req.body || {};
+server\routes\operacional.js : linha 78
+  if (TASK_STATUS.includes(req.body?.status)) patch.status = req.body.status;
+server\routes\operacional.js : linha 79
+  if (TASK_PRIORITY.includes(req.body?.priority)) patch.priority = req.body.priority;
+server\routes\operacional.js : linha 80
+  if ("assigneeId" in (req.body || {})) patch.assigneeId = nn(req.body.assigneeId);
+server\routes\operacional.js : linha 82
+  const [updated] = await sql`update "Task" set ${sql(patch)}, "updatedAt" = now() where id = ${req.params.id} returning *`;
+server\routes\operacional.js : linha 91
+  await sql`delete from "Task" where id = ${req.params.id}`;
+server\routes\operacional.js : linha 100
+  if (!nn(req.body?.eventId) || !nn(req.body?.title)) throw new HttpError(400, "Evento e título são obrigatórios.");
+server\routes\operacional.js : linha 101
+  const data = prepInsert({ eventId: req.body.eventId, title: req.body.title.trim() }, { updatedAt: false });
+server\routes\operacional.js : linha 111
+  await sql`delete from "ChecklistItem" where "checklistId" = ${req.params.id}`;
+server\routes\operacional.js : linha 112
+  await sql`delete from "Checklist" where id = ${req.params.id}`;
+server\routes\operacional.js : linha 120
+  if (!nn(req.body?.label)) throw new HttpError(400, "Informe o item.");
+server\routes\operacional.js : linha 121
+  const data = prepInsert({ checklistId: req.params.id, label: req.body.label.trim(), done: false }, { updatedAt: false });
+server\routes\operacional.js : linha 131
+  const done = req.body?.done === true || req.body?.done === "true";
+server\routes\operacional.js : linha 134
+  where id = ${req.params.id} returning *`;
+server\routes\operacional.js : linha 143
+  await sql`delete from "ChecklistItem" where id = ${req.params.id}`;
+server\routes\operacional.js : linha 152
+  const b = req.body || {};
+server\routes\operacional.js : linha 171
+  await sql`delete from "ScheduleItem" where id = ${req.params.id}`;
+server\routes\oportunidades.js : linha 52
+  where o.id = ${req.params.id}`;
+server\routes\oportunidades.js : linha 68
+  const data = prepInsert(pick(req.body));
+server\routes\oportunidades.js : linha 78
+  const data = pick(req.body);
+server\routes\oportunidades.js : linha 81
+  where id = ${req.params.id} returning *`;
+server\routes\oportunidades.js : linha 91
+  const stage = req.body?.stage;
+server\routes\oportunidades.js : linha 95
+  where id = ${req.params.id} returning *`;
+server\routes\oportunidades.js : linha 105
+  await sql`delete from "Opportunity" where id = ${req.params.id}`;
+server\routes\oportunidades.js : linha 114
+  const content = nn(req.body?.content);
+server\routes\oportunidades.js : linha 116
+  const type = TYPES.includes(req.body?.type) ? req.body.type : "NOTA";
+server\routes\oportunidades.js : linha 120
+  { type, content, opportunityId: req.params.id, userId: req.user.id },
+server\routes\orcamentos.js : linha 81
+  where b.id = ${req.params.id}`;
+server\routes\orcamentos.js : linha 98
+  const header = prepInsert(pickHeader(req.body));
+server\routes\orcamentos.js : linha 100
+  const items = pickItems(req.body);
+server\routes\orcamentos.js : linha 117
+  const header = pickHeader(req.body);
+server\routes\orcamentos.js : linha 118
+  const items = pickItems(req.body);
+server\routes\orcamentos.js : linha 123
+  where id = ${req.params.id} returning *`;
+server\routes\orcamentos.js : linha 139
+  await sql`delete from "BudgetItem" where "budgetId" = ${req.params.id}`;
+server\routes\orcamentos.js : linha 140
+  await sql`delete from "Budget" where id = ${req.params.id}`;
+
+================================================================================
+14. VERCEL
+================================================================================
+[AUSENTE] vercel.json
+
+================================================================================
+15. INDEX.HTML
+================================================================================
+[OK] charset.
+[OK] viewport.
+[OK] title.
+[INFO] Google Fonts utilizado.
+
+================================================================================
+16. TAMANHO DO PROJETO
+================================================================================
+Arquivos: 890
+Tamanho total: 4.45 MB
+
+================================================================================
+17. GIT
+================================================================================
+[OK] Repositório Git encontrado.
+Branch: main
+
+Status:
+ M .claude/launch.json
+ M public/index.html
+ M public/src/api.js
+ M public/src/app.js
+ M public/src/components/decor.js
+ M public/src/components/icons.js
+ M public/src/components/modal.js
+ M public/src/components/shell.js
+ M public/src/config.js
+ M public/src/utils.js
+ M public/src/views/clientes.js
+ M public/src/views/dashboard.js
+ M public/src/views/login.js
+ D public/src/views/placeholder.js
+ M public/styles/components.css
+ M public/styles/layout.css
+ M public/styles/login.css
+ M server/index.js
+ M server/routes/clientes.js
+ M server/routes/dashboard.js
+ M server/utils.js
+?? audit/
+?? graphify-out/
+?? public/src/components/form.js
+?? public/src/components/sued-wall.js
+?? public/src/roles.js
+?? public/src/views/catalogo.js
+?? public/src/views/contratos.js
+?? public/src/views/eventos.js
+?? public/src/views/financeiro.js
+?? public/src/views/fornecedores.js
+?? public/src/views/leads.js
+?? public/src/views/locais.js
+?? public/src/views/operacional.js
+?? public/src/views/orcamentos.js
+?? public/src/views/pipeline.js
+?? public/src/views/relatorios.js
+?? public/styles/decor.css
+?? server/audit-db.mjs
+?? server/inspect-db-rules.mjs
+?? server/inspect-db.mjs
+?? server/routes/catalogo.js
+?? server/routes/contratos.js
+?? server/routes/eventos.js
+?? server/routes/financeiro.js
+?? server/routes/fornecedores.js
+?? server/routes/leads.js
+?? server/routes/operacional.js
+?? server/routes/oportunidades.js
+?? server/routes/orcamentos.js
+?? server/routes/relatorios.js
+?? server/routes/usuarios.js
+?? server/test-db.mjs
+
+================================================================================
+FIM DA AUDITORIA
+================================================================================
+
+Relatório gerado em:
+C:\Users\hardf\Desktop\SUED SYSTEM\audit\SUED-AUDIT-REPORT.txt
+
+IMPORTANTE:
+Este relatório NÃO significa que todos os itens encontrados são erros.
+Os resultados precisam ser analisados antes de qualquer alteração.

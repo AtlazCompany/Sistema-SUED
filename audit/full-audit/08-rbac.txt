@@ -1,0 +1,70 @@
+=== FRONTEND ROLES ===
+
+// Fonte única de verdade do RBAC: mapa de papel → módulos permitidos.
+// Consumido pelo frontend (config.js → canAccess, filtra o menu) e pelo
+// backend (server/routes/*.js → requireRole, protege os endpoints), para
+// que a matriz de permissões nunca precise ser duplicada manualmente.
+const ALL_MODULES = [
+  "dashboard", "crm", "eventos", "fornecedores",
+  "orcamentos", "operacional", "financeiro", "contratos", "relatorios",
+];
+
+export const ROLE_MODULES = {
+  ADMIN: ALL_MODULES,
+  SOCIO: ALL_MODULES,
+  COMERCIAL: ["dashboard", "crm", "eventos", "orcamentos", "contratos", "relatorios"],
+  OPERACIONAL: ["dashboard", "eventos", "fornecedores", "operacional"],
+  FINANCEIRO: ["dashboard", "eventos", "financeiro", "contratos", "relatorios"],
+};
+
+// Papéis autorizados a acessar um módulo (inverso de ROLE_MODULES) — usado
+// pelo backend para montar requireRole(...) sem reescrever a matriz.
+export function rolesForModule(module) {
+  return Object.keys(ROLE_MODULES).filter((role) => ROLE_MODULES[role].includes(module));
+}
+
+
+=== CONFIG / NAVIGATION ===
+
+// Configurações do frontend: navegação e permissões por papel.
+import { ROLE_MODULES } from "./roles.js";
+
+export const APP_NAME = "SUED ERP";
+
+// Itens do menu. `module` casa com as permissões por papel.
+export const NAV_ITEMS = [
+  { module: "dashboard", label: "Dashboard", path: "/dashboard", icon: "dashboard" },
+  { module: "crm", label: "Leads", path: "/leads", icon: "userPlus" },
+  { module: "crm", label: "Clientes", path: "/clientes", icon: "users" },
+  { module: "crm", label: "Funil", path: "/funil", icon: "target" },
+  { module: "eventos", label: "Eventos", path: "/eventos", icon: "calendar" },
+  { module: "eventos", label: "Locais", path: "/locais", icon: "mapPin" },
+  { module: "fornecedores", label: "Fornecedores", path: "/fornecedores", icon: "truck" },
+  { module: "fornecedores", label: "Catálogo", path: "/catalogo", icon: "file" },
+  { module: "orcamentos", label: "Orçamentos", path: "/orcamentos", icon: "file" },
+  { module: "operacional", label: "Operacional", path: "/operacional", icon: "clipboard" },
+  { module: "financeiro", label: "Financeiro", path: "/financeiro", icon: "wallet" },
+  { module: "contratos", label: "Contratos", path: "/contratos", icon: "fileSignature" },
+  { module: "relatorios", label: "Relatórios", path: "/relatorios", icon: "chart" },
+];
+
+// RBAC: quais módulos cada papel acessa — fonte única em ./roles.js,
+// compartilhada com o backend (ver server/routes/*.js e server/auth.js).
+export { ROLE_MODULES };
+
+export const ROLE_LABELS = {
+  ADMIN: "Administrador",
+  SOCIO: "Sócio",
+  COMERCIAL: "Comercial",
+  OPERACIONAL: "Operacional",
+  FINANCEIRO: "Financeiro",
+};
+
+export function canAccess(role, module) {
+  return (ROLE_MODULES[role] || []).includes(module);
+}
+
+
+=== BACKEND REQUIRE ROLE USAGE ===
+
+C:\Users\hardf\Desktop\SUED SYSTEM\server\auth.js:69: export function requireAuth(req, res, next) { C:\Users\hardf\Desktop\SUED SYSTEM\server\auth.js:81: export const requireRole = C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\catalogo.js:3: import { requireAuth, requireRole } from "../auth.js"; C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\catalogo.js:8: catalogoRouter.use(requireAuth); C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\catalogo.js:9: catalogoRouter.use(requireRole(...rolesForModule("fornecedores"))); C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\clientes.js:3: import { requireAuth, requireRole } from "../auth.js"; C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\clientes.js:8: clientesRouter.use(requireAuth); C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\clientes.js:9: clientesRouter.use(requireRole(...rolesForModule("crm"))); C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\contratos.js:3: import { requireAuth, requireRole } from "../auth.js"; C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\contratos.js:8: contratosRouter.use(requireAuth); C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\contratos.js:9: contratosRouter.use(requireRole(...rolesForModule("contratos"))); C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\dashboard.js:3: import { requireAuth, requireRole } from "../auth.js"; C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\dashboard.js:8: dashboardRouter.use(requireAuth); C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\dashboard.js:9: dashboardRouter.use(requireRole(...rolesForModule("dashboard"))); C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\eventos.js:3: import { requireAuth, requireRole } from "../auth.js"; C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\eventos.js:8: eventosRouter.use(requireAuth); C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\eventos.js:9: eventosRouter.use(requireRole(...rolesForModule("eventos"))); C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\eventos.js:203: locaisRouter.use(requireAuth); C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\eventos.js:204: locaisRouter.use(requireRole(...rolesForModule("eventos"))); C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\financeiro.js:3: import { requireAuth, requireRole } from "../auth.js"; C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\financeiro.js:8: financeiroRouter.use(requireAuth); C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\financeiro.js:9: financeiroRouter.use(requireRole(...rolesForModule("financeiro"))); C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\fornecedores.js:3: import { requireAuth, requireRole } from "../auth.js"; C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\fornecedores.js:8: fornecedoresRouter.use(requireAuth); C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\fornecedores.js:9: fornecedoresRouter.use(requireRole(...rolesForModule("fornecedores"))); C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\leads.js:3: import { requireAuth, requireRole } from "../auth.js"; C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\leads.js:8: leadsRouter.use(requireAuth); C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\leads.js:9: leadsRouter.use(requireRole(...rolesForModule("crm"))); C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\operacional.js:3: import { requireAuth, requireRole } from "../auth.js"; C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\operacional.js:8: operacionalRouter.use(requireAuth); C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\operacional.js:9: operacionalRouter.use(requireRole(...rolesForModule("operacional"))); C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\oportunidades.js:3: import { requireAuth, requireRole } from "../auth.js"; C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\oportunidades.js:8: oportunidadesRouter.use(requireAuth); C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\oportunidades.js:9: oportunidadesRouter.use(requireRole(...rolesForModule("crm"))); C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\orcamentos.js:3: import { requireAuth, requireRole } from "../auth.js"; C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\orcamentos.js:8: orcamentosRouter.use(requireAuth); C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\orcamentos.js:9: orcamentosRouter.use(requireRole(...rolesForModule("orcamentos"))); C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\relatorios.js:3: import { requireAuth, requireRole } from "../auth.js"; C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\relatorios.js:8: relatoriosRouter.use(requireAuth); C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\relatorios.js:9: relatoriosRouter.use(requireRole(...rolesForModule("relatorios"))); C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\usuarios.js:3: import { requireAuth } from "../auth.js"; C:\Users\hardf\Desktop\SUED SYSTEM\server\routes\usuarios.js:7: usuariosRouter.use(requireAuth);
