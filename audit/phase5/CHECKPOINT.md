@@ -1103,3 +1103,48 @@ mudança de servidor); `node --check` OK.
 Observação de dado real (não alterado): o item de catálogo "Buffer SUED
 Prata" tem custo de referência R$ 199,90 e preço sugerido R$ 179,90
 (margem negativa) — confirmar com a equipe se é intencional.
+
+## 51. Lote 12 (08/10/2026) — pendências 1 a 7, na ordem pedida pelo usuário
+
+1. **Produção após o Lote 11 (só leitura)**: site 200, CSP/`X-Frame-Options`
+   ok, login inválido → 401 (banco respondendo). **Mas o Lote 11 NÃO foi
+   publicado**: `088eb4b` está no GitHub desde 03:36 UTC, e o Render ainda
+   serve os arquivos de 03:28 (Lote 10 — `layout.css` com 3556 bytes, sem
+   `.grid-2`). Auto-deploy do Render não disparou ou falhou — conferir no
+   painel do Render (sem acesso daqui).
+2. **Resíduo de `AuditLog` dos testes**: `tests/test-users.js`
+   (`deleteTestUsers`/`deleteTestUsersByEmail`) apaga o log do ator antes
+   do usuário; 19 exclusões em 11 arquivos trocadas. Backup antes
+   (`backup-2026-10-08T11-59-47-367Z.json`); suíte contra a produção
+   (`--test-concurrency=1`): 284/284, **zero resíduo** (antes: 53 linhas);
+   as 2 linhas reais de `AuditLog` (01/09) intactas.
+3. **Estilos inline / movimento**: 122 estilos inline repetidos viraram
+   classes (`components.css`, "Utilitários das telas"; `!important` para
+   manter a precedência do inline). Restam 80 (dinâmicos ou únicos).
+   `prefers-reduced-motion` global em `base.css` (spinner preservado).
+   Verificação: Chrome headless, código antigo × novo lado a lado, 14 telas
+   + 14 modais em 1440px e 390px = **56 capturas, 0 pixel diferente**.
+   Limitação: banco quase vazio, então listas com dados (eventos do
+   dashboard, barras de relatório, itens de orçamento) não foram exercitadas.
+4. **Banco de testes separado**: Postgres 17 local em Docker
+   (`sued-test-db`, porta 54329), estrutura copiada da produção com
+   `pg_dump --schema-only` (só leitura) em `server/db/schema.sql`.
+   `npm test` lê `server/.env.test`; a trava `tests/guard-db.js` pula os
+   testes de banco se o endereço não for local (testado: 102 pass/15 skip
+   com URL remota). `npm run test:setup-db` recria o banco e recusa banco
+   não local. Bug antigo achado ao rodar em paralelo: prefixo
+   `AUDIT-FASE5-` de `fk-write-guards` casava com o dos outros arquivos →
+   `AUDIT-FASE5-FKW-`. **284/284 em paralelo, 3 rodadas, ~29s.** Instruções
+   em `server/db/README.md`. A política de testar em produção acabou.
+5. **Monitoramento**: `GET /api/health` (`select 1`; 200/503 sem detalhe) +
+   `.github/workflows/keepalive.yml` diário 08:00 BRT com novas tentativas
+   (Render acorda devagar). Mantém o Supabase Free ativo; falha → e-mail do
+   GitHub. 286/286 PASS. Atenção: o GitHub desativa agendamentos após 60
+   dias sem commits no repositório (reativar na aba Actions).
+6. **Domínio de e-mail próprio**: depende do usuário (domínio + DNS no
+   Resend). Código já pronto (`MAIL_FROM`). Sem isso, o remetente
+   `onboarding@resend.dev` só entrega para o e-mail da conta Resend.
+7. **"Buffer SUED Prata" com margem −11,1%**: decisão da equipe; nada alterado.
+
+Commits locais: `bc846f3`, `44c5023`, `bc40876` (+ este). **Push/deploy
+aguardando o usuário.**
