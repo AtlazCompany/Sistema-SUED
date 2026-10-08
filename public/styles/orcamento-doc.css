@@ -142,6 +142,25 @@ table.doc-orcamento__items { width: 100%; border-collapse: collapse; margin-bott
     background: none;
   }
   .no-print { display: none !important; }
+
+  /* Documento aberto num modal (lista de Orçamentos, Contratos): o modal
+     tem altura máxima com rolagem e fica "fixo" na tela — sem isto, só o
+     trecho visível do documento iria para o papel. O resto da página sai
+     do fluxo para não gerar folhas em branco. */
+  body:has(.modal-backdrop .doc-orcamento) > :not(.modal-backdrop) { display: none !important; }
+  .modal-backdrop:has(.doc-orcamento),
+  .modal-backdrop:has(.doc-orcamento) .modal {
+    position: static;
+    display: block;
+    max-width: none;
+    max-height: none;
+    overflow: visible;
+    padding: 0;
+    background: none;
+    backdrop-filter: none;
+    box-shadow: none;
+    animation: none;
+  }
 }
 
 /* ---- Página pública do orçamento (/orcamento/:id) ---- */

@@ -6,6 +6,42 @@ import { renderTable } from "../components/table.js";
 import { toast } from "../components/toast.js";
 import { field } from "../components/form.js";
 import { renderOrcamentoDocumento } from "../components/orcamento-doc.js";
+import { openModal } from "../components/modal.js";
+
+// O cabeçalho/rodapé que o navegador imprime por cima da página (data,
+// título, URL, número da página) usa o title da aba — não dá para
+// removê-lo por CSS, só trocar por algo útil enquanto o diálogo de
+// impressão está aberto ("Cabeçalhos e rodapés" é uma opção do
+// próprio navegador, fora do nosso controle).
+function imprimirOrcamento(number) {
+  const originalTitle = document.title;
+  document.title = `Orçamento ${number || "novo"} — SUED`;
+  window.addEventListener("afterprint", () => { document.title = originalTitle; }, { once: true });
+  window.print();
+}
+
+// Modal da lista: o documento do orçamento (o mesmo do link do cliente)
+// com o botão de imprimir / salvar em PDF.
+async function abrirVisualizacao(id, btn) {
+  btn.disabled = true;
+  try {
+    const budget = await api.get(`/orcamentos/${id}`);
+    const fechar = el("button", { class: "btn btn--ghost", type: "button" }, "Fechar");
+    const imprimir = el("button", { class: "btn btn--primary", type: "button" }, "Imprimir / PDF");
+    imprimir.onclick = () => imprimirOrcamento(budget.number);
+    const modal = openModal({
+      title: `Orçamento ${budget.number}`,
+      body: renderOrcamentoDocumento(budget),
+      footer: [fechar, imprimir],
+      wide: true,
+    });
+    fechar.onclick = modal.close;
+  } catch (err) {
+    toast(err.message, "error");
+  } finally {
+    btn.disabled = false;
+  }
+}
 
 export const BUDGET_STATUS = {
   RASCUNHO: { label: "Rascunho", cls: "badge--muted" },
@@ -40,7 +76,17 @@ export async function renderOrcamentos() {
         { header: "Validade", render: (r) => r.validUntil ? formatDate(r.validUntil) : "—" },
         { header: "Status", render: (r) => {
           const s = BUDGET_STATUS[r.status] || { label: r.status, cls: "" };
-          return el("span", { class: `badge ${s.cls}` }, s.label);
+          const ver = el("button", {
+            class: "btn btn--subtle btn--sm",
+            type: "button",
+            title: "Visualizar e imprimir",
+            html: `${icon("eye", 15)}<span>Ver / imprimir</span>`,
+          });
+          ver.onclick = () => abrirVisualizacao(r.id, ver);
+          return el("div", { class: "flex items-center gap-2" }, [
+            el("span", { class: `badge ${s.cls}` }, s.label),
+            ver,
+          ]);
         } },
       ],
       rows: budgets,
@@ -197,17 +243,7 @@ export async function renderOrcamentos() {
     renderPreview();
 
     const printBtn = el("button", { class: "btn btn--outline btn--sm", type: "button" }, "Baixar PDF");
-    printBtn.onclick = () => {
-      // O cabeçalho/rodapé que o navegador imprime por cima da página (data,
-      // título, URL, número da página) usa o title da aba — não dá para
-      // removê-lo por CSS, só trocar por algo útil enquanto o diálogo de
-      // impressão está aberto ("Cabeçalhos e rodapés" é uma opção do
-      // próprio navegador, fora do nosso controle).
-      const originalTitle = document.title;
-      document.title = `Orçamento ${budget.number || "novo"} — SUED`;
-      window.addEventListener("afterprint", () => { document.title = originalTitle; }, { once: true });
-      window.print();
-    };
+    printBtn.onclick = () => imprimirOrcamento(budget.number);
 
     const clientLinkRow = el("div", { class: "flex items-center gap-2 no-print", style: "margin-bottom:14px;flex-wrap:wrap" }, [printBtn]);
     if (isEdit) {
