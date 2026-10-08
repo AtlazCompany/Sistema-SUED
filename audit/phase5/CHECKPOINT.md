@@ -1067,3 +1067,11 @@ visualmente o botão dourado com texto escuro antes do deploy.
 - Pendências de UX observadas (P2): no celular, os cartões "Próximos
   eventos" e "Funil comercial" do Dashboard ficam espremidos em 2
   colunas; tabela de Orçamentos rola na horizontal.
+
+**Deploy (08/10/2026)**: `7b36f48` publicado (push liberado pelo usuário
+via regra de permissão). Verificado em produção, só leitura: site 200;
+`x-powered-by` ausente; CSP e `X-Frame-Options: DENY` presentes; login
+inválido → 401 "E-mail ou senha inválidos." (banco respondendo); link
+público inexistente → 404 amigável; frontend novo servido (modal com
+`aria-modal`). Pendências do usuário: monitoramento (evita nova pausa do
+Supabase Free), domínio de e-mail próprio, banco separado para testes.
