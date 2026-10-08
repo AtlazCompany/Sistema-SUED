@@ -13,6 +13,7 @@ import cookieParser from "cookie-parser";
 import postgres from "postgres";
 import { usuariosRouter } from "../routes/usuarios.js";
 import { authRouter } from "../auth.js";
+import { deleteTestUsers, deleteTestUsersByEmail } from "./test-users.js";
 
 const EMAIL_PREFIX = "audit.fase2.";
 let sql;
@@ -53,7 +54,7 @@ after(async () => {
   if (!dbAvailable) return;
   // Limpeza: apaga qualquer usuário audit.fase2.* que tenha sobrado,
   // mesmo que algum teste tenha falhado no meio.
-  await sql`delete from "User" where email like ${EMAIL_PREFIX + "%"}`;
+  await deleteTestUsersByEmail(sql, EMAIL_PREFIX + "%");
   await new Promise((resolve) => server.close(resolve));
   await sql.end();
 });
@@ -347,7 +348,7 @@ test("gestão de usuários — fluxo completo (skip sem banco)", { skip: !dbAvai
       // teste, usando SQL direto — não dá pra confiar em cookies de admins
       // cujo status é justamente o que este teste alterou.
       await sql`update "User" set active = true where id = ${bootstrapId}`;
-      await sql`delete from "User" where id in (${adminB.id}, ${adminC.id})`;
+      await deleteTestUsers(sql, [adminB.id, adminC.id]);
       createdIds.splice(createdIds.indexOf(adminB.id), 1);
       createdIds.splice(createdIds.indexOf(adminC.id), 1);
     }
@@ -372,7 +373,7 @@ test("gestão de usuários — fluxo completo (skip sem banco)", { skip: !dbAvai
     assert.equal(res.status, 200);
     assert.equal(body.role, "COMERCIAL");
 
-    await sql`delete from "User" where id = ${adminD.id}`;
+    await deleteTestUsers(sql, [adminD.id]);
     createdIds.splice(createdIds.indexOf(adminD.id), 1);
   });
 
@@ -606,7 +607,7 @@ test("gestão de usuários — fluxo completo (skip sem banco)", { skip: !dbAvai
   // Limpeza explícita dentro do próprio teste (não no `after`, que só roda
   // depois de TODOS os testes do arquivo) — confirma zero resíduo agora.
   await t.test("limpeza — nenhum dado audit.fase2.* restante", async () => {
-    await sql`delete from "User" where email like ${EMAIL_PREFIX + "%"}`;
+    await deleteTestUsersByEmail(sql, EMAIL_PREFIX + "%");
     const leftover = await sql`select id, email from "User" where email like ${EMAIL_PREFIX + "%"}`;
     assert.equal(leftover.length, 0, "não deveria sobrar nenhum usuário de teste da Fase 2");
   });

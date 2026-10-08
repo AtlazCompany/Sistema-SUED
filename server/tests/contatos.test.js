@@ -12,6 +12,7 @@ import postgres from "postgres";
 import { randomUUID } from "node:crypto";
 import { authRouter } from "../auth.js";
 import { clientesRouter } from "../routes/clientes.js";
+import { deleteTestUsers, deleteTestUsersByEmail } from "./test-users.js";
 
 const TAG = "AUDIT-FASE5-CONTACT-";
 const FAKE_ID = "00000000-0000-0000-0000-000000000000";
@@ -46,7 +47,7 @@ before(async () => {
 
 after(async () => {
   if (!dbAvailable) return;
-  if (bootstrapId) await sql`delete from "User" where id = ${bootstrapId}`;
+  if (bootstrapId) await deleteTestUsers(sql, [bootstrapId]);
   await new Promise((resolve) => server.close(resolve));
   await sql.end();
 });
@@ -174,7 +175,7 @@ test("CRUD de contatos do cliente (skip sem banco)", { skip: !dbAvailable && "se
     assert.equal(resComercial.status, 201, "COMERCIAL tem acesso ao módulo crm");
     const bodyComercial = await resComercial.json();
     createdContacts.push(bodyComercial.id);
-    await sql`delete from "User" where id = ${comercial.id}`;
+    await deleteTestUsers(sql, [comercial.id]);
 
     const operacional = await criarELogar("OPERACIONAL", "contatos-operacional");
     const resOperacional = await fetch(`${baseUrl}/api/clientes/${clientId}/contatos`, {
@@ -182,7 +183,7 @@ test("CRUD de contatos do cliente (skip sem banco)", { skip: !dbAvailable && "se
       body: JSON.stringify({ name: TAG + "Via Operacional" }),
     });
     assert.equal(resOperacional.status, 403);
-    await sql`delete from "User" where id = ${operacional.id}`;
+    await deleteTestUsers(sql, [operacional.id]);
   });
 
   await t.test("DELETE /clientes/contatos/:id — remove com sucesso", async () => {
@@ -201,7 +202,7 @@ test("CRUD de contatos do cliente (skip sem banco)", { skip: !dbAvailable && "se
   await t.test("limpeza — nenhum dado AUDIT-FASE5-CONTACT-* residual", async () => {
     await sql`delete from "Contact" where "clientId" = ${clientId}`;
     await sql`delete from "Client" where id = ${clientId}`;
-    await sql`delete from "User" where email like ${"audit.fase5.contatos%"}`;
+    await deleteTestUsersByEmail(sql, "audit.fase5.contatos%");
 
     const leftoverContacts = await sql`select id from "Contact" where name like ${TAG + "%"}`;
     const leftoverClients = await sql`select id from "Client" where name like ${TAG + "%"}`;

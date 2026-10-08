@@ -24,15 +24,15 @@ function barList(rows, labelFn, valueFn, fmtFn) {
   return el("div", { style: "display:flex;flex-direction:column;gap:10px" },
     rows.length ? rows.map((r) =>
       el("div", {}, [
-        el("div", { class: "flex items-center justify-between", style: "font-size:12px;margin-bottom:4px" }, [
-          el("span", { style: "font-weight:500" }, labelFn(r)),
+        el("div", { class: "flex items-center justify-between text-xs mb-1" }, [
+          el("span", { class: "font-medium" }, labelFn(r)),
           el("span", { class: "text-muted" }, fmtFn(r)),
         ]),
-        el("div", { style: "height:8px;background:var(--sued-marble-2);border-radius:999px;overflow:hidden" }, [
+        el("div", { class: "progress" }, [
           el("div", { style: `height:100%;width:${(Number(valueFn(r)) / max) * 100}%;background:var(--sued-gold);border-radius:999px` }),
         ]),
       ]),
-    ) : [el("p", { class: "text-muted", style: "font-size:13px" }, "Sem dados ainda.")],
+    ) : [el("p", { class: "text-muted text-sm" }, "Sem dados ainda.")],
   );
 }
 
@@ -41,7 +41,7 @@ function simpleTable(headers, rows) {
     el("thead", {}, [el("tr", {}, headers.map((h) => el("th", { style: h.align ? `text-align:${h.align}` : "" }, h.label)))]),
     el("tbody", {}, rows.length
       ? rows.map((cells) => el("tr", {}, cells.map((c) => el("td", { style: c.align ? `text-align:${c.align}` : "" }, c.node ?? c))))
-      : [el("tr", {}, [el("td", { colspan: String(headers.length), class: "text-muted", style: "padding:16px;text-align:center" }, "Sem dados.")])]),
+      : [el("tr", {}, [el("td", { colspan: String(headers.length), class: "text-muted p-4 text-center" }, "Sem dados.")])]),
   ]);
 }
 
@@ -61,14 +61,14 @@ export async function renderRelatorios() {
       el("div", {}, [el("h1", {}, "Relatórios"), el("p", {}, "Visão consolidada da operação de eventos.")]),
     ]),
 
-    el("div", { class: "grid grid-kpis", style: "margin-bottom:16px" }, [
+    el("div", { class: "grid grid-kpis mb-4" }, [
       kpi("Eventos", String(d.totais.totalEventos)),
       kpi("Clientes", String(d.totais.totalClientes)),
       kpi("Receita realizada", formatBRL(d.totais.receitaTotal), "var(--sued-success)"),
       kpi("Lucro / Margem", `${formatBRL(lucroTotal)} · ${margemTotal}`, lucroTotal < 0 ? "var(--sued-danger)" : ""),
     ]),
 
-    el("div", { class: "grid grid-2", style: "align-items:start" }, [
+    el("div", { class: "grid grid-2 items-start" }, [
       card("Eventos por status", barList(
         d.eventosPorStatus, (r) => EVENT_STATUS_LABEL[r.status] || r.status, (r) => r.n, (r) => `${r.n}`,
       )),
@@ -97,7 +97,7 @@ export async function renderRelatorios() {
       )),
     ]),
 
-    el("div", { style: "margin-top:16px" }, [
+    el("div", { class: "mt-4" }, [
       card("Fluxo de caixa por mês", simpleTable(
         [{ label: "Mês" }, { label: "Entradas", align: "right" }, { label: "Saídas", align: "right" }, { label: "Saldo", align: "right" }],
         d.financeiroMes.map((m) => {

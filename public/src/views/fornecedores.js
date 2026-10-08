@@ -56,18 +56,18 @@ async function supplierDetail(id, onChanged) {
       row("Telefone", s.phone),
     ]),
     s.notes && el("p", { class: "text-soft", style: "margin-top:10px;font-size:13px;white-space:pre-wrap" }, s.notes),
-    el("hr", { class: "sued-divider-gold", style: "margin:16px 0" }),
-    el("h3", { style: "font-size:13px;font-weight:600;margin-bottom:10px" }, "Itens fornecidos"),
+    el("hr", { class: "sued-divider-gold my-4" }),
+    el("h3", { class: "subsection-title" }, "Itens fornecidos"),
     s.products.length
-      ? el("ul", { style: "list-style:none" }, s.products.map((p) =>
-          el("li", { class: "flex items-center justify-between", style: "padding:8px 0;border-bottom:1px solid var(--sued-border);font-size:13px" }, [
+      ? el("ul", { class: "list-none" }, s.products.map((p) =>
+          el("li", { class: "flex items-center justify-between list-row" }, [
             el("span", {}, [
-              p.isDefault && el("span", { class: "badge badge--gold", style: "margin-right:8px" }, "Padrão"),
+              p.isDefault && el("span", { class: "badge badge--gold mr-2" }, "Padrão"),
               p.name, p.unit && el("span", { class: "text-muted" }, ` / ${p.unit}`),
             ]),
             el("span", { class: "text-soft" }, formatBRL(p.costCents)),
           ])))
-      : el("p", { class: "text-muted", style: "font-size:13px" }, "Nenhum item vinculado. Vincule na tela do Catálogo."),
+      : el("p", { class: "text-muted text-sm" }, "Nenhum item vinculado. Vincule na tela do Catálogo."),
   ]);
 
   const modal = openModal({ title: s.name, body, footer: [delBtn, closeBtn, editBtn], wide: true });
@@ -84,7 +84,7 @@ export async function renderFornecedores() {
   const container = el("div", {});
 
   async function load() {
-    container.replaceChildren(el("div", { class: "center-screen", style: "height:200px" }, [el("div", { class: "spinner" })]));
+    container.replaceChildren(el("div", { class: "center-screen loading-box" }, [el("div", { class: "spinner" })]));
     const suppliers = await api.get("/fornecedores");
 
     const novo = el("button", { class: "btn btn--primary", html: `${icon("plus", 16)}<span>Novo fornecedor</span>` });
@@ -93,7 +93,7 @@ export async function renderFornecedores() {
     const table = renderTable({
       columns: [
         { header: "Fornecedor", render: (r) => {
-          const link = el("span", { class: "link-strong", style: "cursor:pointer" }, r.name);
+          const link = el("span", { class: "link-strong cursor-pointer" }, r.name);
           link.onclick = () => supplierDetail(r.id, load);
           return link;
         } },

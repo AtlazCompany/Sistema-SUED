@@ -12,6 +12,7 @@ import postgres from "postgres";
 import { clientesRouter } from "../routes/clientes.js";
 import { eventosRouter } from "../routes/eventos.js";
 import { authRouter } from "../auth.js";
+import { deleteTestUsers } from "./test-users.js";
 
 // Prefixo próprio (não "audit.fase2.") de propósito: este arquivo roda em
 // paralelo a tests/usuarios.test.js (Node test runner executa arquivos de
@@ -58,7 +59,7 @@ after(async () => {
   // em paralelo a tests/usuarios.test.js, que usa o mesmo prefixo
   // "audit.fase2."; um DELETE por LIKE aqui apagaria linhas do outro arquivo
   // ainda em uso (achado durante esta própria sessão de testes).
-  if (bootstrapId) await sql`delete from "User" where id = ${bootstrapId}`;
+  if (bootstrapId) await deleteTestUsers(sql, [bootstrapId]);
   await new Promise((resolve) => server.close(resolve));
   await sql.end();
 });
@@ -117,7 +118,7 @@ test("erros amigáveis (skip sem banco)", { skip: !dbAvailable && "sem conexão 
   });
 
   await t.test("limpeza — o admin de bootstrap deste arquivo foi removido", async () => {
-    await sql`delete from "User" where id = ${bootstrapId}`;
+    await deleteTestUsers(sql, [bootstrapId]);
     const [leftover] = await sql`select id from "User" where id = ${bootstrapId}`;
     assert.equal(leftover, undefined);
   });

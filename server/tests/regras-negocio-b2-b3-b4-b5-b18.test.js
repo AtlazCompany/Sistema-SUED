@@ -28,6 +28,7 @@ import { oportunidadesRouter } from "../routes/oportunidades.js";
 import { orcamentosRouter, orcamentoPublicoRouter } from "../routes/orcamentos.js";
 import { contratosRouter } from "../routes/contratos.js";
 import { financeiroRouter } from "../routes/financeiro.js";
+import { deleteTestUsers } from "./test-users.js";
 
 const TAG = "AUDIT-FASE5-B2B18-";
 let sql;
@@ -68,7 +69,7 @@ before(async () => {
 
 after(async () => {
   if (!dbAvailable) return;
-  if (bootstrapId) await sql`delete from "User" where id = ${bootstrapId}`;
+  if (bootstrapId) await deleteTestUsers(sql, [bootstrapId]);
   await new Promise((resolve) => server.close(resolve));
   await sql.end();
 });

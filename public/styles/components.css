@@ -202,6 +202,43 @@ table.table { width: 100%; border-collapse: collapse; }
 .flex { display: flex; } .items-center { align-items: center; } .justify-between { justify-content: space-between; }
 .gap-2 { gap: 8px; } .gap-3 { gap: 12px; }
 
+/* ---- Utilitários das telas ----
+   Substituem estilos inline repetidos nas views. `!important` preserva o
+   comportamento do inline que eles substituem (que vencia qualquer regra
+   de componente, ex.: `.table td`). */
+.text-xs { font-size: 12px !important; }
+.text-sm { font-size: 13px !important; }
+.text-right { text-align: right !important; }
+.text-center { text-align: center !important; }
+.font-medium { font-weight: 500 !important; }
+.font-semibold { font-weight: 600 !important; }
+.block { display: block !important; }
+.flex-1 { flex: 1 !important; }
+.items-start { align-items: start !important; }
+.cursor-pointer { cursor: pointer !important; }
+.list-none { list-style: none !important; }
+.my-4 { margin-top: 16px !important; margin-bottom: 16px !important; }
+.mt-3 { margin-top: 12px !important; }
+.mr-2 { margin-right: 8px !important; }
+.mb-1 { margin-bottom: 4px !important; }
+.mb-3 { margin-bottom: 12px !important; }
+.mb-4 { margin-bottom: 16px !important; }
+.py-2 { padding-top: 8px !important; padding-bottom: 8px !important; }
+.p-4 { padding: 16px !important; }
+
+/* Área de carregamento dentro da página (o spinner no meio de 200px). */
+.center-screen.loading-box { height: 200px; }
+/* Linha de lista simples (fornecedores do item, contatos, categorias). */
+.list-row { padding: 8px 0; border-bottom: 1px solid var(--sued-border); font-size: 13px; }
+/* Título de bloco dentro de um modal/cartão. */
+.subsection-title { font-size: 13px; font-weight: 600; margin-bottom: 10px; }
+/* Texto livre (observações) preservando as quebras de linha. */
+.note-text { margin-top: 10px; white-space: pre-wrap; font-size: 13px; }
+/* Ações alinhadas à direita numa linha de tabela. */
+.row-actions { justify-content: flex-end; gap: 4px; }
+/* Trilho de barra de progresso (a largura do preenchimento é dinâmica). */
+.progress { height: 8px; background: var(--sued-marble-2); border-radius: 999px; overflow: hidden; }
+
 /* ---- Botão sutil (champagne) ---- */
 .btn--subtle { background: var(--sued-champagne-soft); color: var(--sued-gold-dark); }
 .btn--subtle:hover:not(:disabled) { background: var(--sued-champagne); }

@@ -92,11 +92,11 @@ export async function renderFinanceiro() {
 
     const table = renderTable({
       columns: [
-        { header: "Descrição", render: (r) => el("span", { style: "font-weight:500" }, r.description) },
+        { header: "Descrição", render: (r) => el("span", { class: "font-medium" }, r.description) },
         ...(isPay ? [{ header: "Fornecedor", render: (r) => r.supplierName || "—" }] : []),
         { header: "Evento", render: (r) => r.eventTitle || "—" },
         { header: "Vencimento", render: (r) => el("span", { style: isOverdue(r) ? "color:var(--sued-danger);font-weight:500" : "" }, r.dueDate ? formatDate(r.dueDate) : "—") },
-        { header: "Valor", align: "right", render: (r) => el("span", { style: "font-weight:600" }, formatBRL(r.amountCents)) },
+        { header: "Valor", align: "right", render: (r) => el("span", { class: "font-semibold" }, formatBRL(r.amountCents)) },
         { header: "Status", render: (r) => {
           const s = FIN_STATUS[isOverdue(r) ? "ATRASADO" : r.status] || { label: r.status, cls: "" };
           return el("span", { class: `badge ${s.cls}` }, s.label);
@@ -115,7 +115,7 @@ export async function renderFinanceiro() {
           const del = el("button", { class: "btn btn--icon btn--ghost", html: icon("trash", 15) });
           del.onclick = async () => { if (confirm("Excluir esta conta?")) { try { await api.del(`/financeiro/${kind}/${r.id}`); render(); } catch (e) { toast(e.message, "error"); } } };
           btns.push(del);
-          return el("div", { class: "flex items-center", style: "justify-content:flex-end;gap:4px" }, btns);
+          return el("div", { class: "flex items-center row-actions" }, btns);
         } },
       ],
       rows,
@@ -123,8 +123,8 @@ export async function renderFinanceiro() {
     });
 
     body.replaceChildren(
-      el("div", { class: "flex items-center justify-between", style: "margin-bottom:12px" }, [
-        el("span", { class: "text-muted", style: "font-size:13px" }, isPay ? "Contas a pagar" : "Contas a receber"), novo,
+      el("div", { class: "flex items-center justify-between mb-3" }, [
+        el("span", { class: "text-muted text-sm" }, isPay ? "Contas a pagar" : "Contas a receber"), novo,
       ]),
       el("div", { class: "card" }, [table]),
     );

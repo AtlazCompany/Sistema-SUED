@@ -65,7 +65,7 @@ async function contactsModal(client, onChanged) {
     const contacts = full.contacts || [];
     listBox.replaceChildren(
       contacts.length
-        ? el("ul", { style: "list-style:none" }, contacts.map((c) => {
+        ? el("ul", { class: "list-none" }, contacts.map((c) => {
             const renameBtn = el("button", { class: "btn btn--icon btn--ghost", title: "Renomear", html: icon("edit", 15) });
             renameBtn.onclick = async () => {
               const novo = prompt("Nome do contato:", c.name);
@@ -88,12 +88,12 @@ async function contactsModal(client, onChanged) {
               };
               actions.unshift(makePrimary);
             }
-            return el("li", { class: "flex items-center justify-between", style: "padding:8px 0;border-bottom:1px solid var(--sued-border);font-size:13px" }, [
-              el("span", {}, [c.primary && el("span", { class: "badge badge--gold", style: "margin-right:8px" }, "Principal"), c.name]),
+            return el("li", { class: "flex items-center justify-between list-row" }, [
+              el("span", {}, [c.primary && el("span", { class: "badge badge--gold mr-2" }, "Principal"), c.name]),
               el("span", { class: "flex items-center gap-1" }, actions),
             ]);
           }))
-        : el("p", { class: "text-muted", style: "font-size:13px" }, "Nenhum contato cadastrado."),
+        : el("p", { class: "text-muted text-sm" }, "Nenhum contato cadastrado."),
     );
   }
   await reload();
@@ -120,7 +120,7 @@ async function contactsModal(client, onChanged) {
       listBox,
       el("div", { class: "flex items-center", style: "gap:8px;margin-top:14px;flex-wrap:wrap" }, [
         nameInput,
-        el("label", { class: "flex items-center gap-2", style: "font-size:12px;color:var(--sued-ink-soft)" }, [primaryCb, "Principal"]),
+        el("label", { class: "flex items-center gap-2 text-xs text-soft" }, [primaryCb, "Principal"]),
         add,
       ]),
     ]),
@@ -133,7 +133,7 @@ export async function renderClientes() {
   const container = el("div", {});
 
   async function load() {
-    container.replaceChildren(el("div", { class: "center-screen", style: "height:200px" }, [el("div", { class: "spinner" })]));
+    container.replaceChildren(el("div", { class: "center-screen loading-box" }, [el("div", { class: "spinner" })]));
     const clients = await api.get("/clientes");
 
     const novo = el("button", { class: "btn btn--primary", html: `${icon("plus", 16)}<span>Novo cliente</span>` });
@@ -146,7 +146,7 @@ export async function renderClientes() {
             el("span", { class: "user-chip__avatar", style: "width:32px;height:32px", html: icon(r.personType === "PJ" ? "building" : "users", 16) }),
             el("div", {}, [
               el("span", { class: "link-strong" }, r.name),
-              r.tradeName && el("span", { class: "text-muted", style: "display:block;font-size:12px" }, r.tradeName),
+              r.tradeName && el("span", { class: "text-muted block text-xs" }, r.tradeName),
             ]),
           ]) },
         { header: "Documento", render: (r) => r.document || "—" },
@@ -164,7 +164,7 @@ export async function renderClientes() {
             try { await api.del(`/clientes/${r.id}`); toast("Cliente excluído."); load(); }
             catch (err) { toast(err.message, "error"); }
           };
-          return el("div", { class: "flex", style: "justify-content:flex-end;gap:4px" }, [contacts, edit, del]);
+          return el("div", { class: "flex row-actions" }, [contacts, edit, del]);
         } },
       ],
       rows: clients,

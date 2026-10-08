@@ -43,7 +43,7 @@ export async function renderContratos() {
   const container = el("div", {});
 
   async function loadList() {
-    container.replaceChildren(el("div", { class: "center-screen", style: "height:200px" }, [el("div", { class: "spinner" })]));
+    container.replaceChildren(el("div", { class: "center-screen loading-box" }, [el("div", { class: "spinner" })]));
     const contratos = await api.get("/contratos");
     const novo = el("button", { class: "btn btn--primary", html: `${icon("plus", 16)}<span>Novo contrato</span>` });
     novo.onclick = () => openEditor(null);
@@ -51,7 +51,7 @@ export async function renderContratos() {
     const table = renderTable({
       columns: [
         { header: "Número", render: (r) => {
-          const link = el("span", { class: "link-strong", style: "cursor:pointer" }, r.number);
+          const link = el("span", { class: "link-strong cursor-pointer" }, r.number);
           link.onclick = () => openEditor(r.id);
           return link;
         } },
@@ -75,7 +75,7 @@ export async function renderContratos() {
   }
 
   async function openEditor(id) {
-    container.replaceChildren(el("div", { class: "center-screen", style: "height:200px" }, [el("div", { class: "spinner" })]));
+    container.replaceChildren(el("div", { class: "center-screen loading-box" }, [el("div", { class: "spinner" })]));
     const opts = await api.get("/contratos/opcoes");
     const ct = id ? await api.get(`/contratos/${id}`) : { status: "RASCUNHO", valueCents: 0 };
     const isEdit = !!id;
@@ -168,7 +168,7 @@ export async function renderContratos() {
         el("div", {}, [el("h1", {}, isEdit ? `Contrato ${ct.number}` : "Novo contrato"), el("p", {}, "Dados e condições contratuais.")]),
         el("div", { class: "flex items-center gap-2" }, actions),
       ]),
-      el("div", { class: "card card--pad", style: "margin-bottom:16px" }, [header]),
+      el("div", { class: "card card--pad mb-4" }, [header]),
       el("div", { class: "card card--pad" }, [
         el("div", { class: "flex items-center justify-between", style: "margin-bottom:10px" }, [
           el("h2", { style: "font-size:14px;font-weight:600" }, "Condições do contrato"),

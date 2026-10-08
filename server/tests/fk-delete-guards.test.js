@@ -20,6 +20,7 @@ import { fornecedoresRouter } from "../routes/fornecedores.js";
 import { catalogoRouter } from "../routes/catalogo.js";
 import { eventosRouter, locaisRouter } from "../routes/eventos.js";
 import { oportunidadesRouter } from "../routes/oportunidades.js";
+import { deleteTestUsers } from "./test-users.js";
 
 const TAG = "AUDIT-FASE4-";
 let sql;
@@ -58,7 +59,7 @@ before(async () => {
 
 after(async () => {
   if (!dbAvailable) return;
-  if (bootstrapId) await sql`delete from "User" where id = ${bootstrapId}`;
+  if (bootstrapId) await deleteTestUsers(sql, [bootstrapId]);
   await new Promise((resolve) => server.close(resolve));
   await sql.end();
 });

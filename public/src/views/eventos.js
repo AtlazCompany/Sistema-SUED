@@ -121,7 +121,7 @@ async function eventDetail(id, onChanged) {
   const body = el("div", {}, [
     el("div", { class: "flex items-center gap-2", style: "margin-bottom:14px" }, [
       el("span", { class: `badge ${s.cls}` }, s.label),
-      e.eventTypeName && el("span", { class: "text-muted", style: "font-size:12px" }, e.eventTypeName),
+      e.eventTypeName && el("span", { class: "text-muted text-xs" }, e.eventTypeName),
     ]),
     el("div", { class: "opp-summary" }, [
       row("Cliente", e.clientName || "—"),
@@ -132,8 +132,8 @@ async function eventDetail(id, onChanged) {
       row("Resp. comercial", e.commercialName || "—"),
       row("Resp. operacional", e.operationalName || "—"),
     ]),
-    e.notes && el("p", { class: "text-soft", style: "margin-top:10px;white-space:pre-wrap;font-size:13px" }, e.notes),
-    el("hr", { class: "sued-divider-gold", style: "margin:16px 0" }),
+    e.notes && el("p", { class: "text-soft note-text" }, e.notes),
+    el("hr", { class: "sued-divider-gold my-4" }),
     el("h3", { style: "font-size:13px;font-weight:600;margin-bottom:12px" }, "Resumo financeiro"),
     el("div", { class: "flex", style: "gap:24px;flex-wrap:wrap" }, [
       financeBlock("Previsto", e.plannedRevenueCents, e.plannedCostCents, plannedProfit),
@@ -160,19 +160,19 @@ async function eventTypesModal(onChanged) {
     const types = await api.get("/tipos-evento");
     listBox.replaceChildren(
       types.length
-        ? el("ul", { style: "list-style:none" }, types.map((t) => {
+        ? el("ul", { class: "list-none" }, types.map((t) => {
             const del = el("button", { class: "btn btn--icon btn--ghost", title: "Excluir", html: icon("trash", 15) });
             del.onclick = async () => {
               if (!confirm(`Excluir o tipo "${t.name}"?`)) return;
               try { await api.del(`/tipos-evento/${t.id}`); reload(); onChanged(); }
               catch (err) { toast(err.message, "error"); }
             };
-            return el("li", { class: "flex items-center justify-between", style: "padding:8px 0;border-bottom:1px solid var(--sued-border);font-size:13px" }, [
+            return el("li", { class: "flex items-center justify-between list-row" }, [
               el("span", {}, t.name),
               el("span", { class: "flex items-center gap-3" }, [el("span", { class: "text-muted" }, `${t.events} evento(s)`), del]),
             ]);
           }))
-        : el("p", { class: "text-muted", style: "font-size:13px" }, "Nenhum tipo de evento cadastrado."),
+        : el("p", { class: "text-muted text-sm" }, "Nenhum tipo de evento cadastrado."),
     );
   }
   await reload();
@@ -200,7 +200,7 @@ export async function renderEventos() {
   let activeFilter = "";
 
   async function load() {
-    container.replaceChildren(el("div", { class: "center-screen", style: "height:200px" }, [el("div", { class: "spinner" })]));
+    container.replaceChildren(el("div", { class: "center-screen loading-box" }, [el("div", { class: "spinner" })]));
     const eventos = await api.get(`/eventos${activeFilter ? `?status=${activeFilter}` : ""}`);
 
     const novo = el("button", { class: "btn btn--primary", html: `${icon("plus", 16)}<span>Novo evento</span>` });
@@ -221,7 +221,7 @@ export async function renderEventos() {
     const table = renderTable({
       columns: [
         { header: "Evento", render: (r) => {
-          const link = el("span", { class: "link-strong", style: "cursor:pointer" }, r.title);
+          const link = el("span", { class: "link-strong cursor-pointer" }, r.title);
           link.onclick = () => eventDetail(r.id, load);
           return link;
         } },

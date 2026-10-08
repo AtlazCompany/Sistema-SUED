@@ -58,7 +58,7 @@ export async function renderLeads() {
   const container = el("div", {});
 
   async function load() {
-    container.replaceChildren(el("div", { class: "center-screen", style: "height:200px" }, [el("div", { class: "spinner" })]));
+    container.replaceChildren(el("div", { class: "center-screen loading-box" }, [el("div", { class: "spinner" })]));
     const leads = await api.get("/leads");
 
     const novo = el("button", { class: "btn btn--primary", html: `${icon("plus", 16)}<span>Novo lead</span>` });
@@ -69,7 +69,7 @@ export async function renderLeads() {
         { header: "Nome", render: (r) =>
           el("div", {}, [
             el("span", { class: "link-strong" }, r.name),
-            r.company && el("span", { class: "text-muted", style: "display:block;font-size:12px" }, r.company),
+            r.company && el("span", { class: "text-muted block text-xs" }, r.company),
           ]) },
         { header: "Contato", render: (r) => r.email || r.phone || "—" },
         { header: "Origem", render: (r) => r.source || "—" },
@@ -99,7 +99,7 @@ export async function renderLeads() {
             try { await api.del(`/leads/${r.id}`); toast("Lead excluído."); load(); }
             catch (err) { toast(err.message, "error"); }
           };
-          return el("div", { class: "flex items-center", style: "justify-content:flex-end;gap:4px" }, [...actions, edit, del]);
+          return el("div", { class: "flex items-center row-actions" }, [...actions, edit, del]);
         } },
       ],
       rows: leads,

@@ -18,6 +18,7 @@ import crypto from "node:crypto";
 import { randomUUID } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import path from "node:path";
+import { deleteTestUsers } from "./test-users.js";
 
 const MAIL_URL = pathToFileURL(path.join(import.meta.dirname, "..", "mail.js")).href;
 const sentEmails = [];
@@ -199,7 +200,7 @@ test("recuperação de senha por e-mail (achado B14) — skip sem banco", { skip
 
   await t.test("limpeza — nenhum dado AUDIT-FASE5-B14-* residual", async () => {
     await sql`delete from "AuditLog" where "table" = 'User' and "recordId" = ${targetId}`;
-    await sql`delete from "User" where id = ${targetId}`;
+    await deleteTestUsers(sql, [targetId]);
     const leftoverUser = await sql`select id from "User" where email = ${TARGET_EMAIL}`;
     const leftoverLogs = await sql`select id from "AuditLog" where "recordId" = ${targetId}`;
     assert.equal(leftoverUser.length, 0, "User");

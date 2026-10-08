@@ -20,7 +20,7 @@ export async function renderOrcamentos() {
 
   // ---------------- LISTA ----------------
   async function loadList() {
-    container.replaceChildren(el("div", { class: "center-screen", style: "height:200px" }, [el("div", { class: "spinner" })]));
+    container.replaceChildren(el("div", { class: "center-screen loading-box" }, [el("div", { class: "spinner" })]));
     const budgets = await api.get("/orcamentos");
 
     const novo = el("button", { class: "btn btn--primary", html: `${icon("plus", 16)}<span>Novo orçamento</span>` });
@@ -29,14 +29,14 @@ export async function renderOrcamentos() {
     const table = renderTable({
       columns: [
         { header: "Número", render: (r) => {
-          const link = el("span", { class: "link-strong", style: "cursor:pointer" }, r.number);
+          const link = el("span", { class: "link-strong cursor-pointer" }, r.number);
           link.onclick = () => openEditor(r.id);
           return link;
         } },
         { header: "Cliente", render: (r) => r.clientName || "—" },
         { header: "Evento", render: (r) => r.eventTitle || "—" },
         { header: "Total", align: "right", render: (r) =>
-          el("span", { style: "font-weight:600" }, formatBRL(Number(r.subtotal) - r.discountCents)) },
+          el("span", { class: "font-semibold" }, formatBRL(Number(r.subtotal) - r.discountCents)) },
         { header: "Validade", render: (r) => r.validUntil ? formatDate(r.validUntil) : "—" },
         { header: "Status", render: (r) => {
           const s = BUDGET_STATUS[r.status] || { label: r.status, cls: "" };
@@ -61,7 +61,7 @@ export async function renderOrcamentos() {
 
   // ---------------- EDITOR ----------------
   async function openEditor(id) {
-    container.replaceChildren(el("div", { class: "center-screen", style: "height:200px" }, [el("div", { class: "spinner" })]));
+    container.replaceChildren(el("div", { class: "center-screen loading-box" }, [el("div", { class: "spinner" })]));
     const opts = await api.get("/orcamentos/opcoes");
     const budget = id ? await api.get(`/orcamentos/${id}`) : { status: "RASCUNHO", items: [], discountCents: 0 };
     const isEdit = !!id;
@@ -121,18 +121,18 @@ export async function renderOrcamentos() {
         qty.oninput = () => { it.quantity = Math.max(1, Number(qty.value) || 1); lineTotal.textContent = formatBRL(it.quantity * it.unitPriceCents); recalc(); };
         const price = el("input", { class: "input input--mini", value: centsToReais(it.unitPriceCents) });
         price.oninput = () => { it.unitPriceCents = toCents(price.value); lineTotal.textContent = formatBRL(it.quantity * it.unitPriceCents); recalc(); };
-        const lineTotal = el("span", { style: "font-weight:600" }, formatBRL(it.quantity * it.unitPriceCents));
+        const lineTotal = el("span", { class: "font-semibold" }, formatBRL(it.quantity * it.unitPriceCents));
         const del = el("button", { class: "btn btn--icon btn--ghost", html: icon("trash", 15) });
         del.onclick = () => { items.splice(idx, 1); renderItems(); recalc(); };
         return el("tr", {}, [
           el("td", {}, it.description),
           el("td", { style: "width:70px" }, qty),
           el("td", { style: "width:110px" }, price),
-          el("td", { style: "text-align:right" }, lineTotal),
+          el("td", { class: "text-right" }, lineTotal),
           el("td", { style: "text-align:right;width:44px" }, del),
         ]);
       }));
-      if (!items.length) itemsBody.replaceChildren(el("tr", {}, [el("td", { colspan: "5", class: "text-muted", style: "padding:16px;text-align:center" }, "Nenhum item. Adicione do catálogo abaixo.")]));
+      if (!items.length) itemsBody.replaceChildren(el("tr", {}, [el("td", { colspan: "5", class: "text-muted p-4 text-center" }, "Nenhum item. Adicione do catálogo abaixo.")]));
     }
     renderItems();
 
@@ -268,13 +268,13 @@ export async function renderOrcamentos() {
       actions.unshift(excluir);
     }
 
-    const editArea = el("div", { class: "grid grid-main-side", style: "align-items:start" }, [
+    const editArea = el("div", { class: "grid grid-main-side items-start" }, [
       el("div", { class: "card card--pad" }, [
         el("h2", { style: "font-size:14px;font-weight:600;margin-bottom:12px" }, "Itens"),
         el("table", { class: "budget-items" }, [
           el("thead", {}, [el("tr", {}, [
             el("th", {}, "Descrição"), el("th", {}, "Qtd"), el("th", {}, "Preço un."),
-            el("th", { style: "text-align:right" }, "Total"), el("th", {}, ""),
+            el("th", { class: "text-right" }, "Total"), el("th", {}, ""),
           ])]),
           itemsBody,
         ]),
@@ -294,7 +294,7 @@ export async function renderOrcamentos() {
         ]),
         el("div", { class: "flex items-center gap-2" }, actions),
       ]),
-      el("div", { class: "card card--pad", style: "margin-bottom:16px" }, [header]),
+      el("div", { class: "card card--pad mb-4" }, [header]),
       tabs,
       editArea,
       previewArea,

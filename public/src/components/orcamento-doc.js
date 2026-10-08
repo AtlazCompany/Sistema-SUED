@@ -63,9 +63,9 @@ export function renderOrcamentoDocumento(data) {
       el("thead", {}, [
         el("tr", {}, [
           el("th", {}, "Descrição"),
-          el("th", { style: "text-align:center" }, "Qtd"),
-          el("th", { style: "text-align:right" }, "Preço un."),
-          el("th", { style: "text-align:right" }, "Total"),
+          el("th", { class: "text-center" }, "Qtd"),
+          el("th", { class: "text-right" }, "Preço un."),
+          el("th", { class: "text-right" }, "Total"),
         ]),
       ]),
       el(
@@ -75,9 +75,9 @@ export function renderOrcamentoDocumento(data) {
           ? items.map((i) =>
               el("tr", {}, [
                 el("td", {}, i.description),
-                el("td", { style: "text-align:center" }, String(i.quantity)),
-                el("td", { style: "text-align:right" }, formatBRL(i.unitPriceCents)),
-                el("td", { style: "text-align:right;font-weight:600" }, formatBRL(i.quantity * i.unitPriceCents)),
+                el("td", { class: "text-center" }, String(i.quantity)),
+                el("td", { class: "text-right" }, formatBRL(i.unitPriceCents)),
+                el("td", { class: "text-right font-semibold" }, formatBRL(i.quantity * i.unitPriceCents)),
               ]),
             )
           : [el("tr", {}, [el("td", { colspan: "4", class: "text-muted", style: "text-align:center;padding:18px" }, "Nenhum item adicionado ainda.")])],

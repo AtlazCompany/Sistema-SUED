@@ -33,9 +33,9 @@ export async function renderOperacional() {
       el("p", { class: "empty__title" }, "Selecione um evento"),
       el("p", { class: "empty__desc" }, "Escolha um evento acima para gerenciar tarefas, checklists e cronograma."),
     ])); return; }
-    panel.replaceChildren(el("div", { class: "center-screen", style: "height:200px" }, [el("div", { class: "spinner" })]));
+    panel.replaceChildren(el("div", { class: "center-screen loading-box" }, [el("div", { class: "spinner" })]));
     const data = await api.get(`/operacional/evento/${currentEventId}`);
-    panel.replaceChildren(el("div", { class: "grid grid-2", style: "align-items:start" }, [
+    panel.replaceChildren(el("div", { class: "grid grid-2 items-start" }, [
       tasksCard(data), scheduleCard(data),
     ]), checklistsCard(data));
   }
@@ -51,9 +51,9 @@ export async function renderOperacional() {
         const del = el("button", { class: "btn btn--icon btn--ghost", html: icon("trash", 15) });
         del.onclick = async () => { try { await api.del(`/operacional/tarefas/${t.id}`); loadPanel(); } catch (e) { toast(e.message, "error"); } };
         return el("div", { class: "op-item" }, [
-          el("div", { style: "flex:1" }, [
-            el("p", { style: "font-weight:500;font-size:13px" }, t.title),
-            el("p", { class: "text-muted", style: "font-size:12px" }, [
+          el("div", { class: "flex-1" }, [
+            el("p", { class: "font-medium text-sm" }, t.title),
+            el("p", { class: "text-muted text-xs" }, [
               `Prioridade ${TASK_PRIORITY[t.priority]}`,
               t.assigneeName && ` · ${t.assigneeName}`,
               t.dueDate && ` · vence ${formatDate(t.dueDate)}`,
@@ -62,9 +62,9 @@ export async function renderOperacional() {
           stSel, del,
         ]);
       }));
-    } else list.append(el("p", { class: "text-muted", style: "font-size:13px;padding:8px 0" }, "Nenhuma tarefa."));
+    } else list.append(el("p", { class: "text-muted text-sm py-2" }, "Nenhuma tarefa."));
 
-    const title = el("input", { class: "input input--mini", placeholder: "Nova tarefa…", style: "flex:1" });
+    const title = el("input", { class: "input input--mini flex-1", placeholder: "Nova tarefa…" });
     const prio = el("select", { class: "select select--mini" }, Object.entries(TASK_PRIORITY).map(([v, l]) => { const o = el("option", { value: v }, l); if (v === "MEDIA") o.selected = true; return o; }));
     const assignee = el("select", { class: "select select--mini" }, [el("option", { value: "" }, "Responsável"), ...data.users.map((u) => el("option", { value: u.id }, u.name))]);
     const add = el("button", { class: "btn btn--subtle btn--sm", html: icon("plus", 15) });
@@ -88,18 +88,18 @@ export async function renderOperacional() {
         const del = el("button", { class: "btn btn--icon btn--ghost", html: icon("trash", 15) });
         del.onclick = async () => { try { await api.del(`/operacional/cronograma/${s.id}`); loadPanel(); } catch (e) { toast(e.message, "error"); } };
         return el("div", { class: "op-item" }, [
-          el("div", { style: "flex:1" }, [
-            el("p", { style: "font-weight:500;font-size:13px" }, s.title),
-            el("p", { class: "text-muted", style: "font-size:12px" }, [
+          el("div", { class: "flex-1" }, [
+            el("p", { class: "font-medium text-sm" }, s.title),
+            el("p", { class: "text-muted text-xs" }, [
               formatDate(s.startsAt, true), s.endsAt && ` – ${formatDate(s.endsAt, true)}`, s.location && ` · ${s.location}`,
             ].filter(Boolean).join("")),
           ]),
           del,
         ]);
       }));
-    } else list.append(el("p", { class: "text-muted", style: "font-size:13px;padding:8px 0" }, "Sem itens no cronograma."));
+    } else list.append(el("p", { class: "text-muted text-sm py-2" }, "Sem itens no cronograma."));
 
-    const title = el("input", { class: "input input--mini", placeholder: "Etapa…", style: "flex:1" });
+    const title = el("input", { class: "input input--mini flex-1", placeholder: "Etapa…" });
     const startsAt = el("input", { class: "input input--mini", type: "datetime-local" });
     const location = el("input", { class: "input input--mini", placeholder: "Local", style: "max-width:120px" });
     const add = el("button", { class: "btn btn--subtle btn--sm", html: icon("plus", 15) });
@@ -117,7 +117,7 @@ export async function renderOperacional() {
 
   // ---- Checklists ----
   function checklistsCard(data) {
-    const wrap = el("div", { class: "card card--pad", style: "margin-top:16px" });
+    const wrap = el("div", { class: "card card--pad mt-4" });
     const lists = el("div", { class: "grid", style: "grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px" });
 
     for (const cl of data.checklists) {
@@ -130,7 +130,7 @@ export async function renderOperacional() {
         del.onclick = async () => { try { await api.del(`/operacional/checklists/itens/${it.id}`); loadPanel(); } catch (e) { toast(e.message, "error"); } };
         return el("label", { class: "flex items-center", style: "gap:8px;font-size:13px;padding:3px 0" }, [
           cb, el("span", { style: it.done ? "text-decoration:line-through;color:var(--sued-muted)" : "" }, it.label),
-          el("span", { style: "flex:1" }), del,
+          el("span", { class: "flex-1" }), del,
         ]);
       }));
       const newItem = el("input", { class: "input input--mini", placeholder: "+ item", style: "margin-top:6px" });
@@ -155,7 +155,7 @@ export async function renderOperacional() {
 
     wrap.append(
       el("h2", { class: "op-title", html: `${icon("clipboard", 16)}<span>Checklists</span>` }),
-      data.checklists.length ? lists : el("p", { class: "text-muted", style: "font-size:13px;padding:8px 0" }, "Nenhum checklist ainda."),
+      data.checklists.length ? lists : el("p", { class: "text-muted text-sm py-2" }, "Nenhum checklist ainda."),
       el("div", { class: "flex items-center", style: "gap:8px;margin-top:14px" }, [newCl, addCl]),
     );
     return wrap;

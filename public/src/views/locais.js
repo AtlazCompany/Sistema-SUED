@@ -19,7 +19,7 @@ function venueForm(venue, onSaved) {
     field("Capacidade", "capacity", v.capacity ?? "", { type: "number" }),
     field("Observações", "notes", v.notes, { type: "textarea", col2: true }),
   ]);
-  const own = el("label", { class: "flex items-center gap-2", style: "font-size:13px;color:var(--sued-ink-soft)" }, [
+  const own = el("label", { class: "flex items-center gap-2 text-sm text-soft" }, [
     (() => { const cb = el("input", { type: "checkbox", name: "isOwn" }); cb.checked = !!v.isOwn; return cb; })(),
     "Local próprio (Espaço SUED)",
   ]);
@@ -28,7 +28,7 @@ function venueForm(venue, onSaved) {
   const cancel = el("button", { class: "btn btn--ghost", type: "button" }, "Cancelar");
   const modal = openModal({
     title: "Editar local",
-    body: el("div", {}, [form, el("div", { style: "margin-top:12px" }, [own])]),
+    body: el("div", {}, [form, el("div", { class: "mt-3" }, [own])]),
     footer: [cancel, save],
   });
   cancel.onclick = modal.close;
@@ -51,12 +51,12 @@ export async function renderLocais() {
   const container = el("div", {});
 
   async function load() {
-    container.replaceChildren(el("div", { class: "center-screen", style: "height:200px" }, [el("div", { class: "spinner" })]));
+    container.replaceChildren(el("div", { class: "center-screen loading-box" }, [el("div", { class: "spinner" })]));
     const locais = await api.get("/locais");
 
     const list = el("div", { class: "card" }, [
       locais.length
-        ? el("ul", { style: "list-style:none" }, locais.map((v) => {
+        ? el("ul", { class: "list-none" }, locais.map((v) => {
             const edit = el("button", { class: "btn btn--icon btn--ghost", title: "Editar", html: icon("edit", 16) });
             edit.onclick = () => venueForm(v, load);
             const del = el("button", { class: "btn btn--icon btn--ghost", title: "Excluir", html: icon("trash", 16) });
@@ -73,20 +73,20 @@ export async function renderLocais() {
                     v.name,
                     v.isOwn && el("span", { class: "badge badge--gold", style: "margin-left:8px" }, "Espaço próprio"),
                   ]),
-                  el("p", { class: "text-muted", style: "font-size:12px" },
+                  el("p", { class: "text-muted text-xs" },
                     [v.city && `${v.city}${v.state ? "/" + v.state : ""}`, v.capacity && `${v.capacity} pessoas`].filter(Boolean).join(" · ") || "—"),
                 ]),
               ]),
               el("div", { class: "flex items-center gap-3" }, [
-                el("span", { class: "text-muted", style: "font-size:12px" }, `${v.events} evento(s)`),
+                el("span", { class: "text-muted text-xs" }, `${v.events} evento(s)`),
                 edit,
                 del,
               ]),
             ]);
           }))
         : el("div", { class: "empty", style: "padding:40px;text-align:center" }, [
-            el("p", { style: "font-weight:500" }, "Nenhum local cadastrado"),
-            el("p", { class: "text-muted", style: "font-size:13px" }, "Cadastre os locais para vinculá-los aos eventos."),
+            el("p", { class: "font-medium" }, "Nenhum local cadastrado"),
+            el("p", { class: "text-muted text-sm" }, "Cadastre os locais para vinculá-los aos eventos."),
           ]),
     ]);
 
@@ -98,7 +98,7 @@ export async function renderLocais() {
       field("Endereço", "address", "", { col2: true }),
       field("Capacidade", "capacity", "", { type: "number" }),
     ]);
-    const own = el("label", { class: "flex items-center gap-2", style: "font-size:13px;color:var(--sued-ink-soft)" }, [
+    const own = el("label", { class: "flex items-center gap-2 text-sm text-soft" }, [
       el("input", { type: "checkbox", name: "isOwn" }),
       "Local próprio (Espaço SUED)",
     ]);

@@ -11,6 +11,7 @@ import postgres from "postgres";
 import { randomUUID } from "node:crypto";
 import { authRouter } from "../auth.js";
 import { eventosRouter, locaisRouter, tiposEventoRouter } from "../routes/eventos.js";
+import { deleteTestUsers } from "./test-users.js";
 
 const TAG = "AUDIT-FASE5-B11B12-";
 const FAKE_ID = "00000000-0000-0000-0000-000000000000";
@@ -47,7 +48,7 @@ before(async () => {
 
 after(async () => {
   if (!dbAvailable) return;
-  if (bootstrapId) await sql`delete from "User" where id = ${bootstrapId}`;
+  if (bootstrapId) await deleteTestUsers(sql, [bootstrapId]);
   await new Promise((resolve) => server.close(resolve));
   await sql.end();
 });

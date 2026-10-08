@@ -94,3 +94,17 @@ img {
   outline: 2px solid var(--sued-ring);
   outline-offset: 2px;
 }
+
+/* Quem pede menos movimento no sistema operacional não recebe animações
+   nem transições decorativas. O spinner continua girando: é ele que diz
+   que algo está carregando (movimento essencial). */
+@media (prefers-reduced-motion: reduce) {
+  *:not(.spinner),
+  *:not(.spinner)::before,
+  *:not(.spinner)::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

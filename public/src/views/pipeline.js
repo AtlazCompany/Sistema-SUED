@@ -119,7 +119,7 @@ async function oppDetail(id, onChanged) {
     el("div", { class: "opp-summary" }, [
       el("div", { class: "opp-summary__row" }, [
         el("span", { class: "text-muted" }, "Cliente"),
-        el("span", { style: "font-weight:500" }, o.clientName),
+        el("span", { class: "font-medium" }, o.clientName),
       ]),
       el("div", { class: "opp-summary__row" }, [
         el("span", { class: "text-muted" }, "Estágio"),
@@ -127,7 +127,7 @@ async function oppDetail(id, onChanged) {
       ]),
       el("div", { class: "opp-summary__row" }, [
         el("span", { class: "text-muted" }, "Valor estimado"),
-        el("span", { style: "font-weight:600" }, formatBRL(o.estimatedCents)),
+        el("span", { class: "font-semibold" }, formatBRL(o.estimatedCents)),
       ]),
       el("div", { class: "opp-summary__row" }, [
         el("span", { class: "text-muted" }, "Previsão"),
@@ -137,10 +137,10 @@ async function oppDetail(id, onChanged) {
         el("span", { class: "text-muted" }, "Responsável"),
         el("span", {}, o.ownerName || "—"),
       ]),
-      o.notes && el("p", { class: "text-soft", style: "margin-top:10px;white-space:pre-wrap;font-size:13px" }, o.notes),
+      o.notes && el("p", { class: "text-soft note-text" }, o.notes),
     ]),
-    el("hr", { class: "sued-divider-gold", style: "margin:16px 0" }),
-    el("h3", { style: "font-size:13px;font-weight:600;margin-bottom:10px" }, "Histórico de interações"),
+    el("hr", { class: "sued-divider-gold my-4" }),
+    el("h3", { class: "subsection-title" }, "Histórico de interações"),
     el("div", { class: "flex", style: "gap:8px;margin-bottom:6px" }, [typeSel, contentInput]),
     el("div", { style: "margin-bottom:14px" }, [addBtn]),
     timeline,
@@ -161,7 +161,7 @@ export async function renderPipeline() {
   const container = el("div", {});
 
   async function load() {
-    container.replaceChildren(el("div", { class: "center-screen", style: "height:200px" }, [el("div", { class: "spinner" })]));
+    container.replaceChildren(el("div", { class: "center-screen loading-box" }, [el("div", { class: "spinner" })]));
     const opps = await api.get("/oportunidades");
 
     const novo = el("button", { class: "btn btn--primary", html: `${icon("plus", 16)}<span>Nova oportunidade</span>` });

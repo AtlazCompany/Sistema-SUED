@@ -24,14 +24,14 @@ async function productForm(product, onSaved) {
     field("Custo de referência (R$)", "referenceCost", centsToReais(p.referenceCostCents), { placeholder: "0,00" }),
     field("Preço de venda sugerido (R$)", "suggestedPrice", centsToReais(p.suggestedPriceCents), { placeholder: "0,00" }),
   ]);
-  const active = el("label", { class: "flex items-center gap-2", style: "font-size:13px;color:var(--sued-ink-soft)" }, [
+  const active = el("label", { class: "flex items-center gap-2 text-sm text-soft" }, [
     (() => { const cb = el("input", { type: "checkbox", name: "active" }); cb.checked = isEdit ? p.active : true; return cb; })(),
     "Item ativo (disponível para orçamentos)",
   ]);
 
   const save = el("button", { class: "btn btn--primary", type: "button" }, isEdit ? "Salvar" : "Criar item");
   const cancel = el("button", { class: "btn btn--ghost", type: "button" }, "Cancelar");
-  const modal = openModal({ title: isEdit ? "Editar item" : "Novo item", body: el("div", {}, [form, el("div", { style: "margin-top:12px" }, [active])]), footer: [cancel, save] });
+  const modal = openModal({ title: isEdit ? "Editar item" : "Novo item", body: el("div", {}, [form, el("div", { class: "mt-3" }, [active])]), footer: [cancel, save] });
   cancel.onclick = modal.close;
 
   save.onclick = async () => {
@@ -59,9 +59,9 @@ async function productDetail(id, onChanged) {
   function renderLinks(links) {
     linksBox.replaceChildren(
       links.length
-        ? el("ul", { style: "list-style:none" }, links.map((l) =>
-            el("li", { class: "flex items-center justify-between", style: "padding:8px 0;border-bottom:1px solid var(--sued-border);font-size:13px" }, [
-              el("span", {}, [l.isDefault && el("span", { class: "badge badge--gold", style: "margin-right:8px" }, "Padrão"), l.name]),
+        ? el("ul", { class: "list-none" }, links.map((l) =>
+            el("li", { class: "flex items-center justify-between list-row" }, [
+              el("span", {}, [l.isDefault && el("span", { class: "badge badge--gold mr-2" }, "Padrão"), l.name]),
               (() => {
                 const del = el("button", { class: "btn btn--icon btn--ghost", title: "Remover", html: icon("trash", 15) });
                 del.onclick = async () => {
@@ -71,7 +71,7 @@ async function productDetail(id, onChanged) {
                 return el("span", { class: "flex items-center gap-3" }, [el("span", { class: "text-soft" }, formatBRL(l.costCents)), del]);
               })(),
             ])))
-        : el("p", { class: "text-muted", style: "font-size:13px" }, "Nenhum fornecedor vinculado."),
+        : el("p", { class: "text-muted text-sm" }, "Nenhum fornecedor vinculado."),
     );
   }
   renderLinks(p.suppliers);
@@ -115,12 +115,12 @@ async function productDetail(id, onChanged) {
       row("Margem sugerida", margin),
       row("Status", p.active ? "Ativo" : "Inativo"),
     ]),
-    el("hr", { class: "sued-divider-gold", style: "margin:16px 0" }),
-    el("h3", { style: "font-size:13px;font-weight:600;margin-bottom:10px" }, "Fornecedores deste item"),
+    el("hr", { class: "sued-divider-gold my-4" }),
+    el("h3", { class: "subsection-title" }, "Fornecedores deste item"),
     linksBox,
     el("div", { class: "flex items-center", style: "gap:8px;margin-top:12px;flex-wrap:wrap" }, [
       supSel, costInput,
-      el("label", { class: "flex items-center gap-2", style: "font-size:12px;color:var(--sued-ink-soft)" }, [defCb, "Padrão"]),
+      el("label", { class: "flex items-center gap-2 text-xs text-soft" }, [defCb, "Padrão"]),
       addBtn,
     ]),
   ]);
@@ -142,19 +142,19 @@ async function categoriesModal(onChanged) {
     const cats = await api.get("/catalogo/categorias");
     listBox.replaceChildren(
       cats.length
-        ? el("ul", { style: "list-style:none" }, cats.map((c) => {
+        ? el("ul", { class: "list-none" }, cats.map((c) => {
             const del = el("button", { class: "btn btn--icon btn--ghost", title: "Excluir", html: icon("trash", 15) });
             del.onclick = async () => {
               if (!confirm(`Excluir a categoria "${c.name}"?`)) return;
               try { await api.del(`/catalogo/categorias/${c.id}`); reload(); onChanged(); }
               catch (err) { toast(err.message, "error"); }
             };
-            return el("li", { class: "flex items-center justify-between", style: "padding:8px 0;border-bottom:1px solid var(--sued-border);font-size:13px" }, [
+            return el("li", { class: "flex items-center justify-between list-row" }, [
               el("span", {}, c.name),
               el("span", { class: "flex items-center gap-3" }, [el("span", { class: "text-muted" }, `${c.products} item(s)`), del]),
             ]);
           }))
-        : el("p", { class: "text-muted", style: "font-size:13px" }, "Nenhuma categoria."),
+        : el("p", { class: "text-muted text-sm" }, "Nenhuma categoria."),
     );
   }
   await reload();
@@ -181,7 +181,7 @@ export async function renderCatalogo() {
   const container = el("div", {});
 
   async function load() {
-    container.replaceChildren(el("div", { class: "center-screen", style: "height:200px" }, [el("div", { class: "spinner" })]));
+    container.replaceChildren(el("div", { class: "center-screen loading-box" }, [el("div", { class: "spinner" })]));
     const items = await api.get("/catalogo");
 
     const novo = el("button", { class: "btn btn--primary", html: `${icon("plus", 16)}<span>Novo item</span>` });
@@ -192,13 +192,13 @@ export async function renderCatalogo() {
     const table = renderTable({
       columns: [
         { header: "Item", render: (r) => {
-          const link = el("span", { class: "link-strong", style: "cursor:pointer" }, r.name);
+          const link = el("span", { class: "link-strong cursor-pointer" }, r.name);
           link.onclick = () => productDetail(r.id, load);
           return el("span", {}, [link, r.unit && el("span", { class: "text-muted" }, ` / ${r.unit}`)]);
         } },
         { header: "Categoria", render: (r) => r.categoryName || "—" },
         { header: "Custo ref.", align: "right", render: (r) => formatBRL(r.referenceCostCents) },
-        { header: "Preço sugerido", align: "right", render: (r) => el("span", { style: "font-weight:600" }, formatBRL(r.suggestedPriceCents)) },
+        { header: "Preço sugerido", align: "right", render: (r) => el("span", { class: "font-semibold" }, formatBRL(r.suggestedPriceCents)) },
         { header: "Forn.", align: "center", render: (r) => String(r.suppliers) },
         { header: "Status", align: "center", render: (r) =>
           el("span", { class: `badge ${r.active ? "badge--success" : "badge--muted"}` }, r.active ? "Ativo" : "Inativo") },

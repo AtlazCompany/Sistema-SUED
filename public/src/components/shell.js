@@ -68,7 +68,7 @@ export function renderShell(user, onLogout) {
     ]),
     nav,
     el("div", { class: "sidebar__footer" }, [
-      el("hr", { class: "sued-divider-gold", style: "margin-bottom:12px" }),
+      el("hr", { class: "sued-divider-gold mb-3" }),
       el("p", { class: "text-muted", style: "font-size:11px;letter-spacing:.2em;text-transform:uppercase" }, `${APP_NAME} · v2`),
     ]),
   ]);
@@ -106,7 +106,7 @@ export function renderShell(user, onLogout) {
   const header = el("header", { class: "app-header" }, [
     menuBtn,
     el("div", { class: "user-chip" }, [
-      el("div", { style: "text-align:right" }, [
+      el("div", { class: "text-right" }, [
         el("p", { style: "font-weight:500;line-height:1.2" }, user.name),
         el("p", { class: "text-muted", style: "font-size:12px;line-height:1.2" }, ROLE_LABELS[user.role] || user.role),
       ]),

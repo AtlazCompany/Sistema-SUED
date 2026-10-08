@@ -20,6 +20,7 @@ import { financeiroRouter } from "../routes/financeiro.js";
 import { contratosRouter } from "../routes/contratos.js";
 import { usuariosRouter } from "../routes/usuarios.js";
 import { leadsRouter } from "../routes/leads.js";
+import { deleteTestUsers } from "./test-users.js";
 
 const TAG = "AUDIT-FASE5-B9-";
 let sql;
@@ -56,7 +57,7 @@ before(async () => {
 
 after(async () => {
   if (!dbAvailable) return;
-  if (bootstrapId) await sql`delete from "User" where id = ${bootstrapId}`;
+  if (bootstrapId) await deleteTestUsers(sql, [bootstrapId]);
   await new Promise((resolve) => server.close(resolve));
   await sql.end();
 });

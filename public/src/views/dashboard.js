@@ -36,15 +36,15 @@ export async function renderDashboard() {
 
   // Próximos eventos
   const upcoming = data.upcoming.length
-    ? el("ul", { style: "list-style:none" },
+    ? el("ul", { class: "list-none" },
         data.upcoming.map((ev) =>
           el("li", { class: "flex items-center justify-between", style: "padding:12px 0;border-bottom:1px solid var(--sued-border)" }, [
             el("div", {}, [
-              el("p", { style: "font-weight:500" }, ev.title),
-              el("p", { class: "text-muted", style: "font-size:12px" }, `${ev.clientName || "Sem cliente"}${ev.eventTypeName ? " · " + ev.eventTypeName : ""}`),
+              el("p", { class: "font-medium" }, ev.title),
+              el("p", { class: "text-muted text-xs" }, `${ev.clientName || "Sem cliente"}${ev.eventTypeName ? " · " + ev.eventTypeName : ""}`),
             ]),
-            el("div", { style: "text-align:right" }, [
-              el("p", { class: "text-soft", style: "font-size:12px" }, formatDate(ev.eventDate)),
+            el("div", { class: "text-right" }, [
+              el("p", { class: "text-soft text-xs" }, formatDate(ev.eventDate)),
               el("span", { class: "badge badge--success" }, STATUS_LABELS[ev.status] || ev.status),
             ]),
           ]),
@@ -54,7 +54,7 @@ export async function renderDashboard() {
 
   const upcomingCard = el("div", { class: "card card--pad" }, [
     el("h2", { style: "font-size:14px;font-weight:600" }, "Próximos eventos"),
-    el("hr", { class: "sued-divider-gold", style: "margin:16px 0" }),
+    el("hr", { class: "sued-divider-gold my-4" }),
     upcoming,
   ]);
 
@@ -62,14 +62,14 @@ export async function renderDashboard() {
   const maxCount = Math.max(1, ...data.funnel.map((f) => f.count));
   const funnelCard = el("div", { class: "card card--pad" }, [
     el("h2", { style: "font-size:14px;font-weight:600" }, "Funil comercial"),
-    el("hr", { class: "sued-divider-gold", style: "margin:16px 0" }),
+    el("hr", { class: "sued-divider-gold my-4" }),
     ...data.funnel.map((f) =>
-      el("div", { style: "margin-bottom:12px" }, [
-        el("div", { class: "flex items-center justify-between", style: "font-size:12px;margin-bottom:4px" }, [
-          el("span", { style: "font-weight:500" }, STAGE_LABELS[f.stage] || f.stage),
+      el("div", { class: "mb-3" }, [
+        el("div", { class: "flex items-center justify-between text-xs mb-1" }, [
+          el("span", { class: "font-medium" }, STAGE_LABELS[f.stage] || f.stage),
           el("span", { class: "text-muted" }, `${f.count} · ${formatBRL(f.totalCents)}`),
         ]),
-        el("div", { style: "height:8px;background:var(--sued-marble-2);border-radius:999px;overflow:hidden" }, [
+        el("div", { class: "progress" }, [
           el("div", { style: `height:100%;width:${(f.count / maxCount) * 100}%;background:var(--sued-gold);border-radius:999px` }),
         ]),
       ]),

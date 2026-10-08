@@ -21,7 +21,7 @@ function userForm(user, onSaved) {
     !isEdit && field("Senha inicial", "password", "", { type: "password", required: true, placeholder: "mínimo 8 caracteres", col2: true }),
   ]);
   const active = isEdit
-    ? el("label", { class: "flex items-center gap-2", style: "font-size:13px;color:var(--sued-ink-soft)" }, [
+    ? el("label", { class: "flex items-center gap-2 text-sm text-soft" }, [
         (() => { const cb = el("input", { type: "checkbox", name: "active" }); cb.checked = u.active !== false; return cb; })(),
         "Usuário ativo (consegue fazer login)",
       ])
@@ -31,7 +31,7 @@ function userForm(user, onSaved) {
   const cancel = el("button", { class: "btn btn--ghost", type: "button" }, "Cancelar");
   const modal = openModal({
     title: isEdit ? "Editar usuário" : "Novo usuário",
-    body: el("div", {}, [form, active && el("div", { style: "margin-top:12px" }, [active])]),
+    body: el("div", {}, [form, active && el("div", { class: "mt-3" }, [active])]),
     footer: [cancel, save],
   });
   cancel.onclick = modal.close;
@@ -85,7 +85,7 @@ export async function renderUsuarios() {
   const container = el("div", {});
 
   async function load() {
-    container.replaceChildren(el("div", { class: "center-screen", style: "height:200px" }, [el("div", { class: "spinner" })]));
+    container.replaceChildren(el("div", { class: "center-screen loading-box" }, [el("div", { class: "spinner" })]));
     const users = await api.get("/usuarios");
 
     const novo = el("button", { class: "btn btn--primary", html: `${icon("plus", 16)}<span>Novo usuário</span>` });
@@ -109,7 +109,7 @@ export async function renderUsuarios() {
             try { await api.del(`/usuarios/${r.id}`); toast("Usuário excluído."); load(); }
             catch (err) { toast(err.message, "error"); }
           };
-          return el("div", { class: "flex", style: "justify-content:flex-end;gap:4px" }, [edit, key, del]);
+          return el("div", { class: "flex row-actions" }, [edit, key, del]);
         } },
       ],
       rows: users,

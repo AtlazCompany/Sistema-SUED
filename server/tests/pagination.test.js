@@ -13,6 +13,7 @@ import { randomUUID } from "node:crypto";
 import { authRouter } from "../auth.js";
 import { clientesRouter } from "../routes/clientes.js";
 import { leadsRouter } from "../routes/leads.js";
+import { deleteTestUsers } from "./test-users.js";
 
 const TAG = "AUDIT-FASE5-B13-";
 let sql;
@@ -47,7 +48,7 @@ before(async () => {
 
 after(async () => {
   if (!dbAvailable) return;
-  if (bootstrapId) await sql`delete from "User" where id = ${bootstrapId}`;
+  if (bootstrapId) await deleteTestUsers(sql, [bootstrapId]);
   await new Promise((resolve) => server.close(resolve));
   await sql.end();
 });
