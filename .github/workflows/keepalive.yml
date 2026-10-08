@@ -1,0 +1,34 @@
+# Monitoramento diário da produção.
+# - Mantém o Supabase (plano Free) ativo: /api/health faz uma consulta real
+#   ao banco, e o projeto pausa sozinho após dias sem nenhuma atividade.
+# - Avisa se o sistema cair: se a verificação falhar, o job falha e o GitHub
+#   manda e-mail para quem administra o repositório.
+# Também dá para rodar na mão: aba Actions → "Monitoramento" → Run workflow.
+name: Monitoramento
+
+on:
+  schedule:
+    - cron: "0 11 * * *" # todo dia, 08:00 em Brasília
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Verificar /api/health
+        env:
+          URL: https://sistema-sued.onrender.com/api/health
+        run: |
+          # O Render (plano gratuito) "dorme" sem uso e leva até ~1 min para
+          # acordar — por isso várias tentativas com tempo generoso.
+          for i in 1 2 3 4 5; do
+            code=$(curl -s -o body.txt -w "%{http_code}" --max-time 90 "$URL" || echo 000)
+            echo "tentativa $i: HTTP $code $(cat body.txt 2>/dev/null)"
+            if [ "$code" = "200" ]; then exit 0; fi
+            sleep 30
+          done
+          echo "::error::Produção não respondeu OK em $URL (banco pausado ou servidor fora do ar)."
+          exit 1

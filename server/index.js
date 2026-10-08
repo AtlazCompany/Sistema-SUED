@@ -18,6 +18,7 @@ import { operacionalRouter } from "./routes/operacional.js";
 import { financeiroRouter } from "./routes/financeiro.js";
 import { contratosRouter } from "./routes/contratos.js";
 import { relatoriosRouter } from "./routes/relatorios.js";
+import { healthRouter } from "./routes/health.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, "..", "public");
@@ -57,6 +58,7 @@ app.use((req, res, next) => {
 });
 
 // ---- API ----
+app.use("/api/health", healthRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/clientes", clientesRouter);
 app.use("/api/dashboard", dashboardRouter);
