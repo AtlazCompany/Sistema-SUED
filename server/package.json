@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node --env-file=.env --watch index.js",
     "start": "node --env-file=.env index.js",
-    "test": "node --env-file=.env --experimental-test-module-mocks --test tests/*.test.js"
+    "test": "node --env-file=.env --env-file-if-exists=.env.test --import ./tests/guard-db.js --experimental-test-module-mocks --test tests/*.test.js",
+    "test:setup-db": "node --env-file=.env --env-file-if-exists=.env.test setup-test-db.mjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

@@ -26,7 +26,7 @@ import { financeiroRouter } from "../routes/financeiro.js";
 import { catalogoRouter } from "../routes/catalogo.js";
 import { deleteTestUsers } from "./test-users.js";
 
-const TAG = "AUDIT-FASE5-";
+const TAG = "AUDIT-FASE5-FKW-"; // exclusivo: "AUDIT-FASE5-" sozinho casava com o prefixo dos outros arquivos (rodando em paralelo)
 const FAKE_ID = "00000000-0000-0000-0000-000000000000"; // UUID válido, garantidamente inexistente
 let sql;
 let dbAvailable = false;
