@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken";
 import crypto from "node:crypto";
 import { sql } from "./supabaseClient.js";
 import { config } from "./config.js";
-import { asyncHandler, HttpError } from "./utils.js";
+import { asyncHandler, HttpError, clientIp } from "./utils.js";
 import { sendPasswordResetEmail } from "./mail.js";
 import { logAudit } from "./audit.js";
 
@@ -19,7 +19,7 @@ const LOGIN_MAX_ATTEMPTS = 8;
 const loginAttempts = new Map(); // ip -> { count, windowStart }
 
 function loginRateLimit(req, res, next) {
-  const key = req.ip;
+  const key = clientIp(req);
   const now = Date.now();
   const entry = loginAttempts.get(key);
   if (entry && now - entry.windowStart < LOGIN_WINDOW_MS && entry.count >= LOGIN_MAX_ATTEMPTS) {
@@ -31,7 +31,7 @@ function loginRateLimit(req, res, next) {
 }
 
 function registerFailedLogin(req) {
-  const key = req.ip;
+  const key = clientIp(req);
   const now = Date.now();
   const entry = loginAttempts.get(key);
   if (!entry || now - entry.windowStart >= LOGIN_WINDOW_MS) {
@@ -42,7 +42,7 @@ function registerFailedLogin(req) {
 }
 
 function clearLoginAttempts(req) {
-  loginAttempts.delete(req.ip);
+  loginAttempts.delete(clientIp(req));
 }
 
 // ---- Rate limit de troca da própria senha (mesmo padrão do login) ----
@@ -257,7 +257,7 @@ authRouter.post(
     if (!email) return respond();
 
     const emailOk = withinLimit(resetRequestByEmail, email, RESET_REQUEST_WINDOW_MS, RESET_REQUEST_MAX_PER_EMAIL);
-    const ipOk = withinLimit(resetRequestByIp, req.ip, RESET_REQUEST_WINDOW_MS, RESET_REQUEST_MAX_PER_IP);
+    const ipOk = withinLimit(resetRequestByIp, clientIp(req), RESET_REQUEST_WINDOW_MS, RESET_REQUEST_MAX_PER_IP);
     if (!emailOk || !ipOk) return respond();
 
     const [user] = await sql`select id, name, email, active from "User" where email = ${email} limit 1`;
@@ -288,7 +288,7 @@ authRouter.post(
     if (String(newPassword) !== String(confirmNewPassword))
       throw new HttpError(400, "A confirmação da senha não confere.");
 
-    if (!withinLimit(resetConfirmByIp, req.ip, RESET_CONFIRM_WINDOW_MS, RESET_CONFIRM_MAX_PER_IP))
+    if (!withinLimit(resetConfirmByIp, clientIp(req), RESET_CONFIRM_WINDOW_MS, RESET_CONFIRM_MAX_PER_IP))
       throw new HttpError(429, "Muitas tentativas. Tente novamente em alguns minutos.");
 
     const tokenHash = crypto.createHash("sha256").update(String(token)).digest("hex");

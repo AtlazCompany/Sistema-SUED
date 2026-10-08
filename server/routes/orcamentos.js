@@ -2,7 +2,7 @@ import { Router } from "express";
 import { sql } from "../supabaseClient.js";
 import { requireAuth, requireRole } from "../auth.js";
 import { rolesForModule } from "../../public/src/roles.js";
-import { asyncHandler, HttpError, nn, prepInsert, toCents, toDateOrNull, parsePagination, assertValidTransition } from "../utils.js";
+import { asyncHandler, HttpError, nn, prepInsert, toCents, toDateOrNull, parsePagination, assertValidTransition, clientIp } from "../utils.js";
 
 export const orcamentosRouter = Router();
 orcamentosRouter.use(requireAuth);
@@ -40,7 +40,9 @@ function pickItems(body) {
   const items = Array.isArray(body?.items) ? body.items : [];
   return items
     .filter((i) => nn(i?.description))
-    .map((i) => ({
+    .map((i, index) => ({
+      // Lote 9: ordem em que o item aparece no editor (e na proposta/PDF).
+      position: index,
       productServiceId: nn(i.productServiceId),
       description: String(i.description).trim(),
       quantity: Math.max(1, Number(i.quantity) || 1),
@@ -110,7 +112,7 @@ orcamentosRouter.get(
       where b.id = ${req.params.id}`;
     if (!budget) throw new HttpError(404, "Orçamento não encontrado.");
     const items = await sql`
-      select * from "BudgetItem" where "budgetId" = ${budget.id} order by "id" asc`;
+      select * from "BudgetItem" where "budgetId" = ${budget.id} order by "position" asc, "id" asc`;
     res.json({ ...budget, items });
   }),
 );
@@ -224,7 +226,7 @@ const PUBLIC_MAX_PER_IP = 40; // cobre polling de ~4s com folga para mais de uma
 const publicHits = new Map();
 
 function publicRateLimit(req, res, next) {
-  const key = req.ip;
+  const key = clientIp(req);
   const now = Date.now();
   const entry = publicHits.get(key);
   if (entry && now - entry.windowStart < PUBLIC_WINDOW_MS) {
@@ -262,7 +264,7 @@ orcamentoPublicoRouter.get(
       throw new HttpError(404, "Orçamento não encontrado. O link pode estar incorreto ou o orçamento foi removido.");
     const items = await sql`
       select description, quantity, "unitPriceCents" from "BudgetItem"
-      where "budgetId" = ${budget.id} order by "id" asc`;
+      where "budgetId" = ${budget.id} order by "position" asc, "id" asc`;
     res.json({ ...budget, items });
   }),
 );

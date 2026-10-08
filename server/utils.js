@@ -1,5 +1,6 @@
 // Utilitários reutilizáveis do backend.
 import { randomUUID } from "node:crypto";
+import { config } from "./config.js";
 
 // O schema veio do Prisma, que gerava id/updatedAt na aplicação (sem default
 // no banco). Ao inserir via SQL, injetamos esses campos aqui.
@@ -26,6 +27,35 @@ export class HttpError extends Error {
     super(message);
     this.status = status;
   }
+}
+
+// IP real do visitante, usado como chave dos rate limits. Atrás do
+// Cloudflare/Render, req.ip é o IP do proxy — todos os visitantes dividiam
+// o mesmo contador. O Cloudflare SOBRESCREVE o cabeçalho configurado
+// (cf-connecting-ip), então ele não pode ser forjado pelo cliente; já o
+// X-Forwarded-For (que "trust proxy" usaria) é repassado pelo Render sem
+// filtro e seria forjável. Sem cabeçalho configurado (local) → req.ip.
+export function clientIp(req, header = config.clientIpHeader) {
+  const raw = header ? req.headers[header] : null;
+  const first = typeof raw === "string" ? raw.split(",")[0].trim() : "";
+  return first || req.ip;
+}
+
+// Tratamento central de erros (usado por server/index.js). Erro de regra de
+// negócio (HttpError) ou do próprio Express com status < 500 mantém a
+// mensagem; erro inesperado (500) vai inteiro para o log e o visitante
+// recebe só uma mensagem genérica — nunca detalhe de banco/infraestrutura.
+export function errorHandler(err, req, res, _next) {
+  // Postgres 22P02 = "invalid text representation" — normalmente um UUID
+  // malformado num parâmetro de rota (ex.: GET /api/clientes/id-invalido).
+  if (err.code === "22P02") return res.status(400).json({ error: "ID inválido." });
+  const status = err.status || 500;
+  if (status >= 500) {
+    console.error(err);
+    const message = err instanceof HttpError ? err.message : "Erro interno do servidor. Tente novamente em instantes.";
+    return res.status(status).json({ error: message });
+  }
+  res.status(status).json({ error: err.message || "Requisição inválida." });
 }
 
 // Converte "12.500,00" (reais) → 1250000 (centavos). Aceita number também.

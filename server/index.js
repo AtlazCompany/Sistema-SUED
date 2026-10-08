@@ -3,6 +3,7 @@ import cookieParser from "cookie-parser";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { config } from "./config.js";
+import { errorHandler } from "./utils.js";
 import { authRouter } from "./auth.js";
 import { clientesRouter } from "./routes/clientes.js";
 import { dashboardRouter } from "./routes/dashboard.js";
@@ -22,6 +23,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, "..", "public");
 
 const app = express();
+// Não anunciar o framework no header x-powered-by (achado opcional do §44).
+app.disable("x-powered-by");
 
 // ---- Middlewares globais ----
 app.use(express.json());
@@ -80,16 +83,8 @@ app.get(/^(?!\/api).*/, (req, res) => {
   res.sendFile(path.join(publicDir, "index.html"));
 });
 
-// ---- Tratamento central de erros ----
-app.use((err, req, res, _next) => {
-  // Postgres 22P02 = "invalid text representation" — normalmente um UUID
-  // malformado num parâmetro de rota (ex.: GET /api/clientes/id-invalido).
-  // Sem isso, viraria 500 com mensagem técnica do driver.
-  if (err.code === "22P02") return res.status(400).json({ error: "ID inválido." });
-  const status = err.status || 500;
-  if (status >= 500) console.error(err);
-  res.status(status).json({ error: err.message || "Erro interno." });
-});
+// ---- Tratamento central de erros (ver errorHandler em utils.js) ----
+app.use(errorHandler);
 
 app.listen(config.port, () => {
   console.log(`SUED backend on http://localhost:${config.port}`);

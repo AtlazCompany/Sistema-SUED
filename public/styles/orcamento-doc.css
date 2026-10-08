@@ -81,6 +81,37 @@ table.doc-orcamento__items { width: 100%; border-collapse: collapse; margin-bott
 .doc-orcamento__foot { text-align: center; padding-top: 18px; border-top: 1px solid var(--sued-border); font-size: 11.5px; color: var(--sued-muted); }
 .doc-orcamento__foot p { margin: 2px 0; }
 
+/* Lote 10: celular. A tabela de 4 colunas não cabia em ~390px (coluna Total
+   estourava o cartão). Na tela estreita, cada item vira um bloco:
+   descrição em cima, "qtd × preço" à esquerda e o total à direita.
+   Só "screen" — o PDF/impressão continua com a tabela em A4. */
+@media screen and (max-width: 600px) {
+  .doc-orcamento { padding: 22px 18px; }
+  .doc-orcamento__head { flex-direction: column; gap: 14px; }
+  .doc-orcamento__id { text-align: left; }
+  .doc-orcamento__meta { grid-template-columns: 1fr 1fr; }
+  .doc-orcamento__metacol:first-child { grid-column: 1 / -1; }
+
+  .doc-orcamento__items thead { display: none; }
+  .doc-orcamento__items tr {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    align-items: baseline;
+    column-gap: 4px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--sued-border);
+  }
+  .doc-orcamento__items td { padding: 0; border: 0; }
+  .doc-orcamento__items td:first-child { grid-column: 1 / -1; font-weight: 500; margin-bottom: 4px; }
+  .doc-orcamento__items td:nth-child(2),
+  .doc-orcamento__items td:nth-child(3) { color: var(--sued-ink-soft); font-size: 12.5px; }
+  .doc-orcamento__items td:nth-child(2)::after { content: " ×"; }
+  .doc-orcamento__items td:nth-child(4) { justify-self: end; }
+  .doc-orcamento__items td[colspan] { grid-column: 1 / -1; }
+
+  .doc-orcamento__totals { width: 100%; }
+}
+
 /* Impressão / "Baixar PDF": só o documento aparece na página, não importa
    se ele está numa aba do editor, num modal de Contratos ou na página
    pública — o resto (menu, barra, backdrop do modal) some.

@@ -20,8 +20,10 @@
   /* Texto (tons quentes, nunca preto puro no corpo) */
   --sued-ink: #1c1917;
   --sued-ink-soft: #56504a;
-  --sued-muted: #8a8378;
+  --sued-muted: #6f685e; /* Lote 10: era #8a8378 (3,6:1 — abaixo do AA); agora ≥4,6:1 em todos os fundos */
   --sued-black: #14110e;
+  /* Texto sobre dourado: branco dava 2,4:1 (ilegível); tinta escura dá 7:1 */
+  --sued-on-gold: #14110e;
 
   /* Bordas e foco */
   --sued-border: #ece7dc;

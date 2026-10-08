@@ -48,6 +48,16 @@ img {
   font-family: var(--font-display);
 }
 
+/* Lote 10: a Cormorant usa algarismos "old-style" por padrão — "0" lia como
+   "o" e "1" como "I" em números de destaque (KPIs, nº do orçamento). Onde a
+   fonte de títulos aparece, os números ficam alinhados (lining). */
+.font-display,
+.kpi__value,
+.doc-orcamento__brandword,
+.doc-orcamento__number {
+  font-variant-numeric: lining-nums;
+}
+
 /* Utilitário: veios/ramificações douradas (fundo institucional sutil) */
 .sued-marble-bg {
   background-color: var(--sued-marble);

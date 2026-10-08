@@ -14,6 +14,13 @@ export const config = {
   resendApiKey: process.env.RESEND_API_KEY || null,
   mailFrom: process.env.MAIL_FROM || "onboarding@resend.dev",
   appBaseUrl: process.env.APP_BASE_URL || `http://localhost:${port}`,
+  // Lote 9: cabeçalho com o IP real do visitante (ver clientIp em utils.js).
+  // Em produção o Render fica atrás do Cloudflare → "cf-connecting-ip".
+  // CLIENT_IP_HEADER=none desliga (ex.: se um dia sair do Cloudflare).
+  clientIpHeader:
+    process.env.CLIENT_IP_HEADER === "none"
+      ? null
+      : process.env.CLIENT_IP_HEADER || (process.env.NODE_ENV === "production" ? "cf-connecting-ip" : null),
 };
 
 if (!config.jwtSecret) throw new Error("JWT_SECRET ausente no .env");

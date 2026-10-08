@@ -1,7 +1,13 @@
 // Helper de campos de formulário (usado nos modais de todos os módulos).
 import { el } from "../utils.js";
 
+// Lote 10 (acessibilidade): cada campo ganha um id único e o <label for>
+// aponta para ele — leitor de tela anuncia o rótulo e clicar no rótulo
+// foca o campo. Contador global: nomes repetem entre modais diferentes.
+let fieldSeq = 0;
+
 export function field(label, name, value = "", opts = {}) {
+  const id = `f-${name}-${++fieldSeq}`;
   const input = opts.type === "select"
     ? el("select", { class: "select", name },
         (opts.options || []).map((o) => {
@@ -17,8 +23,10 @@ export function field(label, name, value = "", opts = {}) {
           value: value ?? "",
           placeholder: opts.placeholder || "",
         });
+  input.id = id;
+  if (opts.required) input.setAttribute("aria-required", "true");
   return el("div", { class: `field ${opts.col2 ? "col-2" : ""}` }, [
-    el("label", { class: "field__label" }, [label, opts.required && el("span", { class: "req" }, "*")]),
+    el("label", { class: "field__label", for: id }, [label, opts.required && el("span", { class: "req", "aria-hidden": "true" }, "*")]),
     input,
   ]);
 }

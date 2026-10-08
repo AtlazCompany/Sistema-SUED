@@ -951,3 +951,119 @@ limpo; metodologia de varredura corrigida (`server/check-residue.mjs`).
 Restam 2 itens que só o usuário pode decidir (monitoramento, domínio
 de e-mail próprio) — nenhum bloqueia o uso atual. Parado aqui —
 aguardando novo pedido do usuário.
+
+## 47. Retomada (07/10/2026) + Lote 9 — auditoria dos commits de orçamento e correções
+
+Retomada após queda de sessão. Repositório local = `origin/main`
+(`3855047`), sem trabalho pendente; `package-lock.json` vazio e solto na
+raiz removido (autorizado). Os commits `d08a5bf` (pré-visualização,
+link público `/orcamento/:id`, PDF) e `3855047` (layout de impressão)
+não estavam registrados neste CHECKPOINT — auditados agora.
+
+**Achados e tratamento (decisões do usuário em 07/10):**
+- **Teste B5 quebrado** pelo `d08a5bf` (que corrigiu o preço zerado dos
+  itens: o servidor passou a ler `unitPriceCents`, mas 2 testes ainda
+  enviavam `unitPrice` em reais) → testes atualizados.
+- **Rate limit compartilhado entre todos os visitantes**: atrás do
+  Cloudflare/Render, `req.ip` é o IP do proxy (login, reset de senha e
+  link público dividiam o mesmo contador). Corrigido com `clientIp()`
+  (`utils.js`), que usa `cf-connecting-ip` em produção (sobrescrito pelo
+  Cloudflare, não forjável). Não usado `trust proxy`: o Render repassa o
+  `X-Forwarded-For` do cliente sem filtrar (forjável). Configurável por
+  `CLIENT_IP_HEADER` (`none` desliga).
+- **Itens do orçamento embaralhados**: ordenados por UUID aleatório e
+  recriados a cada PUT. Nova coluna `BudgetItem.position` (script
+  idempotente `server/setup-budgetitem-position.mjs`, aditivo, itens
+  antigos mantêm a ordem atual); consultas ordenam por `position, id`.
+  Usuário autorizou a mudança de schema (com backup antes).
+- **Erro 500 vazava detalhe de infraestrutura** (achado em produção:
+  login devolvia `(ENOTFOUND) tenant/user postgres.<projeto> not found`).
+  Tratamento central extraído para `errorHandler` (`utils.js`): 500
+  inesperado → mensagem genérica; detalhe só no log.
+- Página pública: passa a usar `api.js` (modo `silent`), e o polling
+  pausa com a aba oculta. `x-powered-by` desligado.
+- Link público: usuário decidiu **manter como está** (mostra rascunho e
+  Observações).
+
+**Bloqueio encontrado — produção fora do ar**: o projeto Supabase está
+inacessível (`tenant/user ... not found`, típico de projeto Free
+**pausado por inatividade**). Site abre, mas login → 500. Depende do
+usuário restaurar o projeto no painel do Supabase.
+
+**Testes**: sem banco, 102/102 PASS (15 pulados por dependerem do
+banco). Novos: `tests/client-ip.test.js`, `tests/error-handler.test.js`,
+e teste de ordem dos itens em `regras-negocio-b2-b3-b4-b5-b18.test.js`.
+**Pendente após restaurar o banco**: `backup-db.mjs` →
+`setup-budgetitem-position.mjs` → suíte completa → `check-residue.mjs`
+→ deploy (o código novo exige a coluna `position` ANTES do deploy).
+Nada commitado ainda.
+
+## 48. Lote 10 — auditoria visual/técnica do frontend (Impeccable) + correções P1
+
+Usuário pediu para usar Impeccable e Superpowers e delegou as decisões
+("faça do jeito que achar melhor"). Banco ainda pausado — lote feito só
+com o que não depende dele.
+
+**Auditoria Impeccable (`audit`)**: nota **13/20 (aceitável)** —
+Acessibilidade 2, Performance 3, Responsivo 2, Tokens/tema 3,
+Integridade 3. Detector: 5 alertas (texto com gradiente dourado em
+`base.css`/`index.html`, borda lateral colorida em toasts/erro de
+login) — mantidos: o dourado metálico é a identidade da marca, e as
+bordas são P3 sem impacto real.
+
+**Corrigido (P1, WCAG AA, centralizado em componentes/tokens):**
+- Botão principal: texto branco sobre dourado tinha 2,4:1 → texto em
+  tinta escura (`--sued-on-gold`, 7,2:1). Vale para `.btn--primary` e
+  o botão Entrar do login.
+- Texto secundário (`--sued-muted`): 3,6:1 → `#6f685e` (≥4,6:1 em
+  todos os fundos da marca). Muda 30 usos de uma vez.
+- Formulários: `<label>` não era ligado ao campo (leitor de tela não
+  anunciava o rótulo; clicar no rótulo não focava). `field()` agora
+  gera `id` + `for`, e `aria-required` nos obrigatórios.
+- Modal: sem papel de diálogo, sem Esc, sem foco. Agora `role="dialog"`,
+  `aria-modal`, título associado, Esc fecha, foco entra no 1º campo e
+  volta ao botão que abriu; botão X com nome "Fechar".
+- Toasts anunciados por leitor de tela (`role="status"`, `aria-live`).
+
+**Não corrigido (P2/P3, próximos lotes se aprovado)**: botões de ícone
+com 36px (abaixo de 44px no celular); `prefers-reduced-motion` só no
+login e no documento; ~196 estilos inline nas views.
+
+**Verificação**: 102/102 PASS (sem banco; 15 pulados), `node --check`
+100%, detector sem alerta novo. **Não verificado no navegador** (sem
+ferramenta de navegador nesta sessão e sem banco para logar) — conferir
+visualmente o botão dourado com texto escuro antes do deploy.
+
+## 49. Fechamento dos Lotes 9 e 10 (08/10/2026, após o usuário restaurar o Supabase)
+
+- **Backup** antes de qualquer gravação: `server/backups/backup-2026-10-08T02-50-55-672Z.json`.
+- **Sinal de uso real detectado e reportado**: além do admin, existem
+  dados reais criados em 01/09 — usuária ADMIN "Franklane", catálogo
+  "Buffer SUED Prata", fornecedor "CHEFE RAI", tipo de evento
+  "Casamento". Usuário havia dito "ainda não em uso"; testes em produção
+  seguiram porque TODAS as exclusões dos testes são por id/prefixo de
+  teste (verificado), com backup feito. Dados reais conferidos intactos
+  depois de cada etapa. **A política de testar em produção deve ser
+  revista antes do uso real** (sugestão: banco de teste separado).
+- **Migração** `setup-budgetitem-position.mjs` aplicada (0 itens
+  existentes) e reexecutada para provar idempotência.
+- **Suíte completa**: em paralelo deu 8 falhas, todas "login do admin de
+  bootstrap → 500" (contenção de conexões no pooler do Supabase recém
+  restaurado; o mesmo arquivo isolado passa 18/18). Reexecutada com
+  `--test-concurrency=1`: **284/284 PASS** (275 anteriores + 9 novos).
+- **Resíduo**: a suíte deixou 53 linhas em `AuditLog` (ator de teste
+  excluído → `userId` nulo), todas criadas após 02:51 de 08/10 —
+  removidas por esse critério exato; varredura completa (24 tabelas,
+  incl. JSONB): **zero resíduo**. Causa raiz (testes não limpam o próprio
+  AuditLog) fica como melhoria para um próximo lote.
+- **Validação visual real** (Chrome headless via DevTools Protocol,
+  viewport emulado 1440px e 390px, admin temporário AUDIT-FASE5-VISUAL
+  removido ao final): botão dourado com texto escuro legível; ordem dos
+  itens preservada; sem rolagem horizontal. Encontrado e corrigido:
+  proposta pública estourava o cartão no celular (itens viram blocos em
+  tela ≤600px, impressão inalterada) e algarismos "old-style" da
+  Cormorant ("0"→"o", "1"→"I") → `lining-nums` nos números de destaque.
+  `X-Frame-Options: DENY` e ausência de `x-powered-by` confirmados.
+- Pendências de UX observadas (P2): no celular, os cartões "Próximos
+  eventos" e "Funil comercial" do Dashboard ficam espremidos em 2
+  colunas; tabela de Orçamentos rola na horizontal.

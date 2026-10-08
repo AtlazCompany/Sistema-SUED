@@ -78,7 +78,7 @@ contratosRouter.get(
     if (!budget) throw new HttpError(404, "Nenhum orçamento vigente para este evento.");
     const items = await sql`
       select description, quantity, "unitPriceCents" from "BudgetItem"
-      where "budgetId" = ${budget.id} order by "id" asc`;
+      where "budgetId" = ${budget.id} order by "position" asc, "id" asc`;
     res.json({ ...budget, items });
   }),
 );

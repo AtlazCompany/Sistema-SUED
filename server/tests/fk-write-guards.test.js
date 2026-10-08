@@ -187,7 +187,7 @@ test("guardas de FK em rotas de escrita (POST/PUT) — 400 amigável, nunca 500 
 
   await t.test("POST /orcamentos — items[].productServiceId inexistente → 400 (não 500)", async () => {
     const res = await A("POST", "/api/orcamentos", {
-      clientId, items: [{ productServiceId: FAKE_ID, description: TAG + "Item inválido", quantity: 1, unitPrice: "10,00" }],
+      clientId, items: [{ productServiceId: FAKE_ID, description: TAG + "Item inválido", quantity: 1, unitPriceCents: 1000 }],
     });
     assert.equal(res.status, 400);
     assert.match(res.body.error, /não existe mais/);
@@ -196,7 +196,7 @@ test("guardas de FK em rotas de escrita (POST/PUT) — 400 amigável, nunca 500 
   let budgetId;
   await t.test("POST /orcamentos — clientId + item válidos → 201", async () => {
     const res = await A("POST", "/api/orcamentos", {
-      clientId, items: [{ productServiceId: productId, description: TAG + "Item", quantity: 1, unitPrice: "10,00" }],
+      clientId, items: [{ productServiceId: productId, description: TAG + "Item", quantity: 1, unitPriceCents: 1000 }],
     });
     assert.equal(res.status, 201);
     budgetId = res.body.id;

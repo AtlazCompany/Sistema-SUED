@@ -4,7 +4,9 @@ import { toast } from "./components/toast.js";
 
 const BASE = "/api";
 
-async function request(method, path, body) {
+// opts.silent: não mostra toast de falha de rede (ex.: polling da página
+// pública do orçamento, que só tenta de novo no próximo ciclo).
+async function request(method, path, body, opts = {}) {
   let res;
   try {
     res = await fetch(BASE + path, {
@@ -14,7 +16,7 @@ async function request(method, path, body) {
       credentials: "same-origin",
     });
   } catch {
-    toast("Falha de conexão com o servidor.", "error");
+    if (!opts.silent) toast("Falha de conexão com o servidor.", "error");
     throw new Error("network");
   }
 
@@ -40,7 +42,7 @@ async function request(method, path, body) {
 }
 
 export const api = {
-  get: (path) => request("GET", path),
+  get: (path, opts) => request("GET", path, undefined, opts),
   post: (path, body) => request("POST", path, body),
   put: (path, body) => request("PUT", path, body),
   patch: (path, body) => request("PATCH", path, body),

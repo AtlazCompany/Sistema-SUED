@@ -8,19 +8,17 @@
 // montada, com poucos segundos de atraso, enquanto o comercial edita numa
 // aba do editor). Layout provisório com a identidade SUED, a ser ajustado
 // quando um modelo de referência for enviado.
+import { api } from "../api.js";
 import { el } from "../utils.js";
 import { renderOrcamentoDocumento } from "../components/orcamento-doc.js";
 import { suedMonogram } from "../components/sued-monogram.js";
 
 const POLL_MS = 4000;
 
-async function fetchPublic(id) {
-  const res = await fetch(`/api/orcamento-publico/${id}`, { credentials: "same-origin" });
-  if (!res.ok) {
-    const data = await res.json().catch(() => null);
-    throw new Error((data && data.error) || "Não foi possível carregar o orçamento.");
-  }
-  return res.json();
+// Via api.js (regra do projeto), em modo silencioso: o polling não deve
+// mostrar toast de falha de rede ao cliente a cada ciclo perdido.
+function fetchPublic(id) {
+  return api.get(`/orcamento-publico/${encodeURIComponent(id)}`, { silent: true });
 }
 
 function publicError(message) {
@@ -38,7 +36,8 @@ export async function renderOrcamentoPublico(id) {
   try {
     data = await fetchPublic(id);
   } catch (err) {
-    root.replaceChildren(publicError(err.message));
+    const message = err.message === "network" ? "Sem conexão com o servidor. Verifique sua internet e recarregue a página." : err.message;
+    root.replaceChildren(publicError(message));
     return root;
   }
 
@@ -60,8 +59,12 @@ export async function renderOrcamentoPublico(id) {
   const docHost = el("div", { class: "doc-public__host" }, [renderOrcamentoDocumento(data)]);
   root.replaceChildren(bar, docHost);
 
+  // Polling só com a aba visível: aba em segundo plano não consome o limite
+  // de requisições do link nem a bateria do cliente. Ao voltar, atualiza na
+  // hora em vez de esperar o próximo ciclo.
   let lastStamp = data.updatedAt;
-  setInterval(async () => {
+  let timer = null;
+  async function refresh() {
     try {
       const fresh = await fetchPublic(id);
       if (fresh.updatedAt !== lastStamp) {
@@ -74,7 +77,14 @@ export async function renderOrcamentoPublico(id) {
       // Falha de rede pontual — tenta de novo no próximo ciclo, sem alarmar
       // o cliente com um erro na tela por causa de uma requisição perdida.
     }
-  }, POLL_MS);
+  }
+  const start = () => { if (!timer) timer = setInterval(refresh, POLL_MS); };
+  const stop = () => { clearInterval(timer); timer = null; };
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) stop();
+    else { refresh(); start(); }
+  });
+  if (!document.hidden) start();
 
   return root;
 }

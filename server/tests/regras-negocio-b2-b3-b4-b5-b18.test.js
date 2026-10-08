@@ -25,7 +25,7 @@ import { authRouter } from "../auth.js";
 import { clientesRouter } from "../routes/clientes.js";
 import { eventosRouter } from "../routes/eventos.js";
 import { oportunidadesRouter } from "../routes/oportunidades.js";
-import { orcamentosRouter } from "../routes/orcamentos.js";
+import { orcamentosRouter, orcamentoPublicoRouter } from "../routes/orcamentos.js";
 import { contratosRouter } from "../routes/contratos.js";
 import { financeiroRouter } from "../routes/financeiro.js";
 
@@ -55,6 +55,7 @@ before(async () => {
   app.use("/api/eventos", eventosRouter);
   app.use("/api/oportunidades", oportunidadesRouter);
   app.use("/api/orcamentos", orcamentosRouter);
+  app.use("/api/orcamento-publico", orcamentoPublicoRouter);
   app.use("/api/contratos", contratosRouter);
   app.use("/api/financeiro", financeiroRouter);
   app.use((err, req, res, _next) => {
@@ -236,7 +237,7 @@ test("regras de negócio B2/B3/B4/B5/B18 (skip sem banco)", { skip: !dbAvailable
   // ---- B5: desconto maior que o subtotal ----
   await t.test("B5 — desconto maior que o subtotal é bloqueado; igual ao subtotal é permitido", async () => {
     const client = createdIds.clients[0];
-    const itemFn = () => ({ description: "Item", quantity: 1, unitPrice: "100,00" }); // subtotal = 10000 centavos
+    const itemFn = () => ({ description: "Item", quantity: 1, unitPriceCents: 10000 }); // subtotal = 10000 centavos (o editor envia sempre em centavos)
     const excesso = await A("POST", "/api/orcamentos", { clientId: client, discount: "150,00", items: [itemFn()] });
     assert.equal(excesso.status, 400);
     const igual = await A("POST", "/api/orcamentos", { clientId: client, discount: "100,00", items: [itemFn()] });
@@ -277,6 +278,28 @@ test("regras de negócio B2/B3/B4/B5/B18 (skip sem banco)", { skip: !dbAvailable
 
     const ct1Depois = await A("GET", `/api/contratos/${ct1.body.id}`);
     assert.equal(ct1Depois.body.vigente, false, "o contrato assinado antes deveria ter deixado de ser vigente");
+  });
+
+  // ---- Ordem dos itens (Lote 9) ----
+  // Antes, os itens eram ordenados pelo id (UUID aleatório) e recriados a
+  // cada PUT — a proposta/PDF mostrava os itens embaralhados.
+  await t.test("Lote 9 — itens do orçamento mantêm a ordem do editor (POST, PUT e link público)", async () => {
+    const client = createdIds.clients[0];
+    const nomes = ["Primeiro", "Segundo", "Terceiro", "Quarto", "Quinto", "Sexto"];
+    const items = nomes.map((n) => ({ description: TAG + n, quantity: 1, unitPriceCents: 100 }));
+    const criado = await A("POST", "/api/orcamentos", { clientId: client, items });
+    assert.equal(criado.status, 201);
+    createdIds.budgets.push(criado.body.id);
+
+    const lido = await A("GET", `/api/orcamentos/${criado.body.id}`);
+    assert.deepEqual(lido.body.items.map((i) => i.description), nomes.map((n) => TAG + n));
+
+    const invertidos = [...items].reverse();
+    const atualizado = await A("PUT", `/api/orcamentos/${criado.body.id}`, { clientId: client, status: "RASCUNHO", items: invertidos });
+    assert.equal(atualizado.status, 200);
+    const publico = await A("GET", `/api/orcamento-publico/${criado.body.id}`);
+    assert.deepEqual(publico.body.items.map((i) => i.description), invertidos.map((i) => i.description));
+    assert.equal(publico.body.items[0].unitCostCents, undefined, "link público nunca expõe custo");
   });
 
   // ---- limpeza ----
