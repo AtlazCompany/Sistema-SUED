@@ -33,9 +33,14 @@ export function renderTable({ columns, rows, empty }) {
         {},
         columns.map((c) => {
           const content = c.render(row);
+          // data-label: no celular (≤640px) cada linha vira um cartão e a
+          // célula mostra o nome da coluna ao lado do valor (layout.css).
           return el(
             "td",
-            { style: c.align ? `text-align:${c.align}` : "" },
+            {
+              style: c.align ? `text-align:${c.align}` : "",
+              "data-label": typeof c.header === "string" && c.header ? c.header : null,
+            },
             content?.nodeType ? content : String(content ?? "—"),
           );
         }),
@@ -43,5 +48,5 @@ export function renderTable({ columns, rows, empty }) {
     ),
   );
 
-  return el("div", { class: "table-wrap" }, [el("table", { class: "table" }, [thead, tbody])]);
+  return el("div", { class: "table-wrap table-wrap--cards" }, [el("table", { class: "table" }, [thead, tbody])]);
 }

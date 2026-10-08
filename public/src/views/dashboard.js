@@ -76,7 +76,7 @@ export async function renderDashboard() {
     ),
   ]);
 
-  const grid = el("div", { class: "grid", style: "grid-template-columns:2fr 1fr;margin-top:24px" }, [upcomingCard, funnelCard]);
+  const grid = el("div", { class: "grid grid-main-side", style: "margin-top:24px" }, [upcomingCard, funnelCard]);
 
   // Painel institucional "Parede SUED" (mármore + curvas luminosas + veios)
   const hero = suedWall([

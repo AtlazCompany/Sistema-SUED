@@ -1075,3 +1075,31 @@ inválido → 401 "E-mail ou senha inválidos." (banco respondendo); link
 público inexistente → 404 amigável; frontend novo servido (modal com
 `aria-modal`). Pendências do usuário: monitoramento (evita nova pausa do
 Supabase Free), domínio de e-mail próprio, banco separado para testes.
+
+## 50. Lote 11 — celular (Impeccable `adapt`)
+
+Pedido do usuário: "os de celular". Só frontend (CSS + 7 views/componentes),
+nenhuma mudança de servidor, banco ou regra de negócio.
+
+- 6 grades de 2 colunas que estavam **inline** nas views (Dashboard,
+  Operacional, Relatórios ×2, editor de Orçamento, Locais) — impossíveis
+  de adaptar por CSS — viraram classes `.grid-2`/`.grid-main-side`, que
+  passam a 1 coluna em telas ≤760px.
+- Listagens (`renderTable`, usado em todos os módulos): no celular cada
+  linha vira um bloco rotulado (`data-label` com o nome da coluna); sem
+  rolagem lateral nem coluna cortada. Texto longo (e-mail) quebra dentro
+  do bloco.
+- Cabeçalho de página: título e botão empilhados no celular.
+- Toque: botões de ícone 44px, botões pequenos 40px (`pointer: coarse`).
+- Campos com 16px no celular (evita o zoom automático do iPhone).
+
+**Verificação visual real** (Chrome via DevTools Protocol, 390px e
+360px + 1440px para regressão; admin temporário AUDIT-FASE5-VISUAL
+removido): Dashboard, Orçamentos, Clientes, Usuários, Catálogo e
+Relatórios sem rolagem horizontal; desktop inalterado. Resíduo: zero (24
+tabelas); dados reais intactos. Suíte de servidor não reexecutada (sem
+mudança de servidor); `node --check` OK.
+
+Observação de dado real (não alterado): o item de catálogo "Buffer SUED
+Prata" tem custo de referência R$ 199,90 e preço sugerido R$ 179,90
+(margem negativa) — confirmar com a equipe se é intencional.

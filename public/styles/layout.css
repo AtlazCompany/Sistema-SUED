@@ -130,6 +130,14 @@
 /* ---- Grids utilitários ---- */
 .grid { display: grid; gap: 16px; }
 .grid-kpis { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+/* Lote 11: grades de 2 colunas (antes inline nas views, impossíveis de
+   adaptar). Em tela estreita viram uma coluna só. */
+.grid-2 { grid-template-columns: 1fr 1fr; }
+.grid-main-side { grid-template-columns: 2fr 1fr; }
+@media (max-width: 760px) {
+  .grid-2,
+  .grid-main-side { grid-template-columns: 1fr; }
+}
 
 /* Botão de abrir/fechar o menu no header — só existe visualmente no mobile.
    Fica escondido em telas maiores (a sidebar já aparece fixa ali).
@@ -143,6 +151,11 @@
 
 @media (max-width: 640px) {
   .app-content { padding: 16px; }
+
+  /* Título e ação principal empilhados: o texto deixa de ser espremido
+     ao lado do botão. */
+  .page-header { flex-direction: column; align-items: flex-start; gap: 12px; margin-bottom: 24px; }
+  .page-header h1 { font-size: 26px; }
   .sidebar { position: fixed; z-index: 40; height: 100%; transform: translateX(-100%); transition: transform 0.2s; }
   .sidebar.is-open { transform: translateX(0); }
 

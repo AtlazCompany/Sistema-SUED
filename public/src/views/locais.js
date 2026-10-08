@@ -128,7 +128,7 @@ export async function renderLocais() {
           el("p", {}, "Espaços onde os eventos acontecem — próprios ou externos."),
         ]),
       ]),
-      el("div", { class: "grid", style: "grid-template-columns:2fr 1fr" }, [list, formCard]),
+      el("div", { class: "grid grid-main-side" }, [list, formCard]),
     );
   }
 

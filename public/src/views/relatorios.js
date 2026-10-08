@@ -68,7 +68,7 @@ export async function renderRelatorios() {
       kpi("Lucro / Margem", `${formatBRL(lucroTotal)} · ${margemTotal}`, lucroTotal < 0 ? "var(--sued-danger)" : ""),
     ]),
 
-    el("div", { class: "grid", style: "grid-template-columns:1fr 1fr;gap:16px;align-items:start" }, [
+    el("div", { class: "grid grid-2", style: "align-items:start" }, [
       card("Eventos por status", barList(
         d.eventosPorStatus, (r) => EVENT_STATUS_LABEL[r.status] || r.status, (r) => r.n, (r) => `${r.n}`,
       )),
@@ -77,7 +77,7 @@ export async function renderRelatorios() {
       )),
     ]),
 
-    el("div", { class: "grid", style: "grid-template-columns:1fr 1fr;gap:16px;align-items:start;margin-top:16px" }, [
+    el("div", { class: "grid grid-2", style: "align-items:start;margin-top:16px" }, [
       card("Lucro por evento (realizado)", simpleTable(
         [{ label: "Evento" }, { label: "Receita", align: "right" }, { label: "Custo", align: "right" }, { label: "Lucro", align: "right" }],
         d.lucroPorEvento.map((e) => [

@@ -35,7 +35,7 @@ export async function renderOperacional() {
     ])); return; }
     panel.replaceChildren(el("div", { class: "center-screen", style: "height:200px" }, [el("div", { class: "spinner" })]));
     const data = await api.get(`/operacional/evento/${currentEventId}`);
-    panel.replaceChildren(el("div", { class: "grid", style: "grid-template-columns:1fr 1fr;gap:16px;align-items:start" }, [
+    panel.replaceChildren(el("div", { class: "grid grid-2", style: "align-items:start" }, [
       tasksCard(data), scheduleCard(data),
     ]), checklistsCard(data));
   }

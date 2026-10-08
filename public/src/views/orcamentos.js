@@ -268,7 +268,7 @@ export async function renderOrcamentos() {
       actions.unshift(excluir);
     }
 
-    const editArea = el("div", { class: "grid", style: "grid-template-columns:2fr 1fr;align-items:start" }, [
+    const editArea = el("div", { class: "grid grid-main-side", style: "align-items:start" }, [
       el("div", { class: "card card--pad" }, [
         el("h2", { style: "font-size:14px;font-weight:600;margin-bottom:12px" }, "Itens"),
         el("table", { class: "budget-items" }, [
