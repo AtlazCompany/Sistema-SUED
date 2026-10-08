@@ -1148,3 +1148,14 @@ Prata" tem custo de referência R$ 199,90 e preço sugerido R$ 179,90
 
 Commits locais: `bc846f3`, `44c5023`, `bc40876` (+ este). **Push/deploy
 aguardando o usuário.**
+
+**Fechamento do Lote 12 (08/10/2026)**: push liberado pelo usuário
+(`088eb4b..9c8c025`); desta vez o Render publicou sozinho. Produção
+conferida: `/api/health` → `{"ok":true}`, CSS dos Lotes 11 e 12 servido,
+login inválido → 401. Workflow "Monitoramento" rodado à mão: sucesso
+(HTTP 200 na 1ª tentativa). Item 6: usuário não tem domínio e fica com o
+remetente atual (reset de senha só chega no e-mail da conta Resend).
+Item 7: recomendação = inverter os valores (custo R$ 179,90, preço
+R$ 199,90; nome tem espaço sobrando no fim). A gravação direta no banco
+foi bloqueada pela trava de permissões do ambiente; fica para o usuário
+fazer pela tela (backup feito antes: `backup-2026-10-08T12-44-14-686Z.json`).
