@@ -146,7 +146,7 @@ table.table { width: 100%; border-collapse: collapse; }
 }
 .toast--success { border-left: 3px solid var(--sued-success); }
 .toast--error { border-left: 3px solid var(--sued-danger); }
-.toast--info { border-left: 3px solid var(--sued-gold); }
+.toast--info { background: var(--sued-champagne-soft); border-color: var(--sued-gold-soft); }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
 /* ---- Modal ---- */
@@ -368,7 +368,6 @@ table.table { width: 100%; border-collapse: collapse; }
   border-radius: var(--radius);
   background: var(--sued-champagne-soft);
   border: 1px solid var(--sued-gold-soft);
-  border-left: 3px solid var(--sued-gold);
   font-size: 13.5px;
   color: var(--sued-ink);
 }
