@@ -49,6 +49,9 @@
 }
 .field__label .req { color: var(--sued-danger); margin-left: 2px; }
 .field__error { font-size: 12px; color: var(--sued-danger); }
+/* Caixinha de marcar com o texto ao lado (não embaixo, como nos outros campos). */
+.field--check { flex-direction: row; align-items: flex-start; gap: 8px; cursor: pointer; }
+.field--check input { flex-shrink: 0; margin-top: 3px; }
 
 .input,
 .select,
@@ -325,6 +328,9 @@ table.table { width: 100%; border-collapse: collapse; }
 
 /* ---- Filter chips (status) ---- */
 .filter-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+/* Linha de filtros (datas e busca): campos no tamanho do conteúdo, não 100%. */
+.filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+.filter-row .input { width: auto; }
 .chip {
   border: 1px solid var(--sued-border);
   background: #fff;

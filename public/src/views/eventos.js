@@ -1,7 +1,7 @@
 // View de Eventos — o HUB do ERP: lista com filtros de status,
 // criar/editar (modal) e detalhe com resumo financeiro (previsto x realizado).
 import { api } from "../api.js";
-import { el, formatBRL, formatDate, centsToReais } from "../utils.js";
+import { el, formatBRL, formatDate, formatPercent, centsToReais } from "../utils.js";
 import { icon } from "../components/icons.js";
 import { renderTable } from "../components/table.js";
 import { openModal } from "../components/modal.js";
@@ -95,7 +95,7 @@ async function eventDetail(id, onChanged) {
 
   const plannedProfit = e.plannedRevenueCents - e.plannedCostCents;
   const actualProfit = e.actualRevenueCents - e.actualCostCents;
-  const pct = (profit, revenue) => (revenue > 0 ? ((profit / revenue) * 100).toFixed(1) + "%" : "—");
+  const pct = (profit, revenue) => (revenue > 0 ? formatPercent((profit / revenue) * 100) : "—");
 
   const row = (label, value, strong = false, danger = false) =>
     el("div", { class: "opp-summary__row" }, [

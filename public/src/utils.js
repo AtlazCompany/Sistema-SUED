@@ -33,6 +33,11 @@ export function formatBRL(cents) {
   );
 }
 
+/** 12.34 → "12,3%" (uma casa, vírgula decimal). */
+export function formatPercent(value) {
+  return value.toFixed(1).replace(".", ",") + "%";
+}
+
 /** Hoje no calendário do navegador, "AAAA-MM-DD" (para <input type="date"> e comparar vencimentos). */
 export function todayISO() {
   const d = new Date();

@@ -1,6 +1,6 @@
 // View do Catálogo: produtos/serviços + categorias + vínculo com fornecedores.
 import { api } from "../api.js";
-import { el, formatBRL, centsToReais } from "../utils.js";
+import { el, formatBRL, formatPercent, centsToReais } from "../utils.js";
 import { icon } from "../components/icons.js";
 import { renderTable } from "../components/table.js";
 import { openModal } from "../components/modal.js";
@@ -53,7 +53,7 @@ async function productForm(product, onSaved) {
 async function productDetail(id, onChanged) {
   const [p, suppliers] = await Promise.all([api.get(`/catalogo/${id}`), api.get("/fornecedores")]);
   const margin = p.suggestedPriceCents > 0
-    ? (((p.suggestedPriceCents - p.referenceCostCents) / p.suggestedPriceCents) * 100).toFixed(1) + "%" : "—";
+    ? formatPercent(((p.suggestedPriceCents - p.referenceCostCents) / p.suggestedPriceCents) * 100) : "—";
 
   const linksBox = el("div", {});
   function renderLinks(links) {

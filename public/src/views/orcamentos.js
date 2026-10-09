@@ -1,6 +1,6 @@
 // View de Orçamentos: lista + editor in-view (itens do catálogo, totais ao vivo).
 import { api } from "../api.js";
-import { el, formatBRL, formatDate, toCents, centsToReais } from "../utils.js";
+import { el, formatBRL, formatDate, formatPercent, toCents, centsToReais } from "../utils.js";
 import { icon } from "../components/icons.js";
 import { renderTable } from "../components/table.js";
 import { toast } from "../components/toast.js";
@@ -149,7 +149,7 @@ export async function renderOrcamentos() {
         taxRatePercent: TAX_RATE_PERCENT,
       });
       // Margem sobre o valor antes dos impostos: o imposto é repassado, não é receita.
-      const margin = t.marginPercent === null ? "—" : t.marginPercent.toFixed(1) + "%";
+      const margin = t.marginPercent === null ? "—" : formatPercent(t.marginPercent);
       totalsBox.replaceChildren(
         totalRow("Subtotal", formatBRL(t.subtotalCents)),
         totalRow("Desconto", "− " + formatBRL(t.discountCents)),

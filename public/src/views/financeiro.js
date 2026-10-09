@@ -32,7 +32,7 @@ const viewStatus = (row) => (isOverdue(row) ? "ATRASADO" : row.status);
 function checkField(label, hint, checked) {
   const input = el("input", { type: "checkbox" });
   input.checked = !!checked;
-  const wrap = el("label", { class: "field col-2", style: "display:flex;align-items:flex-start;gap:8px;cursor:pointer" }, [
+  const wrap = el("label", { class: "field field--check col-2" }, [
     input,
     el("span", {}, [label, hint ? el("span", { class: "text-muted text-sm", style: "display:block" }, hint) : null]),
   ]);
@@ -478,7 +478,7 @@ export async function renderFinanceiro() {
     });
     const from = el("input", { class: "input input--mini", type: "date", value: f.from, "aria-label": "Vencimento de" });
     const to = el("input", { class: "input input--mini", type: "date", value: f.to, "aria-label": "Vencimento até" });
-    const q = el("input", { class: "input input--mini", type: "search", value: f.q, placeholder: "Buscar descrição, evento…", "aria-label": "Buscar", style: "min-width:200px" });
+    const q = el("input", { class: "input input--mini flex-1", type: "search", value: f.q, placeholder: "Buscar descrição, evento…", "aria-label": "Buscar", style: "min-width:200px" });
     from.onchange = () => { f.from = from.value; renderList(); };
     to.onchange = () => { f.to = to.value; renderList(); };
     q.oninput = () => { f.q = q.value; renderList(); };
@@ -488,7 +488,7 @@ export async function renderFinanceiro() {
         el("span", { class: "text-muted text-sm" }, isPay ? "Contas a pagar" : "Contas a receber"), novo,
       ]),
       el("div", { class: "filter-chips" }, chips),
-      el("div", { class: "flex items-center gap-2 mb-3", style: "flex-wrap:wrap" }, [
+      el("div", { class: "filter-row" }, [
         el("span", { class: "text-muted text-sm" }, "Vencimento de"), from,
         el("span", { class: "text-muted text-sm" }, "até"), to, q,
       ]),
@@ -557,7 +557,7 @@ export async function renderFinanceiro() {
         el("span", { class: "text-muted text-sm" }, "Fluxo de caixa"), novo,
       ]),
       el("div", { class: "filter-chips" }, chips),
-      el("div", { class: "flex items-center gap-2 mb-3", style: "flex-wrap:wrap" }, [
+      el("div", { class: "filter-row" }, [
         el("span", { class: "text-muted text-sm" }, "De"), from,
         el("span", { class: "text-muted text-sm" }, "até"), to,
       ]),

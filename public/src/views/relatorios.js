@@ -1,6 +1,6 @@
 // View de Relatórios: visão consolidada do ERP (agregações do backend).
 import { api } from "../api.js";
-import { el, formatBRL } from "../utils.js";
+import { el, formatBRL, formatPercent } from "../utils.js";
 
 const EVENT_STATUS_LABEL = {
   RASCUNHO: "Rascunho", ORCAMENTO: "Orçamento", PROPOSTA: "Proposta",
@@ -49,7 +49,7 @@ export async function renderRelatorios() {
   const d = await api.get("/relatorios");
   const lucroTotal = Number(d.totais.receitaTotal) - Number(d.totais.custoTotal);
   const margemTotal = Number(d.totais.receitaTotal) > 0
-    ? ((lucroTotal / Number(d.totais.receitaTotal)) * 100).toFixed(1) + "%" : "—";
+    ? formatPercent((lucroTotal / Number(d.totais.receitaTotal)) * 100) : "—";
 
   const kpi = (label, value, color) => el("div", { class: "card kpi" }, [
     el("div", { class: "kpi__label" }, label),
