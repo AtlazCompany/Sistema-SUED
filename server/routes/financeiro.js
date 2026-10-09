@@ -106,28 +106,78 @@ financeiroRouter.get(
 // já contar como atrasada desde a meia-noite UTC.
 const TODAY_BR = sql`(now() at time zone 'America/Fortaleza')::date`;
 
-// GET /api/financeiro/resumo — KPIs + fluxo do mês.
+// Dia civil (UTC) de um lançamento, e início do mês corrente em Teresina.
+const TX_DAY = sql`(date at time zone 'UTC')::date`;
+const MONTH_START = sql`date_trunc('month', ${TODAY_BR})::date`;
+const HORIZONS = [30, 60, 90];
+
+// Pendentes por vencimento: o que já venceu somado ao que vence em até N
+// dias (conta vencida e não paga ainda precisa ser paga/recebida). Sem
+// vencimento fica de fora da previsão e vai à parte.
+function pendingByHorizon(table) {
+  return sql`
+    select
+      coalesce(sum("amountCents") filter (where "dueDate" <= ${TODAY_BR} + 30), 0)::bigint as d30,
+      coalesce(sum("amountCents") filter (where "dueDate" <= ${TODAY_BR} + 60), 0)::bigint as d60,
+      coalesce(sum("amountCents") filter (where "dueDate" <= ${TODAY_BR} + 90), 0)::bigint as d90,
+      coalesce(sum("amountCents") filter (where "dueDate" is null), 0)::bigint as "semVencimento"
+    from ${sql(table)} where status = 'PENDENTE'`;
+}
+
+// GET /api/financeiro/resumo — KPIs, mês corrente, previsão e próximos vencimentos.
 financeiroRouter.get(
   "/resumo",
   asyncHandler(async (req, res) => {
-    const [[receber], [pagar], [entradas], [saidas], [atrasR], [atrasP]] = await Promise.all([
+    const [[receber], [pagar], [entradas], [saidas], [atrasR], [atrasP], [mes], [prevR], [prevP], proximos] = await Promise.all([
       sql`select coalesce(sum("amountCents"),0)::bigint as v from "AccountReceivable" where status = 'PENDENTE'`,
       sql`select coalesce(sum("amountCents"),0)::bigint as v from "AccountPayable" where status = 'PENDENTE'`,
       sql`select coalesce(sum("amountCents"),0)::bigint as v from "Transaction" where kind = 'ENTRADA'`,
       sql`select coalesce(sum("amountCents"),0)::bigint as v from "Transaction" where kind = 'SAIDA'`,
       sql`select count(*)::int as n, coalesce(sum("amountCents"),0)::bigint as v from "AccountReceivable" where status = 'PENDENTE' and "dueDate" < ${TODAY_BR}`,
       sql`select count(*)::int as n, coalesce(sum("amountCents"),0)::bigint as v from "AccountPayable" where status = 'PENDENTE' and "dueDate" < ${TODAY_BR}`,
+      // Mês corrente (dia civil do lançamento dentro do mês de hoje).
+      sql`
+        select
+          coalesce(sum("amountCents") filter (where kind = 'ENTRADA'), 0)::bigint as entradas,
+          coalesce(sum("amountCents") filter (where kind = 'SAIDA'), 0)::bigint as saidas
+        from "Transaction"
+        where ${TX_DAY} >= ${MONTH_START} and ${TX_DAY} < ${MONTH_START} + interval '1 month'`,
+      pendingByHorizon("AccountReceivable"),
+      pendingByHorizon("AccountPayable"),
+      // Próximos vencimentos (hoje em diante), das duas listas juntas.
+      sql`
+        (select 'receber' as kind, id, description, "dueDate", "amountCents" from "AccountReceivable"
+          where status = 'PENDENTE' and "dueDate" >= ${TODAY_BR} order by "dueDate" asc limit 8)
+        union all
+        (select 'pagar' as kind, id, description, "dueDate", "amountCents" from "AccountPayable"
+          where status = 'PENDENTE' and "dueDate" >= ${TODAY_BR} order by "dueDate" asc limit 8)
+        order by "dueDate" asc limit 8`,
     ]);
+    const saldoCents = Number(entradas.v) - Number(saidas.v);
     res.json({
       aReceberCents: Number(receber.v),
       aPagarCents: Number(pagar.v),
       entradasCents: Number(entradas.v),
       saidasCents: Number(saidas.v),
-      saldoCents: Number(entradas.v) - Number(saidas.v),
+      saldoCents,
       atrasadas: atrasR.n,
       atrasadasReceberCents: Number(atrasR.v),
       atrasadasPagar: atrasP.n,
       atrasadasPagarCents: Number(atrasP.v),
+      mes: {
+        entradasCents: Number(mes.entradas),
+        saidasCents: Number(mes.saidas),
+        resultadoCents: Number(mes.entradas) - Number(mes.saidas),
+      },
+      // Saldo projetado = caixa de hoje + a receber − a pagar até o horizonte.
+      previsao: HORIZONS.map((dias) => ({
+        dias,
+        receberCents: Number(prevR[`d${dias}`]),
+        pagarCents: Number(prevP[`d${dias}`]),
+        saldoProjetadoCents: saldoCents + Number(prevR[`d${dias}`]) - Number(prevP[`d${dias}`]),
+      })),
+      semVencimento: { receberCents: Number(prevR.semVencimento), pagarCents: Number(prevP.semVencimento) },
+      proximos: proximos.map((p) => ({ kind: p.kind, id: p.id, description: p.description, dueDate: p.dueDate, amountCents: p.amountCents })),
     });
   }),
 );
@@ -308,7 +358,98 @@ for (const [path, cfg] of Object.entries(KINDS)) {
   );
 }
 
-// ---- Fluxo de caixa ----
+// ---- Extrato do fluxo de caixa (por período, com saldo acumulado) ----
+// GET /api/financeiro/extrato?from=AAAA-MM-DD&to=AAAA-MM-DD (ambos opcionais).
+// O saldo inicial é tudo que entrou/saiu ANTES de "from"; cada linha traz o
+// saldo acumulado até ela. Datas de lançamento são "só-dia" (meia-noite UTC).
+const EXTRATO_LIMIT = 5000;
+const SIGNED = sql`case when kind = 'ENTRADA' then "amountCents" else -"amountCents" end`;
+
+financeiroRouter.get(
+  "/extrato",
+  asyncHandler(async (req, res) => {
+    const from = toDateOrNull(req.query.from, "Data inicial");
+    const to = toDateOrNull(req.query.to, "Data final");
+    if (from && to && from > to) throw new HttpError(400, "A data inicial não pode ser depois da final.");
+    const toExclusive = to ? new Date(to.getTime() + DAY_MS) : null;
+
+    const [{ opening }] = from
+      ? await sql`select coalesce(sum(${SIGNED}), 0)::bigint as opening from "Transaction" where date < ${from}`
+      : [{ opening: 0 }];
+    const rows = await sql`
+      select t.*, e.title as "eventTitle"
+      from "Transaction" t left join "Event" e on e.id = t."eventId"
+      where true ${from ? sql`and t.date >= ${from}` : sql``} ${toExclusive ? sql`and t.date < ${toExclusive}` : sql``}
+      order by t.date asc, t.id asc limit ${EXTRATO_LIMIT}`;
+
+    let balance = Number(opening);
+    let entradas = 0;
+    let saidas = 0;
+    const out = rows.map((r) => {
+      if (r.kind === "ENTRADA") { entradas += r.amountCents; balance += r.amountCents; }
+      else { saidas += r.amountCents; balance -= r.amountCents; }
+      // "avulso" = lançamento feito direto no caixa (não veio de uma conta).
+      return { ...r, avulso: !r.receivableId && !r.payableId, balanceCents: balance };
+    });
+    res.json({
+      openingCents: Number(opening),
+      entradasCents: entradas,
+      saidasCents: saidas,
+      closingCents: balance,
+      truncated: rows.length >= EXTRATO_LIMIT,
+      rows: out,
+    });
+  }),
+);
+
+// ---- Lançamentos avulsos (entradas/saídas direto no caixa) ----
+// Para o que não passa por conta a pagar/receber (ex.: saldo inicial, tarifa
+// bancária). Se informar evento, soma no realizado dele como as contas fazem.
+financeiroRouter.post(
+  "/lancamentos",
+  asyncHandler(async (req, res) => {
+    const b = req.body || {};
+    if (b.kind !== "ENTRADA" && b.kind !== "SAIDA") throw new HttpError(400, "Tipo inválido: use ENTRADA ou SAIDA.");
+    if (!nn(b.description)) throw new HttpError(400, "Informe a descrição.");
+    const amountCents = toCents(b.amount);
+    if (amountCents <= 0) throw new HttpError(400, "O valor deve ser maior que zero.");
+    const date = parseSettleDate(b.date, "Data");
+    const eventId = nn(b.eventId);
+    const cfg = b.kind === "ENTRADA" ? KINDS.receber : KINDS.pagar;
+    try {
+      const created = await sql.begin(async (tx) => {
+        const [row] = await tx`insert into "Transaction" ${tx(withId({
+          kind: b.kind, description: String(b.description).trim(), amountCents, date, eventId,
+        }))} returning *`;
+        if (eventId) await cfg.bumpEvent(tx, eventId, amountCents);
+        await logAudit(tx, { table: "Transaction", recordId: row.id, action: "CREATE", user: req.user, before: null, after: row });
+        return row;
+      });
+      res.status(201).json(created);
+    } catch (e) {
+      if (e.code === "23503") throw new HttpError(400, "Evento selecionado não existe mais.");
+      throw e;
+    }
+  }),
+);
+
+financeiroRouter.delete(
+  "/lancamentos/:id",
+  asyncHandler(async (req, res) => {
+    await sql.begin(async (tx) => {
+      const [row] = await tx`select * from "Transaction" where id = ${req.params.id} for update`;
+      if (!row) throw new HttpError(404, "Lançamento não encontrado.");
+      if (row.receivableId || row.payableId)
+        throw new HttpError(400, "Este lançamento veio de uma conta a pagar/receber: estorne a conta para removê-lo.");
+      if (row.eventId) await (row.kind === "ENTRADA" ? KINDS.receber : KINDS.pagar).bumpEvent(tx, row.eventId, -row.amountCents);
+      await tx`delete from "Transaction" where id = ${row.id}`;
+      await logAudit(tx, { table: "Transaction", recordId: row.id, action: "DELETE", user: req.user, before: row, after: null });
+    });
+    res.json({ ok: true });
+  }),
+);
+
+// ---- Fluxo de caixa (legado: últimas 100 movimentações; a tela usa /extrato) ----
 financeiroRouter.get(
   "/fluxo",
   asyncHandler(async (req, res) => {

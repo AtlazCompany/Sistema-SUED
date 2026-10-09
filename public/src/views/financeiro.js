@@ -126,6 +126,65 @@ function liquidarForm(kind, row, onSaved) {
   };
 }
 
+// Data local → "AAAA-MM-DD" (os presets de período são calculados no navegador).
+const isoLocal = (d) => {
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+};
+const monthRange = (offset) => {
+  const now = new Date();
+  return [isoLocal(new Date(now.getFullYear(), now.getMonth() + offset, 1)), isoLocal(new Date(now.getFullYear(), now.getMonth() + offset + 1, 0))];
+};
+const FLUXO_PRESETS = [
+  ["mes", "Este mês", () => monthRange(0)],
+  ["anterior", "Mês anterior", () => monthRange(-1)],
+  ["90d", "Últimos 90 dias", () => [isoLocal(new Date(Date.now() - 89 * 86400e3)), todayISO()]],
+  ["ano", "Este ano", () => [`${new Date().getFullYear()}-01-01`, `${new Date().getFullYear()}-12-31`]],
+  ["tudo", "Tudo", () => ["", ""]],
+];
+
+// Modal de lançamento avulso (direto no caixa, sem conta a pagar/receber).
+async function lancamentoForm(onSaved) {
+  const opts = await api.get("/financeiro/opcoes");
+  const form = el("form", { class: "form-grid" }, [
+    field("Tipo", "type", "ENTRADA", { type: "select", col2: true, options: [
+      { value: "ENTRADA", label: "Entrada" },
+      { value: "SAIDA", label: "Saída" },
+      { value: "INICIAL", label: "Saldo inicial (entrada)" },
+    ] }),
+    field("Descrição", "description", "", { required: true, col2: true }),
+    field("Valor (R$)", "amount", "", { placeholder: "0,00", required: true }),
+    field("Data", "date", todayISO(), { type: "date", required: true }),
+    field("Evento (opcional)", "eventId", "", { type: "select", col2: true, options: [
+      { value: "", label: "—" }, ...opts.events.map((e) => ({ value: e.id, label: e.title })),
+    ] }),
+  ]);
+  form.elements.date.max = todayISO();
+  // "Saldo inicial" é só uma entrada com descrição pronta.
+  form.elements.type.onchange = () => {
+    if (form.elements.type.value === "INICIAL" && !form.elements.description.value.trim())
+      form.elements.description.value = "Saldo inicial";
+  };
+  const save = el("button", { class: "btn btn--primary", type: "button" }, "Adicionar");
+  const cancel = el("button", { class: "btn btn--ghost", type: "button" }, "Cancelar");
+  const modal = openModal({ title: "Lançamento avulso", body: form, footer: [cancel, save] });
+  cancel.onclick = modal.close;
+  save.onclick = async () => {
+    const f = Object.fromEntries(new FormData(form));
+    if (!f.description?.trim()) return toast("Informe a descrição.", "error");
+    save.disabled = true;
+    try {
+      await api.post("/financeiro/lancamentos", {
+        kind: f.type === "SAIDA" ? "SAIDA" : "ENTRADA",
+        description: f.description, amount: f.amount, date: f.date, eventId: f.eventId,
+      });
+      modal.close();
+      toast("Lançamento adicionado.");
+      onSaved();
+    } catch (err) { toast(err.message, "error"); save.disabled = false; }
+  };
+}
+
 // Filtros da lista de contas (ficam guardados ao trocar de aba).
 const STATUS_FILTERS = (isPay) => [
   ["PENDENTE", "Pendentes"],
@@ -157,6 +216,9 @@ export async function renderFinanceiro() {
     pagar: { status: "PENDENTE", from: "", to: "", q: "" },
   };
 
+  const fluxo = { preset: "mes", from: "", to: "" };
+  [fluxo.from, fluxo.to] = FLUXO_PRESETS[0][2]();
+
   const tabsBar = el("div", { class: "filter-chips" },
     [["resumo", "Resumo"], ["receber", "A receber"], ["pagar", "A pagar"], ["fluxo", "Fluxo de caixa"]].map(([v, label]) => {
       const chip = el("button", { class: `chip ${tab === v ? "is-active" : ""}` }, label);
@@ -183,12 +245,66 @@ export async function renderFinanceiro() {
       hint && el("div", { class: "kpi__hint" }, hint),
     ]);
     const atraso = (n, cents) => (n ? `${n} atrasada(s) · ${formatBRL(cents)}` : "em dia");
-    body.replaceChildren(el("div", { class: "grid grid-kpis" }, [
-      kpi("A receber (pendente)", formatBRL(r.aReceberCents), atraso(r.atrasadas, r.atrasadasReceberCents)),
-      kpi("A pagar (pendente)", formatBRL(r.aPagarCents), atraso(r.atrasadasPagar, r.atrasadasPagarCents)),
-      kpi("Saldo de caixa", formatBRL(r.saldoCents), null, r.saldoCents < 0 ? "var(--sued-danger)" : "var(--sued-success)"),
-      kpi("Entradas / Saídas", `${formatBRL(r.entradasCents)}`, `Saídas ${formatBRL(r.saidasCents)}`),
-    ]));
+    const signed = (cents) => (cents < 0 ? "var(--sued-danger)" : "var(--sued-success)");
+    const h2 = (text) => el("h2", { style: "font-size:14px;font-weight:600;margin-bottom:12px" }, text);
+    const row = (label, value, color) => el("div", { class: "budget-totals__row" }, [
+      el("span", { class: "text-muted" }, label),
+      el("span", { style: `font-weight:600${color ? `;color:${color}` : ""}` }, value),
+    ]);
+
+    const mesNome = new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+    const mesCard = el("div", { class: "card card--pad" }, [
+      h2(`Este mês · ${mesNome}`),
+      el("div", { class: "budget-totals" }, [
+        row("Entradas", formatBRL(r.mes.entradasCents)),
+        row("Saídas", formatBRL(r.mes.saidasCents)),
+        row("Resultado", formatBRL(r.mes.resultadoCents), signed(r.mes.resultadoCents)),
+      ]),
+    ]);
+
+    const proximosCard = el("div", { class: "card card--pad" }, [
+      h2("Próximos vencimentos"),
+      ...(r.proximos.length
+        ? r.proximos.map((p) => el("div", { class: "op-item" }, [
+            el("span", { class: `badge ${p.kind === "receber" ? "badge--success" : "badge--danger"}` }, p.kind === "receber" ? "Receber" : "Pagar"),
+            el("span", { style: "flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" }, p.description),
+            el("span", { class: "text-muted text-sm" }, formatDate(p.dueDate)),
+            el("span", { class: "font-semibold" }, formatBRL(p.amountCents)),
+          ]))
+        : [el("p", { class: "text-muted text-sm", style: "margin:0" }, "Nenhuma conta pendente a vencer.")]),
+    ]);
+
+    const previsaoCard = el("div", { class: "card card--pad" }, [
+      h2("Previsão de caixa"),
+      renderTable({
+        columns: [
+          { header: "Até", render: (p) => `${p.dias} dias` },
+          { header: "A receber", align: "right", render: (p) => formatBRL(p.receberCents) },
+          { header: "A pagar", align: "right", render: (p) => formatBRL(p.pagarCents) },
+          { header: "Saldo projetado", align: "right", render: (p) =>
+            el("span", { class: "font-semibold", style: `color:${signed(p.saldoProjetadoCents)}` }, formatBRL(p.saldoProjetadoCents)) },
+        ],
+        rows: r.previsao,
+      }),
+      el("p", { class: "text-muted text-sm", style: "margin:12px 0 0" },
+        `Saldo projetado = saldo de caixa de hoje (${formatBRL(r.saldoCents)}) + a receber − a pagar até a data. Inclui contas já vencidas e ainda pendentes.` +
+        (r.semVencimento.receberCents || r.semVencimento.pagarCents
+          ? ` Fora da previsão, por não terem vencimento: ${formatBRL(r.semVencimento.receberCents)} a receber e ${formatBRL(r.semVencimento.pagarCents)} a pagar.`
+          : "")),
+    ]);
+
+    body.replaceChildren(
+      el("div", { class: "grid grid-kpis mb-4" }, [
+        kpi("A receber (pendente)", formatBRL(r.aReceberCents), atraso(r.atrasadas, r.atrasadasReceberCents)),
+        kpi("A pagar (pendente)", formatBRL(r.aPagarCents), atraso(r.atrasadasPagar, r.atrasadasPagarCents)),
+        kpi("Saldo de caixa", formatBRL(r.saldoCents), null, signed(r.saldoCents)),
+        kpi("Entradas / Saídas", `${formatBRL(r.entradasCents)}`, `Saídas ${formatBRL(r.saidasCents)}`),
+      ]),
+      el("div", { class: "grid grid-main-side items-start" }, [
+        previsaoCard,
+        el("div", { class: "flex", style: "flex-direction:column;gap:16px" }, [mesCard, proximosCard]),
+      ]),
+    );
   }
 
   async function renderContas(kind) {
@@ -307,19 +423,78 @@ export async function renderFinanceiro() {
   }
 
   async function renderFluxo() {
-    const rows = await api.get("/financeiro/fluxo");
+    const params = new URLSearchParams();
+    if (fluxo.from) params.set("from", fluxo.from);
+    if (fluxo.to) params.set("to", fluxo.to);
+    const ext = await api.get(`/financeiro/extrato${params.size ? `?${params}` : ""}`);
+    const color = (cents) => (cents < 0 ? "var(--sued-danger)" : "var(--sued-success)");
+
+    // ----- período -----
+    const chips = FLUXO_PRESETS.map(([value, label, range]) => {
+      const chip = el("button", { class: `chip ${fluxo.preset === value ? "is-active" : ""}`, type: "button" }, label);
+      chip.onclick = () => { fluxo.preset = value; [fluxo.from, fluxo.to] = range(); render(); };
+      return chip;
+    });
+    const from = el("input", { class: "input input--mini", type: "date", value: fluxo.from, "aria-label": "Data inicial" });
+    const to = el("input", { class: "input input--mini", type: "date", value: fluxo.to, "aria-label": "Data final" });
+    const custom = () => { fluxo.preset = "custom"; fluxo.from = from.value; fluxo.to = to.value; render(); };
+    from.onchange = custom;
+    to.onchange = custom;
+
+    const novo = el("button", { class: "btn btn--primary", html: `${icon("plus", 16)}<span>Lançamento avulso</span>` });
+    novo.onclick = () => lancamentoForm(render);
+
+    const kpi = (label, value, c) => el("div", { class: "card kpi" }, [
+      el("div", { class: "kpi__label" }, label),
+      el("div", { class: "kpi__value", style: `font-size:24px${c ? `;color:${c}` : ""}` }, value),
+    ]);
+
     const table = renderTable({
       columns: [
         { header: "Data", render: (r) => formatDate(r.date) },
-        { header: "Descrição", render: (r) => r.description },
+        { header: "Descrição", render: (r) => el("span", {}, [
+          r.description,
+          r.avulso ? el("span", { class: "badge badge--muted", style: "margin-left:8px" }, "Avulso") : null,
+        ]) },
         { header: "Evento", render: (r) => r.eventTitle || "—" },
         { header: "Tipo", render: (r) => el("span", { class: `badge ${r.kind === "ENTRADA" ? "badge--success" : "badge--danger"}` }, r.kind === "ENTRADA" ? "Entrada" : "Saída") },
         { header: "Valor", align: "right", render: (r) => el("span", { style: `font-weight:600;color:${r.kind === "ENTRADA" ? "var(--sued-success)" : "var(--sued-danger)"}` }, `${r.kind === "ENTRADA" ? "+" : "−"} ${formatBRL(r.amountCents)}`) },
+        { header: "Saldo", align: "right", render: (r) => el("span", { style: `color:${color(r.balanceCents)}` }, formatBRL(r.balanceCents)) },
+        { header: "", align: "right", render: (r) => {
+          if (!r.avulso) return "";
+          const del = el("button", { class: "btn btn--icon btn--ghost", type: "button", title: "Excluir lançamento", "aria-label": "Excluir lançamento", html: icon("trash", 15) });
+          del.onclick = async () => {
+            if (!confirm("Excluir este lançamento avulso?")) return;
+            try { await api.del(`/financeiro/lancamentos/${r.id}`); toast("Lançamento excluído."); render(); }
+            catch (e) { toast(e.message, "error"); }
+          };
+          return del;
+        } },
       ],
-      rows,
-      empty: { title: "Sem movimentações", desc: "As entradas e saídas aparecem quando contas são liquidadas." },
+      rows: ext.rows,
+      empty: { title: "Sem movimentações no período", desc: "Entradas e saídas aparecem quando contas são pagas/recebidas ou quando você faz um lançamento avulso." },
     });
-    body.replaceChildren(el("div", { class: "card" }, [table]));
+
+    body.replaceChildren(
+      el("div", { class: "flex items-center justify-between mb-3" }, [
+        el("span", { class: "text-muted text-sm" }, "Fluxo de caixa"), novo,
+      ]),
+      el("div", { class: "filter-chips" }, chips),
+      el("div", { class: "flex items-center gap-2 mb-3", style: "flex-wrap:wrap" }, [
+        el("span", { class: "text-muted text-sm" }, "De"), from,
+        el("span", { class: "text-muted text-sm" }, "até"), to,
+      ]),
+      el("div", { class: "grid grid-kpis mb-4" }, [
+        kpi("Saldo inicial", formatBRL(ext.openingCents), color(ext.openingCents)),
+        kpi("Entradas", formatBRL(ext.entradasCents), "var(--sued-success)"),
+        kpi("Saídas", formatBRL(ext.saidasCents), "var(--sued-danger)"),
+        kpi("Saldo final", formatBRL(ext.closingCents), color(ext.closingCents)),
+      ]),
+      ...(ext.truncated
+        ? [el("p", { class: "text-sm", style: "color:var(--sued-danger)" }, "Há mais movimentações do que o limite exibido: reduza o período para ver o saldo correto.")]
+        : []),
+      el("div", { class: "card" }, [table]),
+    );
   }
 
   container.replaceChildren(
