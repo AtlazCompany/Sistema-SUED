@@ -18,7 +18,7 @@
 //   ALTER TABLE "Transaction" DROP COLUMN "receivableId", DROP COLUMN "payableId";
 import postgres from "postgres";
 
-const sql = postgres(process.env.DATABASE_URL, { ssl: "require", max: 1 });
+const sql = postgres(process.env.DATABASE_URL, { ssl: "require", max: 1, onnotice: () => {} });
 
 const LINKS = [
   { column: "receivableId", index: "Transaction_receivableId_idx", accounts: "AccountReceivable", doneStatus: "RECEBIDO", kind: "ENTRADA" },
@@ -40,8 +40,11 @@ try {
       console.log(`+ coluna "Transaction"."${l.column}" criada.`);
     }
     await sql.unsafe(`create index if not exists "${l.index}" on "Transaction" ("${l.column}")`);
+  }
 
-    // Vínculo dos lançamentos antigos: só pares 1-para-1.
+  // Vínculo dos lançamentos antigos: só pares 1-para-1. Fica num segundo
+  // laço porque a consulta olha as DUAS colunas, que precisam já existir.
+  for (const l of LINKS) {
     const accounts = await sql.unsafe(`select id, description, "amountCents", "eventId" from "${l.accounts}" where status = '${l.doneStatus}'`);
     const orphans = await sql.unsafe(
       `select id, description, "amountCents", "eventId" from "Transaction"
