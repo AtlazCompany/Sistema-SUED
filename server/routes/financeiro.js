@@ -4,6 +4,7 @@ import { requireAuth, requireRole } from "../auth.js";
 import { rolesForModule } from "../../public/src/roles.js";
 import { asyncHandler, HttpError, nn, prepInsert, toCents, toDateOrNull, withId, parsePagination, addMonthsClamped } from "../utils.js";
 import { logAudit } from "../audit.js";
+import { TAX_RATE_PERCENT, taxShareOfGross } from "../../public/src/budget-math.js";
 
 export const financeiroRouter = Router();
 financeiroRouter.use(requireAuth);
@@ -24,6 +25,9 @@ const KINDS = {
     txKind: "ENTRADA",
     txLink: "receivableId",
     settlePath: "receber",
+    // Reserva de impostos: o valor recebido já inclui o imposto; a parte dele
+    // fica gravada no lançamento (e some junto se a conta for estornada).
+    txTaxFields: (row) => ({ taxReserveCents: taxShareOfGross(row.amountCents, row.taxRatePercent) }),
     bumpEvent: (tx, eventId, delta) => tx`
       update "Event" set "actualRevenueCents" = greatest("actualRevenueCents" + ${delta}, 0), "updatedAt" = now()
       where id = ${eventId}`,
@@ -39,6 +43,8 @@ const KINDS = {
     txLink: "payableId",
     settlePath: "pagar",
     hasSupplier: true,
+    // Conta marcada como pagamento de imposto abate a reserva ao ser paga.
+    txTaxFields: (row) => ({ isTax: !!row.isTax }),
     bumpEvent: (tx, eventId, delta) => tx`
       update "Event" set "actualCostCents" = greatest("actualCostCents" + ${delta}, 0), "updatedAt" = now()
       where id = ${eventId}`,
@@ -72,6 +78,9 @@ async function loadForUpdate(tx, cfg, id) {
   return row;
 }
 
+// Caixinhas do formulário chegam como true/"true"/"on".
+const asBool = (v) => v === true || v === "true" || v === "on";
+
 function pickConta(b, cfg) {
   if (!nn(b.description)) throw new HttpError(400, "Informe a descrição.");
   const amountCents = toCents(b.amount);
@@ -80,7 +89,9 @@ function pickConta(b, cfg) {
   return {
     description: String(b.description).trim(),
     eventId: nn(b.eventId),
-    ...(cfg.hasSupplier ? { supplierId: nn(b.supplierId) } : {}),
+    ...(cfg.hasSupplier
+      ? { supplierId: nn(b.supplierId), isTax: asBool(b.isTax) }
+      : { taxRatePercent: asBool(b.includesTax) ? TAX_RATE_PERCENT : 0 }),
     amountCents,
     dueDate: toDateOrNull(b.dueDate, "Data de vencimento"),
   };
@@ -94,7 +105,12 @@ financeiroRouter.get(
   "/opcoes",
   asyncHandler(async (req, res) => {
     const [events, suppliers] = await Promise.all([
-      sql`select id, title from "Event" order by "createdAt" desc`,
+      // hasTaxedBudget: o evento tem orçamento aprovado (vigente) com imposto —
+      // a tela usa isso para já marcar "Inclui impostos" nas contas a receber.
+      sql`
+        select e.id, e.title,
+          exists(select 1 from "Budget" b where b."eventId" = e.id and b.vigente and b."taxRatePercent" > 0) as "hasTaxedBudget"
+        from "Event" e order by e."createdAt" desc`,
       sql`select id, name from "Supplier" order by name asc`,
     ]);
     res.json({ events, suppliers });
@@ -124,11 +140,24 @@ function pendingByHorizon(table) {
     from ${sql(table)} where status = 'PENDENTE'`;
 }
 
-// GET /api/financeiro/resumo — KPIs, mês corrente, previsão e próximos vencimentos.
+// Soma `value` das contas pendentes que satisfazem `where`, até cada horizonte
+// (mesma regra de pendingByHorizon) e no total. Usado para a reserva de
+// impostos prevista: imposto dos recebíveis e pagamentos de imposto a vencer.
+function pendingTaxByHorizon(table, value, where) {
+  return sql`
+    select
+      coalesce(sum(${value}) filter (where "dueDate" <= ${TODAY_BR} + 30), 0)::bigint as d30,
+      coalesce(sum(${value}) filter (where "dueDate" <= ${TODAY_BR} + 60), 0)::bigint as d60,
+      coalesce(sum(${value}) filter (where "dueDate" <= ${TODAY_BR} + 90), 0)::bigint as d90,
+      coalesce(sum(${value}), 0)::bigint as total
+    from ${sql(table)} where status = 'PENDENTE' and ${where}`;
+}
+
+// GET /api/financeiro/resumo — KPIs, mês corrente, previsão, reserva de impostos e próximos vencimentos.
 financeiroRouter.get(
   "/resumo",
   asyncHandler(async (req, res) => {
-    const [[receber], [pagar], [entradas], [saidas], [atrasR], [atrasP], [mes], [prevR], [prevP], proximos] = await Promise.all([
+    const [[receber], [pagar], [entradas], [saidas], [atrasR], [atrasP], [mes], [prevR], [prevP], proximos, [reserva], [taxR], [taxP]] = await Promise.all([
       sql`select coalesce(sum("amountCents"),0)::bigint as v from "AccountReceivable" where status = 'PENDENTE'`,
       sql`select coalesce(sum("amountCents"),0)::bigint as v from "AccountPayable" where status = 'PENDENTE'`,
       sql`select coalesce(sum("amountCents"),0)::bigint as v from "Transaction" where kind = 'ENTRADA'`,
@@ -152,8 +181,17 @@ financeiroRouter.get(
         (select 'pagar' as kind, id, description, "dueDate", "amountCents" from "AccountPayable"
           where status = 'PENDENTE' and "dueDate" >= ${TODAY_BR} order by "dueDate" asc limit 8)
         order by "dueDate" asc limit 8`,
+      // Reserva de impostos: o que já entrou como imposto menos o que já foi pago como imposto.
+      sql`
+        select
+          coalesce(sum("taxReserveCents") filter (where kind = 'ENTRADA'), 0)::bigint as reservado,
+          coalesce(sum("amountCents") filter (where kind = 'SAIDA' and "isTax"), 0)::bigint as pago
+        from "Transaction"`,
+      pendingTaxByHorizon("AccountReceivable", sql`round("amountCents" * "taxRatePercent" / (100.0 + "taxRatePercent"))`, sql`"taxRatePercent" > 0`),
+      pendingTaxByHorizon("AccountPayable", sql`"amountCents"`, sql`"isTax"`),
     ]);
     const saldoCents = Number(entradas.v) - Number(saidas.v);
+    const reservaSaldoCents = Number(reserva.reservado) - Number(reserva.pago);
     res.json({
       aReceberCents: Number(receber.v),
       aPagarCents: Number(pagar.v),
@@ -169,13 +207,28 @@ financeiroRouter.get(
         saidasCents: Number(mes.saidas),
         resultadoCents: Number(mes.entradas) - Number(mes.saidas),
       },
+      // Reserva de impostos (só do que já entrou) e o que sobra livre no caixa.
+      reservaImpostos: {
+        reservadoCents: Number(reserva.reservado),
+        pagoCents: Number(reserva.pago),
+        saldoCents: reservaSaldoCents,
+        aReservarCents: Number(taxR.total), // imposto embutido nos recebíveis pendentes
+        saldoLivreCents: saldoCents - reservaSaldoCents,
+      },
       // Saldo projetado = caixa de hoje + a receber − a pagar até o horizonte.
-      previsao: HORIZONS.map((dias) => ({
-        dias,
-        receberCents: Number(prevR[`d${dias}`]),
-        pagarCents: Number(prevP[`d${dias}`]),
-        saldoProjetadoCents: saldoCents + Number(prevR[`d${dias}`]) - Number(prevP[`d${dias}`]),
-      })),
+      // Reserva projetada = reserva de hoje + imposto dos recebíveis − imposto a pagar no período.
+      previsao: HORIZONS.map((dias) => {
+        const saldoProjetadoCents = saldoCents + Number(prevR[`d${dias}`]) - Number(prevP[`d${dias}`]);
+        const reservaCents = reservaSaldoCents + Number(taxR[`d${dias}`]) - Number(taxP[`d${dias}`]);
+        return {
+          dias,
+          receberCents: Number(prevR[`d${dias}`]),
+          pagarCents: Number(prevP[`d${dias}`]),
+          saldoProjetadoCents,
+          reservaCents,
+          saldoLivreProjetadoCents: saldoProjetadoCents - reservaCents,
+        };
+      }),
       semVencimento: { receberCents: Number(prevR.semVencimento), pagarCents: Number(prevP.semVencimento) },
       proximos: proximos.map((p) => ({ kind: p.kind, id: p.id, description: p.description, dueDate: p.dueDate, amountCents: p.amountCents })),
     });
@@ -300,7 +353,7 @@ for (const [path, cfg] of Object.entries(KINDS)) {
           where id = ${row.id} returning *`;
         await tx`insert into "Transaction" ${tx(withId({
           kind: cfg.txKind, description: row.description, amountCents: row.amountCents,
-          date, eventId: row.eventId, [cfg.txLink]: row.id,
+          date, eventId: row.eventId, [cfg.txLink]: row.id, ...cfg.txTaxFields(row),
         }))}`;
         if (row.eventId) await cfg.bumpEvent(tx, row.eventId, row.amountCents);
         await logAudit(tx, { table: cfg.table, recordId: row.id, action: "UPDATE", user: req.user, before: row, after: updated });
@@ -420,6 +473,10 @@ financeiroRouter.post(
       const created = await sql.begin(async (tx) => {
         const [row] = await tx`insert into "Transaction" ${tx(withId({
           kind: b.kind, description: String(b.description).trim(), amountCents, date, eventId,
+          // Entrada "inclui impostos" gera reserva; saída "é imposto" abate a reserva.
+          ...(b.kind === "ENTRADA"
+            ? { taxReserveCents: asBool(b.includesTax) ? taxShareOfGross(amountCents, TAX_RATE_PERCENT) : 0 }
+            : { isTax: asBool(b.isTax) }),
         }))} returning *`;
         if (eventId) await cfg.bumpEvent(tx, eventId, amountCents);
         await logAudit(tx, { table: "Transaction", recordId: row.id, action: "CREATE", user: req.user, before: null, after: row });

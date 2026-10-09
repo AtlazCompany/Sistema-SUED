@@ -151,39 +151,39 @@ test("financeiro lote 2 (skip sem banco)", { skip: !dbAvailable && "sem conexão
   });
 
   await t.test("resumo: mês corrente, previsão 30/60/90 e próximos vencimentos", async () => {
-    const antes = (await A("GET", "/api/financeiro/resumo")).body;
-    assert.deepEqual(antes.previsao.map((p) => p.dias), [30, 60, 90]);
-
+    // O resumo é global e outros arquivos de teste mexem em contas no mesmo
+    // banco ao mesmo tempo (inclusive pagando/cancelando). Por isso nada aqui
+    // depende de diferença entre duas leituras: usamos limites mínimos
+    // (os valores abaixo são nossos, então a soma NUNCA pode ser menor) e, para
+    // provar que o que vence depois de 90 dias fica de fora, um valor enorme.
     await lancar("ENTRADA", "Entrada do mês", "123,45", brDate(0));
     // receber: 777,00 em 10 dias; 333,00 em 45 dias; 111,00 em 80 dias; 55,00 sem vencimento
-    // pagar:   444,00 em 20 dias; 222,00 em 100 dias (fora de todos os horizontes)
+    // pagar:   444,00 em 20 dias; 5.000.000,00 em 100 dias (fora de todos os horizontes)
     await A("POST", "/api/financeiro/receber", { description: TAG + "R10", amount: "777,00", dueDate: brDate(10) });
     await A("POST", "/api/financeiro/receber", { description: TAG + "R45", amount: "333,00", dueDate: brDate(45) });
     await A("POST", "/api/financeiro/receber", { description: TAG + "R80", amount: "111,00", dueDate: brDate(80) });
     await A("POST", "/api/financeiro/receber", { description: TAG + "RSem", amount: "55,00" });
     await A("POST", "/api/financeiro/pagar", { description: TAG + "P20", amount: "444,00", dueDate: brDate(20) });
-    await A("POST", "/api/financeiro/pagar", { description: TAG + "P100", amount: "222,00", dueDate: brDate(100) });
+    await A("POST", "/api/financeiro/pagar", { description: TAG + "P100", amount: "5.000.000,00", dueDate: brDate(100) });
 
-    const dep = (await A("GET", "/api/financeiro/resumo")).body;
-    // Outros testes rodam em paralelo no mesmo banco: só podem ADICIONAR, por isso ">=".
-    assert.ok(dep.mes.entradasCents >= antes.mes.entradasCents + 12345);
-    assert.equal(dep.mes.resultadoCents, dep.mes.entradasCents - dep.mes.saidasCents);
+    const r = (await A("GET", "/api/financeiro/resumo")).body;
+    assert.deepEqual(r.previsao.map((p) => p.dias), [30, 60, 90]);
+    assert.ok(r.mes.entradasCents >= 12345);
+    assert.equal(r.mes.resultadoCents, r.mes.entradasCents - r.mes.saidasCents);
 
-    const [p30, p60, p90] = dep.previsao;
-    const [a30, a60, a90] = antes.previsao;
-    assert.ok(p30.receberCents - a30.receberCents >= 77700);
-    assert.ok(p60.receberCents - a60.receberCents >= 77700 + 33300);
-    assert.ok(p90.receberCents - a90.receberCents >= 77700 + 33300 + 11100);
-    assert.ok(p30.pagarCents - a30.pagarCents >= 44400);
-    assert.ok(p90.pagarCents - a90.pagarCents >= 44400, "a conta de 100 dias fica fora de 90");
-    assert.ok(dep.semVencimento.receberCents >= antes.semVencimento.receberCents + 5500);
-    for (const p of dep.previsao)
-      assert.equal(p.saldoProjetadoCents, dep.saldoCents + p.receberCents - p.pagarCents);
+    const [p30, p60, p90] = r.previsao;
+    assert.ok(p30.receberCents >= 77700);
+    assert.ok(p60.receberCents >= 77700 + 33300);
+    assert.ok(p90.receberCents >= 77700 + 33300 + 11100);
+    assert.ok(p30.pagarCents >= 44400);
+    assert.ok(p90.pagarCents < 500000000, "a conta que vence em 100 dias fica fora do horizonte de 90");
+    assert.ok(r.semVencimento.receberCents >= 5500);
+    for (const p of r.previsao)
+      assert.equal(p.saldoProjetadoCents, r.saldoCents + p.receberCents - p.pagarCents);
 
-    const proximos = dep.proximos;
-    assert.ok(proximos.length <= 8);
-    const datas = proximos.map((p) => String(p.dueDate).slice(0, 10));
+    const datas = r.proximos.map((p) => String(p.dueDate).slice(0, 10));
+    assert.ok(datas.length <= 8);
     assert.deepEqual(datas, [...datas].sort(), "próximos vêm em ordem de vencimento");
-    assert.ok(proximos.every((p) => p.kind === "receber" || p.kind === "pagar"));
+    assert.ok(r.proximos.every((p) => p.kind === "receber" || p.kind === "pagar"));
   });
 });

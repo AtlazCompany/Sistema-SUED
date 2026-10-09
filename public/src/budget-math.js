@@ -28,5 +28,13 @@ export function calcBudgetTotals({ subtotalCents, discountCents = 0, costCents =
   };
 }
 
+/** Parte de imposto dentro de um valor BRUTO que já inclui `taxRatePercent`
+ *  (ex.: recebeu R$ 1.200 com 20% → R$ 200 são imposto). Centavos inteiros. */
+export function taxShareOfGross(grossCents, taxRatePercent) {
+  const rate = Number(taxRatePercent) || 0;
+  if (rate <= 0) return 0;
+  return Math.round((Number(grossCents) * rate) / (100 + rate));
+}
+
 export const TAX_REMINDER =
   `Lembrete: todo orçamento inclui ${TAX_RATE_PERCENT}% de impostos, somados ao total do cliente.`;

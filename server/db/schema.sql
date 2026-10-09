@@ -44,7 +44,8 @@ CREATE TABLE public."AccountPayable" (
     status text DEFAULT 'PENDENTE'::text NOT NULL,
     "paidDate" timestamp with time zone,
     "createdAt" timestamp with time zone NOT NULL,
-    "updatedAt" timestamp with time zone NOT NULL
+    "updatedAt" timestamp with time zone NOT NULL,
+    "isTax" boolean DEFAULT false NOT NULL
 );
 
 
@@ -61,7 +62,8 @@ CREATE TABLE public."AccountReceivable" (
     status text DEFAULT 'PENDENTE'::text NOT NULL,
     "receivedDate" timestamp with time zone,
     "createdAt" timestamp with time zone NOT NULL,
-    "updatedAt" timestamp with time zone NOT NULL
+    "updatedAt" timestamp with time zone NOT NULL,
+    "taxRatePercent" integer DEFAULT 0 NOT NULL
 );
 
 
@@ -417,7 +419,9 @@ CREATE TABLE public."Transaction" (
     date timestamp with time zone NOT NULL,
     "eventId" uuid,
     "receivableId" uuid,
-    "payableId" uuid
+    "payableId" uuid,
+    "taxReserveCents" integer DEFAULT 0 NOT NULL,
+    "isTax" boolean DEFAULT false NOT NULL
 );
 
 

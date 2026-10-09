@@ -6,6 +6,7 @@ import { renderTable } from "../components/table.js";
 import { openModal } from "../components/modal.js";
 import { toast } from "../components/toast.js";
 import { field } from "../components/form.js";
+import { TAX_RATE_PERCENT } from "../budget-math.js";
 
 const FIN_STATUS = {
   PENDENTE: { label: "Pendente", cls: "badge--gold" },
@@ -27,11 +28,28 @@ const isDone = (row) => row.status === "PAGO" || row.status === "RECEBIDO";
 // Status "visual" de uma conta: atrasado é calculado, não existe no banco.
 const viewStatus = (row) => (isOverdue(row) ? "ATRASADO" : row.status);
 
+// Caixinha de marcar ocupando a linha toda do formulário.
+function checkField(label, hint, checked) {
+  const input = el("input", { type: "checkbox" });
+  input.checked = !!checked;
+  const wrap = el("label", { class: "field col-2", style: "display:flex;align-items:flex-start;gap:8px;cursor:pointer" }, [
+    input,
+    el("span", {}, [label, hint ? el("span", { class: "text-muted text-sm", style: "display:block" }, hint) : null]),
+  ]);
+  return { wrap, input };
+}
+
+const TAX_RECEIVE_HINT = `O valor já inclui os ${TAX_RATE_PERCENT}% de impostos: a parte de imposto (1/6) é reservada quando o dinheiro entra.`;
+const TAX_PAY_HINT = "Ao pagar, o valor abate a reserva de impostos.";
+
 // Modal de conta (receber ou pagar): nova (com parcelas) ou edição.
 async function contaForm(kind, onSaved, existing = null) {
   const isPay = kind === "pagar";
   const done = existing && isDone(existing);
   const opts = await api.get("/financeiro/opcoes");
+  const taxBox = done ? null : isPay
+    ? checkField("É pagamento de impostos", TAX_PAY_HINT, existing?.isTax)
+    : checkField(`Inclui impostos (${TAX_RATE_PERCENT}%)`, TAX_RECEIVE_HINT, existing ? existing.taxRatePercent > 0 : false);
 
   const fields = done
     ? [field("Descrição", "description", existing.description, { required: true, col2: true })]
@@ -46,6 +64,8 @@ async function contaForm(kind, onSaved, existing = null) {
           { value: "", label: "—" }, ...opts.suppliers.map((s) => ({ value: s.id, label: s.name })),
         ] })] : []),
       ];
+
+  if (taxBox) fields.push(taxBox.wrap);
 
   // Parcelas só na criação.
   let parcelasPreview = null;
@@ -69,6 +89,17 @@ async function contaForm(kind, onSaved, existing = null) {
   }
   form.addEventListener("input", refreshPreview);
 
+  // Em contas a receber novas, "Inclui impostos" acompanha o evento escolhido
+  // (marcado se ele tem orçamento aprovado com imposto) até o usuário mexer.
+  if (taxBox && !isPay && !existing) {
+    let touched = false;
+    taxBox.input.addEventListener("change", () => { touched = true; });
+    form.elements.eventId.addEventListener("change", () => {
+      if (touched) return;
+      taxBox.input.checked = !!opts.events.find((e) => e.id === form.elements.eventId.value)?.hasTaxedBudget;
+    });
+  }
+
   const save = el("button", { class: "btn btn--primary", type: "button" }, existing ? "Salvar" : "Adicionar");
   const cancel = el("button", { class: "btn btn--ghost", type: "button" }, "Cancelar");
   const kindLabel = isPay ? "conta a pagar" : "conta a receber";
@@ -88,6 +119,7 @@ async function contaForm(kind, onSaved, existing = null) {
     const body = Object.fromEntries(new FormData(form));
     if (!body.description?.trim()) return toast("Informe a descrição.", "error");
     if (Number(body.installments) > 1 && !body.dueDate) return toast("Para parcelar, informe o vencimento da primeira parcela.", "error");
+    if (taxBox) body[isPay ? "isTax" : "includesTax"] = taxBox.input.checked;
     save.disabled = true;
     try {
       if (existing) await api.put(`/financeiro/${kind}/${existing.id}`, body);
@@ -160,8 +192,26 @@ async function lancamentoForm(onSaved) {
     ] }),
   ]);
   form.elements.date.max = todayISO();
+
+  // Caixinha de imposto: muda de sentido conforme o tipo (entrada inclui
+  // impostos / saída é pagamento de imposto) e some no saldo inicial.
+  const taxBox = checkField("", "", false);
+  const taxLabel = taxBox.wrap.querySelector("span");
+  form.append(taxBox.wrap);
+  function syncTaxBox() {
+    const type = form.elements.type.value;
+    taxBox.wrap.style.display = type === "INICIAL" ? "none" : "flex";
+    taxBox.input.checked = false;
+    taxLabel.replaceChildren(
+      type === "SAIDA" ? "É pagamento de impostos" : `Inclui impostos (${TAX_RATE_PERCENT}%)`,
+      el("span", { class: "text-muted text-sm", style: "display:block" }, type === "SAIDA" ? TAX_PAY_HINT : TAX_RECEIVE_HINT),
+    );
+  }
+  syncTaxBox();
+
   // "Saldo inicial" é só uma entrada com descrição pronta.
   form.elements.type.onchange = () => {
+    syncTaxBox();
     if (form.elements.type.value === "INICIAL" && !form.elements.description.value.trim())
       form.elements.description.value = "Saldo inicial";
   };
@@ -177,6 +227,8 @@ async function lancamentoForm(onSaved) {
       await api.post("/financeiro/lancamentos", {
         kind: f.type === "SAIDA" ? "SAIDA" : "ENTRADA",
         description: f.description, amount: f.amount, date: f.date, eventId: f.eventId,
+        includesTax: f.type === "ENTRADA" && taxBox.input.checked,
+        isTax: f.type === "SAIDA" && taxBox.input.checked,
       });
       modal.close();
       toast("Lançamento adicionado.");
@@ -262,6 +314,20 @@ export async function renderFinanceiro() {
       ]),
     ]);
 
+    const res = r.reservaImpostos;
+    const reservaCard = el("div", { class: "card card--pad" }, [
+      h2("Reserva de impostos"),
+      el("div", { class: "budget-totals" }, [
+        row("Reservado (do que já entrou)", formatBRL(res.reservadoCents)),
+        row("Impostos já pagos", "− " + formatBRL(res.pagoCents)),
+        row("Saldo da reserva", formatBRL(res.saldoCents), "var(--sued-gold-dark)"),
+      ]),
+      el("p", { class: "text-muted text-sm", style: "margin:12px 0 0" },
+        res.aReservarCents
+          ? `Mais ${formatBRL(res.aReservarCents)} de imposto ainda vai entrar com as contas a receber pendentes.`
+          : "Esse dinheiro está no caixa, mas não é seu: separe-o para pagar os impostos."),
+    ]);
+
     const proximosCard = el("div", { class: "card card--pad" }, [
       h2("Próximos vencimentos"),
       ...(r.proximos.length
@@ -283,11 +349,14 @@ export async function renderFinanceiro() {
           { header: "A pagar", align: "right", render: (p) => formatBRL(p.pagarCents) },
           { header: "Saldo projetado", align: "right", render: (p) =>
             el("span", { class: "font-semibold", style: `color:${signed(p.saldoProjetadoCents)}` }, formatBRL(p.saldoProjetadoCents)) },
+          { header: "Reserva de impostos", align: "right", render: (p) => formatBRL(p.reservaCents) },
+          { header: "Saldo livre", align: "right", render: (p) =>
+            el("span", { class: "font-semibold", style: `color:${signed(p.saldoLivreProjetadoCents)}` }, formatBRL(p.saldoLivreProjetadoCents)) },
         ],
         rows: r.previsao,
       }),
       el("p", { class: "text-muted text-sm", style: "margin:12px 0 0" },
-        `Saldo projetado = saldo de caixa de hoje (${formatBRL(r.saldoCents)}) + a receber − a pagar até a data. Inclui contas já vencidas e ainda pendentes.` +
+        `Saldo projetado = saldo de caixa de hoje (${formatBRL(r.saldoCents)}) + a receber − a pagar até a data. A reserva projetada soma o imposto dos recebimentos pendentes e desconta os pagamentos de imposto a vencer; saldo livre = projetado − reserva. Inclui contas já vencidas e ainda pendentes.` +
         (r.semVencimento.receberCents || r.semVencimento.pagarCents
           ? ` Fora da previsão, por não terem vencimento: ${formatBRL(r.semVencimento.receberCents)} a receber e ${formatBRL(r.semVencimento.pagarCents)} a pagar.`
           : "")),
@@ -298,11 +367,12 @@ export async function renderFinanceiro() {
         kpi("A receber (pendente)", formatBRL(r.aReceberCents), atraso(r.atrasadas, r.atrasadasReceberCents)),
         kpi("A pagar (pendente)", formatBRL(r.aPagarCents), atraso(r.atrasadasPagar, r.atrasadasPagarCents)),
         kpi("Saldo de caixa", formatBRL(r.saldoCents), null, signed(r.saldoCents)),
+        kpi("Saldo livre", formatBRL(res.saldoLivreCents), "caixa menos a reserva de impostos", signed(res.saldoLivreCents)),
         kpi("Entradas / Saídas", `${formatBRL(r.entradasCents)}`, `Saídas ${formatBRL(r.saidasCents)}`),
       ]),
       el("div", { class: "grid grid-main-side items-start" }, [
         previsaoCard,
-        el("div", { class: "flex", style: "flex-direction:column;gap:16px" }, [mesCard, proximosCard]),
+        el("div", { class: "flex", style: "flex-direction:column;gap:16px" }, [reservaCard, mesCard, proximosCard]),
       ]),
     );
   }
@@ -364,7 +434,12 @@ export async function renderFinanceiro() {
       const atrasado = shown.filter(isOverdue).reduce((a, r) => a + r.amountCents, 0);
       const table = renderTable({
         columns: [
-          { header: "Descrição", render: (r) => el("span", { class: "font-medium" }, r.description) },
+          { header: "Descrição", render: (r) => el("span", { class: "font-medium" }, [
+            r.description,
+            (isPay ? r.isTax : r.taxRatePercent > 0)
+              ? el("span", { class: "badge badge--muted", style: "margin-left:8px" }, isPay ? "Imposto" : `Inclui ${r.taxRatePercent}% imp.`)
+              : null,
+          ]) },
           ...(isPay ? [{ header: "Fornecedor", render: (r) => r.supplierName || "—" }] : []),
           { header: "Evento", render: (r) => r.eventTitle || "—" },
           { header: "Vencimento", render: (r) => el("span", { style: isOverdue(r) ? "color:var(--sued-danger);font-weight:500" : "" }, r.dueDate ? formatDate(r.dueDate) : "—") },
@@ -455,6 +530,8 @@ export async function renderFinanceiro() {
         { header: "Descrição", render: (r) => el("span", {}, [
           r.description,
           r.avulso ? el("span", { class: "badge badge--muted", style: "margin-left:8px" }, "Avulso") : null,
+          r.isTax ? el("span", { class: "badge badge--muted", style: "margin-left:8px" }, "Imposto") : null,
+          r.taxReserveCents > 0 ? el("span", { class: "badge badge--muted", style: "margin-left:8px" }, `Reserva ${formatBRL(r.taxReserveCents)}`) : null,
         ]) },
         { header: "Evento", render: (r) => r.eventTitle || "—" },
         { header: "Tipo", render: (r) => el("span", { class: `badge ${r.kind === "ENTRADA" ? "badge--success" : "badge--danger"}` }, r.kind === "ENTRADA" ? "Entrada" : "Saída") },
