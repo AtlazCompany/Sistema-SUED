@@ -9,6 +9,7 @@
 // que já apareceriam numa proposta comercial enviada ao cliente.
 import { el, formatBRL, formatDate } from "../utils.js";
 import { suedMonogram } from "./sued-monogram.js";
+import { calcBudgetTotals } from "../budget-math.js";
 
 const STATUS_LABELS = {
   RASCUNHO: "Em elaboração",
@@ -31,9 +32,12 @@ function totalLine(label, value, strong) {
 
 export function renderOrcamentoDocumento(data) {
   const items = data.items || [];
-  const subtotal = items.reduce((a, i) => a + Number(i.quantity) * Number(i.unitPriceCents), 0);
-  const discount = Number(data.discountCents) || 0;
-  const total = subtotal - discount;
+  const taxRatePercent = Number(data.taxRatePercent) || 0;
+  const { subtotalCents: subtotal, discountCents: discount, taxCents, totalCents: total } = calcBudgetTotals({
+    subtotalCents: items.reduce((a, i) => a + Number(i.quantity) * Number(i.unitPriceCents), 0),
+    discountCents: data.discountCents,
+    taxRatePercent,
+  });
   const statusLabel = STATUS_LABELS[data.status] || data.status || "Em elaboração";
 
   return el("article", { class: "doc-orcamento" }, [
@@ -87,6 +91,7 @@ export function renderOrcamentoDocumento(data) {
     el("div", { class: "doc-orcamento__totals" }, [
       totalLine("Subtotal", formatBRL(subtotal)),
       discount ? totalLine("Desconto", "− " + formatBRL(discount)) : null,
+      taxRatePercent ? totalLine(`Impostos (${taxRatePercent}%)`, formatBRL(taxCents)) : null,
       totalLine("Total", formatBRL(total), true),
     ]),
 

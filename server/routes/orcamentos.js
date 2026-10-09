@@ -3,6 +3,7 @@ import { sql } from "../supabaseClient.js";
 import { requireAuth, requireRole } from "../auth.js";
 import { rolesForModule } from "../../public/src/roles.js";
 import { asyncHandler, HttpError, nn, prepInsert, toCents, toDateOrNull, parsePagination, assertValidTransition, clientIp } from "../utils.js";
+import { TAX_RATE_PERCENT, calcBudgetTotals } from "../../public/src/budget-math.js";
 
 export const orcamentosRouter = Router();
 orcamentosRouter.use(requireAuth);
@@ -25,7 +26,22 @@ function pickHeader(body) {
     validUntil: toDateOrNull(body?.validUntil, "Válido até"),
     discountCents: toCents(body?.discount),
     notes: nn(body?.notes),
+    // Todo orçamento criado/salvo leva os impostos. Fixo no servidor: o
+    // que vier do navegador é ignorado.
+    taxRatePercent: TAX_RATE_PERCENT,
   };
+}
+
+// Acrescenta impostos e total (centavos) a um orçamento já com subtotal/
+// costTotal — a mesma conta do frontend (public/src/budget-math.js).
+function withTotals(budget, subtotalCents, costCents) {
+  const t = calcBudgetTotals({
+    subtotalCents,
+    discountCents: budget.discountCents,
+    costCents,
+    taxRatePercent: budget.taxRatePercent,
+  });
+  return { ...budget, taxCents: t.taxCents, totalCents: t.totalCents };
 }
 
 // Bug pré-existente corrigido aqui: o editor (views/orcamentos.js) sempre
@@ -81,7 +97,7 @@ orcamentosRouter.get(
       const [{ total }] = await sql`select count(*)::int as total from "Budget"`;
       res.set("X-Total-Count", String(total));
     }
-    res.json(rows);
+    res.json(rows.map((r) => withTotals(r, r.subtotal, r.costTotal)));
   }),
 );
 
@@ -113,7 +129,9 @@ orcamentosRouter.get(
     if (!budget) throw new HttpError(404, "Orçamento não encontrado.");
     const items = await sql`
       select * from "BudgetItem" where "budgetId" = ${budget.id} order by "position" asc, "id" asc`;
-    res.json({ ...budget, items });
+    const subtotal = items.reduce((sum, it) => sum + it.quantity * it.unitPriceCents, 0);
+    const cost = items.reduce((sum, it) => sum + it.quantity * it.unitCostCents, 0);
+    res.json({ ...withTotals(budget, subtotal, cost), items });
   }),
 );
 
@@ -254,7 +272,7 @@ orcamentoPublicoRouter.get(
   publicRateLimit,
   asyncHandler(async (req, res) => {
     const [budget] = await sql`
-      select b.id, b.number, b.status, b."validUntil", b.notes, b."discountCents", b."createdAt", b."updatedAt",
+      select b.id, b.number, b.status, b."validUntil", b.notes, b."discountCents", b."taxRatePercent", b."createdAt", b."updatedAt",
         c.name as "clientName", e.title as "eventTitle"
       from "Budget" b
       left join "Client" c on c.id = b."clientId"

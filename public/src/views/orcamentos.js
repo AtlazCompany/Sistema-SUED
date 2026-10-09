@@ -7,6 +7,7 @@ import { toast } from "../components/toast.js";
 import { field } from "../components/form.js";
 import { renderOrcamentoDocumento } from "../components/orcamento-doc.js";
 import { openModal } from "../components/modal.js";
+import { TAX_RATE_PERCENT, TAX_REMINDER, calcBudgetTotals } from "../budget-math.js";
 
 // O cabeçalho/rodapé que o navegador imprime por cima da página (data,
 // título, URL, número da página) usa o title da aba — não dá para
@@ -72,7 +73,7 @@ export async function renderOrcamentos() {
         { header: "Cliente", render: (r) => r.clientName || "—" },
         { header: "Evento", render: (r) => r.eventTitle || "—" },
         { header: "Total", align: "right", render: (r) =>
-          el("span", { class: "font-semibold" }, formatBRL(Number(r.subtotal) - r.discountCents)) },
+          el("span", { class: "font-semibold" }, formatBRL(r.totalCents)) },
         { header: "Validade", render: (r) => r.validUntil ? formatDate(r.validUntil) : "—" },
         { header: "Status", render: (r) => {
           const s = BUDGET_STATUS[r.status] || { label: r.status, cls: "" };
@@ -141,16 +142,21 @@ export async function renderOrcamentos() {
     const totalsBox = el("div", { class: "budget-totals" });
 
     function recalc() {
-      const subtotal = items.reduce((a, i) => a + i.quantity * i.unitPriceCents, 0);
-      const cost = items.reduce((a, i) => a + i.quantity * i.unitCostCents, 0);
-      const discount = toCents(header.querySelector("[name=discount]").value);
-      const total = subtotal - discount;
-      const margin = total > 0 ? (((total - cost) / total) * 100).toFixed(1) + "%" : "—";
+      const t = calcBudgetTotals({
+        subtotalCents: items.reduce((a, i) => a + i.quantity * i.unitPriceCents, 0),
+        discountCents: toCents(header.querySelector("[name=discount]").value),
+        costCents: items.reduce((a, i) => a + i.quantity * i.unitCostCents, 0),
+        taxRatePercent: TAX_RATE_PERCENT,
+      });
+      // Margem sobre o valor antes dos impostos: o imposto é repassado, não é receita.
+      const margin = t.marginPercent === null ? "—" : t.marginPercent.toFixed(1) + "%";
       totalsBox.replaceChildren(
-        totalRow("Subtotal", formatBRL(subtotal)),
-        totalRow("Desconto", "− " + formatBRL(discount)),
-        totalRow("Total", formatBRL(total), true),
-        totalRow("Custo estimado", formatBRL(cost)),
+        totalRow("Subtotal", formatBRL(t.subtotalCents)),
+        totalRow("Desconto", "− " + formatBRL(t.discountCents)),
+        totalRow(`Impostos (${TAX_RATE_PERCENT}%)`, "+ " + formatBRL(t.taxCents)),
+        totalRow("Total (com impostos)", formatBRL(t.totalCents), true),
+        totalRow("Custo estimado", formatBRL(t.costCents)),
+        totalRow("Lucro (sem impostos)", formatBRL(t.profitCents)),
         totalRow("Margem", margin, false, "var(--sued-gold-dark)"),
       );
     }
@@ -231,6 +237,7 @@ export async function renderOrcamentos() {
         validUntil: fd.get("validUntil") || null,
         notes: fd.get("notes") || "",
         discountCents: toCents(fd.get("discount")),
+        taxRatePercent: TAX_RATE_PERCENT,
         items: items.map((i) => ({ description: i.description, quantity: i.quantity, unitPriceCents: i.unitPriceCents })),
       };
     }
@@ -289,7 +296,7 @@ export async function renderOrcamentos() {
       try {
         if (isEdit) await api.put(`/orcamentos/${id}`, body);
         else await api.post("/orcamentos", body);
-        toast(isEdit ? "Orçamento salvo." : "Orçamento criado.");
+        toast(`${isEdit ? "Orçamento salvo." : "Orçamento criado."} ${TAX_REMINDER}`, "info", 6000);
         loadList();
       } catch (err) { toast(err.message, "error"); salvar.disabled = false; }
     };
@@ -303,6 +310,16 @@ export async function renderOrcamentos() {
       };
       actions.unshift(excluir);
     }
+
+    // Lembrete fixo (e um aviso rápido ao abrir): todo orçamento leva impostos.
+    const legacy = isEdit && !budget.taxRatePercent;
+    const taxNotice = el("div", { class: "budget-tax-notice", role: "note" }, [
+      el("strong", {}, `Impostos: ${TAX_RATE_PERCENT}%`),
+      el("span", {}, legacy
+        ? ` Este orçamento é anterior à regra de impostos; ao salvar, os ${TAX_RATE_PERCENT}% serão somados ao total.`
+        : ` ${TAX_REMINDER.replace("Lembrete: ", "")}`),
+    ]);
+    toast(TAX_REMINDER, "info", 5000);
 
     const editArea = el("div", { class: "grid grid-main-side items-start" }, [
       el("div", { class: "card card--pad" }, [
@@ -330,6 +347,7 @@ export async function renderOrcamentos() {
         ]),
         el("div", { class: "flex items-center gap-2" }, actions),
       ]),
+      taxNotice,
       el("div", { class: "card card--pad mb-4" }, [header]),
       tabs,
       editArea,

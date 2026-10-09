@@ -98,7 +98,8 @@ CREATE TABLE public."Budget" (
     notes text,
     "createdAt" timestamp with time zone NOT NULL,
     "updatedAt" timestamp with time zone NOT NULL,
-    vigente boolean DEFAULT false NOT NULL
+    vigente boolean DEFAULT false NOT NULL,
+    "taxRatePercent" integer DEFAULT 0 NOT NULL
 );
 
 
