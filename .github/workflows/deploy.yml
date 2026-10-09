@@ -1,0 +1,35 @@
+# Publica no Render a cada envio para a main.
+# O auto-deploy do Render às vezes não dispara (Lote 11 e o botão
+# "Ver / imprimir" ficaram presos no GitHub) — o Deploy Hook garante.
+# O link do hook é SECRETO (quem tem o link publica o sistema): fica em
+# Settings → Secrets and variables → Actions → RENDER_DEPLOY_HOOK, nunca no
+# código (este repositório é público).
+name: Publicar no Render
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Disparar o Deploy Hook
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "::error::Segredo RENDER_DEPLOY_HOOK não configurado."
+            exit 1
+          fi
+          code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$HOOK")
+          echo "Render respondeu HTTP $code"
+          [ "$code" = "200" ] || [ "$code" = "201" ]
