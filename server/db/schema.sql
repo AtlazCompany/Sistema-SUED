@@ -45,7 +45,8 @@ CREATE TABLE public."AccountPayable" (
     "paidDate" timestamp with time zone,
     "createdAt" timestamp with time zone NOT NULL,
     "updatedAt" timestamp with time zone NOT NULL,
-    "isTax" boolean DEFAULT false NOT NULL
+    "isTax" boolean DEFAULT false NOT NULL,
+    "categoryId" uuid
 );
 
 
@@ -63,7 +64,8 @@ CREATE TABLE public."AccountReceivable" (
     "receivedDate" timestamp with time zone,
     "createdAt" timestamp with time zone NOT NULL,
     "updatedAt" timestamp with time zone NOT NULL,
-    "taxRatePercent" integer DEFAULT 0 NOT NULL
+    "taxRatePercent" integer DEFAULT 0 NOT NULL,
+    "categoryId" uuid
 );
 
 
@@ -276,6 +278,20 @@ CREATE TABLE public."EventType" (
 
 
 --
+-- Name: FinanceCategory; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public."FinanceCategory" (
+    id uuid NOT NULL,
+    name text NOT NULL,
+    kind text NOT NULL,
+    "createdAt" timestamp with time zone NOT NULL,
+    "updatedAt" timestamp with time zone NOT NULL,
+    CONSTRAINT "FinanceCategory_kind_check" CHECK ((kind = ANY (ARRAY['ENTRADA'::text, 'SAIDA'::text])))
+);
+
+
+--
 -- Name: Interaction; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -421,7 +437,8 @@ CREATE TABLE public."Transaction" (
     "receivableId" uuid,
     "payableId" uuid,
     "taxReserveCents" integer DEFAULT 0 NOT NULL,
-    "isTax" boolean DEFAULT false NOT NULL
+    "isTax" boolean DEFAULT false NOT NULL,
+    "categoryId" uuid
 );
 
 
@@ -601,6 +618,14 @@ ALTER TABLE ONLY public."Event"
 
 ALTER TABLE ONLY public."Event"
     ADD CONSTRAINT "Event_pkey" PRIMARY KEY (id);
+
+
+--
+-- Name: FinanceCategory FinanceCategory_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."FinanceCategory"
+    ADD CONSTRAINT "FinanceCategory_pkey" PRIMARY KEY (id);
 
 
 --
@@ -946,6 +971,20 @@ CREATE INDEX "Task_status_idx" ON public."Task" USING btree (status);
 
 
 --
+-- Name: FinanceCategory_kind_name_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX "FinanceCategory_kind_name_key" ON public."FinanceCategory" USING btree (kind, lower(name));
+
+
+--
+-- Name: Transaction_categoryId_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "Transaction_categoryId_idx" ON public."Transaction" USING btree ("categoryId");
+
+
+--
 -- Name: Transaction_date_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -981,6 +1020,14 @@ CREATE INDEX "User_active_idx" ON public."User" USING btree (active);
 
 
 --
+-- Name: AccountPayable AccountPayable_categoryId_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."AccountPayable"
+    ADD CONSTRAINT "AccountPayable_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES public."FinanceCategory"(id);
+
+
+--
 -- Name: AccountPayable AccountPayable_eventId_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -994,6 +1041,14 @@ ALTER TABLE ONLY public."AccountPayable"
 
 ALTER TABLE ONLY public."AccountPayable"
     ADD CONSTRAINT "AccountPayable_supplierId_fkey" FOREIGN KEY ("supplierId") REFERENCES public."Supplier"(id);
+
+
+--
+-- Name: AccountReceivable AccountReceivable_categoryId_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."AccountReceivable"
+    ADD CONSTRAINT "AccountReceivable_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES public."FinanceCategory"(id);
 
 
 --
@@ -1229,6 +1284,14 @@ ALTER TABLE ONLY public."Task"
 
 
 --
+-- Name: Transaction Transaction_categoryId_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."Transaction"
+    ADD CONSTRAINT "Transaction_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES public."FinanceCategory"(id);
+
+
+--
 -- Name: Transaction Transaction_eventId_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1307,6 +1370,12 @@ ALTER TABLE public."Event" ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public."EventType" ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: FinanceCategory; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public."FinanceCategory" ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: Interaction; Type: ROW SECURITY; Schema: public; Owner: -

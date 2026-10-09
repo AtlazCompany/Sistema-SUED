@@ -81,6 +81,16 @@ async function loadForUpdate(tx, cfg, id) {
 // Caixinhas do formulário chegam como true/"true"/"on".
 const asBool = (v) => v === true || v === "true" || v === "on";
 
+// Categoria escolhida (opcional) precisa existir e ser do mesmo tipo da conta
+// ou do lançamento: entrada só com categoria de entrada, saída com de saída.
+async function assertCategory(tx, categoryId, kind) {
+  if (!categoryId) return;
+  const [c] = await tx`select kind from "FinanceCategory" where id = ${categoryId}`;
+  if (!c) throw new HttpError(400, "Categoria selecionada não existe mais.");
+  if (c.kind !== kind)
+    throw new HttpError(400, kind === "ENTRADA" ? "Escolha uma categoria de entrada." : "Escolha uma categoria de saída.");
+}
+
 function pickConta(b, cfg) {
   if (!nn(b.description)) throw new HttpError(400, "Informe a descrição.");
   const amountCents = toCents(b.amount);
@@ -89,6 +99,7 @@ function pickConta(b, cfg) {
   return {
     description: String(b.description).trim(),
     eventId: nn(b.eventId),
+    categoryId: nn(b.categoryId),
     ...(cfg.hasSupplier
       ? { supplierId: nn(b.supplierId), isTax: asBool(b.isTax) }
       : { taxRatePercent: asBool(b.includesTax) ? TAX_RATE_PERCENT : 0 }),
@@ -104,7 +115,7 @@ const fkMessage = (cfg) =>
 financeiroRouter.get(
   "/opcoes",
   asyncHandler(async (req, res) => {
-    const [events, suppliers] = await Promise.all([
+    const [events, suppliers, categories] = await Promise.all([
       // hasTaxedBudget: o evento tem orçamento aprovado (vigente) com imposto —
       // a tela usa isso para já marcar "Inclui impostos" nas contas a receber.
       sql`
@@ -112,8 +123,78 @@ financeiroRouter.get(
           exists(select 1 from "Budget" b where b."eventId" = e.id and b.vigente and b."taxRatePercent" > 0) as "hasTaxedBudget"
         from "Event" e order by e."createdAt" desc`,
       sql`select id, name from "Supplier" order by name asc`,
+      sql`select id, name, kind from "FinanceCategory" order by lower(name) asc`,
     ]);
-    res.json({ events, suppliers });
+    res.json({ events, suppliers, categories });
+  }),
+);
+
+// ---- Categorias (de entrada ou de saída) ----
+const CATEGORY_KINDS = ["ENTRADA", "SAIDA"];
+const kindWord = (kind) => (kind === "ENTRADA" ? "entrada" : "saída");
+const categoryName = (v) => (typeof v === "string" && v.trim() ? v.trim() : null);
+
+// GET /api/financeiro/categorias — com o número de contas e lançamentos que usam cada uma.
+financeiroRouter.get(
+  "/categorias",
+  asyncHandler(async (req, res) => {
+    const rows = await sql`
+      select c.id, c.name, c.kind,
+        ((select count(*) from "AccountReceivable" where "categoryId" = c.id)
+          + (select count(*) from "AccountPayable" where "categoryId" = c.id)
+          + (select count(*) from "Transaction" where "categoryId" = c.id))::int as uses
+      from "FinanceCategory" c order by c.kind asc, lower(c.name) asc`;
+    res.json(rows);
+  }),
+);
+
+financeiroRouter.post(
+  "/categorias",
+  asyncHandler(async (req, res) => {
+    const name = categoryName(req.body?.name);
+    const kind = req.body?.kind;
+    if (!name) throw new HttpError(400, "Informe o nome da categoria.");
+    if (!CATEGORY_KINDS.includes(kind)) throw new HttpError(400, "Tipo inválido: use ENTRADA ou SAIDA.");
+    try {
+      const [created] = await sql`insert into "FinanceCategory" ${sql(prepInsert({ name, kind }))} returning *`;
+      res.status(201).json(created);
+    } catch (e) {
+      if (e.code === "23505") throw new HttpError(400, `Já existe uma categoria de ${kindWord(kind)} com esse nome.`);
+      throw e;
+    }
+  }),
+);
+
+// Renomear. O tipo não muda: contas e lançamentos já classificados dependem dele.
+financeiroRouter.put(
+  "/categorias/:id",
+  asyncHandler(async (req, res) => {
+    const name = categoryName(req.body?.name);
+    if (!name) throw new HttpError(400, "Informe o nome da categoria.");
+    try {
+      const [row] = await sql`
+        update "FinanceCategory" set name = ${name}, "updatedAt" = now() where id = ${req.params.id} returning *`;
+      if (!row) throw new HttpError(404, "Categoria não encontrada.");
+      res.json(row);
+    } catch (e) {
+      if (e.code === "23505") throw new HttpError(400, "Já existe uma categoria desse tipo com esse nome.");
+      throw e;
+    }
+  }),
+);
+
+financeiroRouter.delete(
+  "/categorias/:id",
+  asyncHandler(async (req, res) => {
+    try {
+      const [deleted] = await sql`delete from "FinanceCategory" where id = ${req.params.id} returning id`;
+      if (!deleted) throw new HttpError(404, "Categoria não encontrada.");
+      res.json({ ok: true });
+    } catch (e) {
+      if (e.code === "23503")
+        throw new HttpError(409, "Não é possível excluir: existem contas ou lançamentos nesta categoria.");
+      throw e;
+    }
   }),
 );
 
@@ -157,7 +238,7 @@ function pendingTaxByHorizon(table, value, where) {
 financeiroRouter.get(
   "/resumo",
   asyncHandler(async (req, res) => {
-    const [[receber], [pagar], [entradas], [saidas], [atrasR], [atrasP], [mes], [prevR], [prevP], proximos, [reserva], [taxR], [taxP]] = await Promise.all([
+    const [[receber], [pagar], [entradas], [saidas], [atrasR], [atrasP], [mes], [prevR], [prevP], proximos, [reserva], [taxR], [taxP], gastos] = await Promise.all([
       sql`select coalesce(sum("amountCents"),0)::bigint as v from "AccountReceivable" where status = 'PENDENTE'`,
       sql`select coalesce(sum("amountCents"),0)::bigint as v from "AccountPayable" where status = 'PENDENTE'`,
       sql`select coalesce(sum("amountCents"),0)::bigint as v from "Transaction" where kind = 'ENTRADA'`,
@@ -189,6 +270,13 @@ financeiroRouter.get(
         from "Transaction"`,
       pendingTaxByHorizon("AccountReceivable", sql`round("amountCents" * "taxRatePercent" / (100.0 + "taxRatePercent"))`, sql`"taxRatePercent" > 0`),
       pendingTaxByHorizon("AccountPayable", sql`"amountCents"`, sql`"isTax"`),
+      // Para onde foi o dinheiro: saídas do mês corrente por categoria (sem categoria junta numa linha).
+      sql`
+        select t."categoryId", c.name, sum(t."amountCents")::bigint as total
+        from "Transaction" t left join "FinanceCategory" c on c.id = t."categoryId"
+        where t.kind = 'SAIDA' and ${TX_DAY} >= ${MONTH_START} and ${TX_DAY} < ${MONTH_START} + interval '1 month'
+        group by t."categoryId", c.name
+        order by total desc`,
     ]);
     const saldoCents = Number(entradas.v) - Number(saidas.v);
     const reservaSaldoCents = Number(reserva.reservado) - Number(reserva.pago);
@@ -231,6 +319,7 @@ financeiroRouter.get(
       }),
       semVencimento: { receberCents: Number(prevR.semVencimento), pagarCents: Number(prevP.semVencimento) },
       proximos: proximos.map((p) => ({ kind: p.kind, id: p.id, description: p.description, dueDate: p.dueDate, amountCents: p.amountCents })),
+      gastosPorCategoria: gastos.map((g) => ({ categoryId: g.categoryId, name: g.name || "Sem categoria", amountCents: Number(g.total) })),
     });
   }),
 );
@@ -242,8 +331,10 @@ financeiroRouter.get(
     const { paginated, pageSize, offset } = parsePagination(req.query);
     const limitClause = paginated ? sql`limit ${pageSize} offset ${offset}` : sql``;
     const rows = await sql`
-      select r.*, e.title as "eventTitle"
-      from "AccountReceivable" r left join "Event" e on e.id = r."eventId"
+      select r.*, e.title as "eventTitle", c.name as "categoryName"
+      from "AccountReceivable" r
+      left join "Event" e on e.id = r."eventId"
+      left join "FinanceCategory" c on c.id = r."categoryId"
       order by r."dueDate" asc nulls last, r."createdAt" desc ${limitClause}`;
     if (paginated) {
       const [{ total }] = await sql`select count(*)::int as total from "AccountReceivable"`;
@@ -259,10 +350,11 @@ financeiroRouter.get(
     const { paginated, pageSize, offset } = parsePagination(req.query);
     const limitClause = paginated ? sql`limit ${pageSize} offset ${offset}` : sql``;
     const rows = await sql`
-      select p.*, e.title as "eventTitle", s.name as "supplierName"
+      select p.*, e.title as "eventTitle", s.name as "supplierName", c.name as "categoryName"
       from "AccountPayable" p
       left join "Event" e on e.id = p."eventId"
       left join "Supplier" s on s.id = p."supplierId"
+      left join "FinanceCategory" c on c.id = p."categoryId"
       order by p."dueDate" asc nulls last, p."createdAt" desc ${limitClause}`;
     if (paginated) {
       const [{ total }] = await sql`select count(*)::int as total from "AccountPayable"`;
@@ -289,6 +381,7 @@ for (const [path, cfg] of Object.entries(KINDS)) {
 
       try {
         const created = await sql.begin(async (tx) => {
+          await assertCategory(tx, base.categoryId, cfg.txKind);
           const out = [];
           for (let i = 0; i < n; i += 1) {
             const data = prepInsert({
@@ -311,8 +404,9 @@ for (const [path, cfg] of Object.entries(KINDS)) {
     }),
   );
 
-  // Editar. Conta já liquidada só aceita nova descrição (valor/vencimento/
-  // evento mexem no caixa já lançado — estorne antes); cancelada é definitiva.
+  // Editar. Conta já liquidada só aceita nova descrição e categoria (valor/
+  // vencimento/evento mexem no caixa já lançado — estorne antes); cancelada é
+  // definitiva. Sem "categoryId" no corpo, a categoria atual fica.
   financeiroRouter.put(
     `/${path}/:id`,
     asyncHandler(async (req, res) => {
@@ -321,12 +415,17 @@ for (const [path, cfg] of Object.entries(KINDS)) {
         const updated = await sql.begin(async (tx) => {
           const cur = await loadForUpdate(tx, cfg, req.params.id);
           if (cur.status === "CANCELADO") throw new HttpError(400, `${cfg.label} cancelada não pode ser editada.`);
+          const picked = pickConta(cur.status === cfg.doneStatus ? { ...b, amount: cur.amountCents / 100 } : b, cfg);
           const fields = cur.status === cfg.doneStatus
-            ? { description: pickConta({ ...b, amount: cur.amountCents / 100 }, cfg).description }
-            : pickConta(b, cfg);
+            ? { description: picked.description, categoryId: picked.categoryId }
+            : picked;
+          if (!("categoryId" in b)) fields.categoryId = cur.categoryId;
+          await assertCategory(tx, fields.categoryId, cfg.txKind);
           const [row] = await tx`update ${tx(cfg.table)} set ${tx(fields)}, "updatedAt" = now() where id = ${cur.id} returning *`;
-          if (fields.description !== cur.description)
-            await tx`update "Transaction" set description = ${fields.description} where ${tx(cfg.txLink)} = ${cur.id}`;
+          if (fields.description !== cur.description || fields.categoryId !== cur.categoryId)
+            await tx`
+              update "Transaction" set description = ${fields.description}, "categoryId" = ${fields.categoryId}
+              where ${tx(cfg.txLink)} = ${cur.id}`;
           await logAudit(tx, { table: cfg.table, recordId: cur.id, action: "UPDATE", user: req.user, before: cur, after: row });
           return row;
         });
@@ -353,7 +452,7 @@ for (const [path, cfg] of Object.entries(KINDS)) {
           where id = ${row.id} returning *`;
         await tx`insert into "Transaction" ${tx(withId({
           kind: cfg.txKind, description: row.description, amountCents: row.amountCents,
-          date, eventId: row.eventId, [cfg.txLink]: row.id, ...cfg.txTaxFields(row),
+          date, eventId: row.eventId, categoryId: row.categoryId, [cfg.txLink]: row.id, ...cfg.txTaxFields(row),
         }))}`;
         if (row.eventId) await cfg.bumpEvent(tx, row.eventId, row.amountCents);
         await logAudit(tx, { table: cfg.table, recordId: row.id, action: "UPDATE", user: req.user, before: row, after: updated });
@@ -412,11 +511,13 @@ for (const [path, cfg] of Object.entries(KINDS)) {
 }
 
 // ---- Extrato do fluxo de caixa (por período, com saldo acumulado) ----
-// GET /api/financeiro/extrato?from=AAAA-MM-DD&to=AAAA-MM-DD (ambos opcionais).
+// GET /api/financeiro/extrato?from=AAAA-MM-DD&to=AAAA-MM-DD&categoryId=<id|none>
+// (todos opcionais; categoryId=none = só o que está sem categoria).
 // O saldo inicial é tudo que entrou/saiu ANTES de "from"; cada linha traz o
 // saldo acumulado até ela. Datas de lançamento são "só-dia" (meia-noite UTC).
+// Com categoria, saldos e totais consideram só os lançamentos dela.
 const EXTRATO_LIMIT = 5000;
-const SIGNED = sql`case when kind = 'ENTRADA' then "amountCents" else -"amountCents" end`;
+const SIGNED = sql`case when t.kind = 'ENTRADA' then t."amountCents" else -t."amountCents" end`;
 
 financeiroRouter.get(
   "/extrato",
@@ -425,14 +526,20 @@ financeiroRouter.get(
     const to = toDateOrNull(req.query.to, "Data final");
     if (from && to && from > to) throw new HttpError(400, "A data inicial não pode ser depois da final.");
     const toExclusive = to ? new Date(to.getTime() + DAY_MS) : null;
+    const categoryId = nn(req.query.categoryId);
+    const byCategory = !categoryId ? sql``
+      : categoryId === "none" ? sql`and t."categoryId" is null`
+      : sql`and t."categoryId" = ${categoryId}`;
 
     const [{ opening }] = from
-      ? await sql`select coalesce(sum(${SIGNED}), 0)::bigint as opening from "Transaction" where date < ${from}`
+      ? await sql`select coalesce(sum(${SIGNED}), 0)::bigint as opening from "Transaction" t where t.date < ${from} ${byCategory}`
       : [{ opening: 0 }];
     const rows = await sql`
-      select t.*, e.title as "eventTitle"
-      from "Transaction" t left join "Event" e on e.id = t."eventId"
-      where true ${from ? sql`and t.date >= ${from}` : sql``} ${toExclusive ? sql`and t.date < ${toExclusive}` : sql``}
+      select t.*, e.title as "eventTitle", c.name as "categoryName"
+      from "Transaction" t
+      left join "Event" e on e.id = t."eventId"
+      left join "FinanceCategory" c on c.id = t."categoryId"
+      where true ${from ? sql`and t.date >= ${from}` : sql``} ${toExclusive ? sql`and t.date < ${toExclusive}` : sql``} ${byCategory}
       order by t.date asc, t.id asc limit ${EXTRATO_LIMIT}`;
 
     let balance = Number(opening);
@@ -468,11 +575,13 @@ financeiroRouter.post(
     if (amountCents <= 0) throw new HttpError(400, "O valor deve ser maior que zero.");
     const date = parseSettleDate(b.date, "Data");
     const eventId = nn(b.eventId);
+    const categoryId = nn(b.categoryId);
     const cfg = b.kind === "ENTRADA" ? KINDS.receber : KINDS.pagar;
     try {
       const created = await sql.begin(async (tx) => {
+        await assertCategory(tx, categoryId, b.kind);
         const [row] = await tx`insert into "Transaction" ${tx(withId({
-          kind: b.kind, description: String(b.description).trim(), amountCents, date, eventId,
+          kind: b.kind, description: String(b.description).trim(), amountCents, date, eventId, categoryId,
           // Entrada "inclui impostos" gera reserva; saída "é imposto" abate a reserva.
           ...(b.kind === "ENTRADA"
             ? { taxReserveCents: asBool(b.includesTax) ? taxShareOfGross(amountCents, TAX_RATE_PERCENT) : 0 }

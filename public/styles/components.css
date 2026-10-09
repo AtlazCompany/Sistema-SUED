@@ -242,6 +242,16 @@ table.table { width: 100%; border-collapse: collapse; }
 .row-actions { justify-content: flex-end; gap: 4px; }
 /* Trilho de barra de progresso (a largura do preenchimento é dinâmica). */
 .progress { height: 8px; background: var(--sued-marble-2); border-radius: 999px; overflow: hidden; }
+.progress__fill { display: block; height: 100%; background: var(--sued-gold); border-radius: 999px; }
+.progress__fill--muted { background: var(--sued-muted); }
+/* Linha clicável de gasto por categoria (Financeiro → Resumo). */
+.cat-spend {
+  display: block; text-align: left; background: none; border: 0;
+  padding: 8px; margin: 0 -8px; width: calc(100% + 16px);
+  border-radius: var(--radius); cursor: pointer; color: inherit; font: inherit;
+}
+.cat-spend:hover { background: var(--sued-marble-2); }
+.cat-spend:focus-visible { outline: 2px solid var(--sued-gold); outline-offset: 1px; }
 
 /* ---- Botão sutil (champagne) ---- */
 .btn--subtle { background: var(--sued-champagne-soft); color: var(--sued-gold-dark); }
@@ -330,7 +340,7 @@ table.table { width: 100%; border-collapse: collapse; }
 .filter-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
 /* Linha de filtros (datas e busca): campos no tamanho do conteúdo, não 100%. */
 .filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
-.filter-row .input { width: auto; }
+.filter-row .input, .filter-row .select { width: auto; }
 .chip {
   border: 1px solid var(--sued-border);
   background: #fff;

@@ -2,9 +2,9 @@
 // com 20%) é reservado; pagamentos de imposto abatem a reserva. Cálculo puro
 // sempre roda; as rotas usam banco real + servidor Express local (pulam sem
 // banco). Dados "TESTE-RES-*", removidos ao final. Só estes testes marcam
-// contas/lançamentos com imposto, e "npm test" roda os arquivos em sequência
-// (--test-concurrency=1), então os campos da reserva são comparados por
-// diferença exata.
+// contas/lançamentos com imposto, então os campos da reserva são comparados
+// por diferença exata. O saldo livre depende do caixa geral, que outros
+// arquivos mexem em paralelo: nunca compará-lo entre duas leituras do resumo.
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import express from "express";
@@ -172,7 +172,9 @@ test("reserva de impostos (skip sem banco)", { skip: !dbAvailable && "sem conex�
 
     await A("DELETE", `/api/financeiro/lancamentos/${ent.body.id}`);
     await A("DELETE", `/api/financeiro/lancamentos/${sai.body.id}`);
-    assert.deepEqual((await resumo()).reservaImpostos, { ...antes, saldoLivreCents: (await resumo()).reservaImpostos.saldoLivreCents });
+    const { saldoLivreCents: _livreDepois, ...depois } = (await resumo()).reservaImpostos;
+    const { saldoLivreCents: _livreAntes, ...esperado } = antes;
+    assert.deepEqual(depois, esperado);
   });
 
   await t.test("previsão: reserva projetada soma o imposto a receber e tira o imposto a pagar", async () => {
