@@ -98,6 +98,15 @@ export function toDateOrNull(value, label = "Data") {
   return d;
 }
 
+// Soma `months` meses a uma data "só-dia" (UTC) mantendo o dia do mês; quando
+// o mês de destino é mais curto, usa o último dia (31/jan + 1 mês = 28/fev).
+export function addMonthsClamped(date, months) {
+  const y = date.getUTCFullYear();
+  const m = date.getUTCMonth() + months;
+  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(y, m, Math.min(date.getUTCDate(), lastDay)));
+}
+
 // Igual a toDateOrNull, mas o campo é obrigatório.
 export function toDate(value, label = "Data") {
   const d = toDateOrNull(value, label);

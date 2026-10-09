@@ -415,7 +415,9 @@ CREATE TABLE public."Transaction" (
     description text NOT NULL,
     "amountCents" integer NOT NULL,
     date timestamp with time zone NOT NULL,
-    "eventId" uuid
+    "eventId" uuid,
+    "receivableId" uuid,
+    "payableId" uuid
 );
 
 
@@ -951,6 +953,20 @@ CREATE INDEX "Transaction_date_idx" ON public."Transaction" USING btree (date);
 --
 
 CREATE INDEX "Transaction_kind_idx" ON public."Transaction" USING btree (kind);
+
+
+--
+-- Name: Transaction_payableId_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "Transaction_payableId_idx" ON public."Transaction" USING btree ("payableId");
+
+
+--
+-- Name: Transaction_receivableId_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "Transaction_receivableId_idx" ON public."Transaction" USING btree ("receivableId");
 
 
 --

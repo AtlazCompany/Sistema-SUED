@@ -33,6 +33,13 @@ export function formatBRL(cents) {
   );
 }
 
+/** Hoje no calendário do navegador, "AAAA-MM-DD" (para <input type="date"> e comparar vencimentos). */
+export function todayISO() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 /** "12.500,00" (reais) → 1250000 (centavos). */
 export function toCents(value) {
   if (value === "" || value === null || value === undefined) return 0;

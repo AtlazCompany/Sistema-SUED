@@ -2,12 +2,92 @@ import { Router } from "express";
 import { sql } from "../supabaseClient.js";
 import { requireAuth, requireRole } from "../auth.js";
 import { rolesForModule } from "../../public/src/roles.js";
-import { asyncHandler, HttpError, nn, prepInsert, toCents, toDateOrNull, withId, parsePagination } from "../utils.js";
+import { asyncHandler, HttpError, nn, prepInsert, toCents, toDateOrNull, withId, parsePagination, addMonthsClamped } from "../utils.js";
 import { logAudit } from "../audit.js";
 
 export const financeiroRouter = Router();
 financeiroRouter.use(requireAuth);
 financeiroRouter.use(requireRole(...rolesForModule("financeiro")));
+
+// Cada tipo de conta tem o mesmo ciclo (PENDENTE → liquidada | CANCELADO;
+// liquidada → estorno volta a PENDENTE); só mudam tabela, nomes e o campo do
+// evento que acumula o realizado. As rotas de escrita abaixo são genéricas
+// sobre esta configuração.
+const KINDS = {
+  receber: {
+    table: "AccountReceivable",
+    label: "Conta a receber",
+    doneStatus: "RECEBIDO",
+    doneVerb: "recebida",
+    doneDateCol: "receivedDate",
+    doneDateLabel: "Data do recebimento",
+    txKind: "ENTRADA",
+    txLink: "receivableId",
+    settlePath: "receber",
+    bumpEvent: (tx, eventId, delta) => tx`
+      update "Event" set "actualRevenueCents" = greatest("actualRevenueCents" + ${delta}, 0), "updatedAt" = now()
+      where id = ${eventId}`,
+  },
+  pagar: {
+    table: "AccountPayable",
+    label: "Conta a pagar",
+    doneStatus: "PAGO",
+    doneVerb: "paga",
+    doneDateCol: "paidDate",
+    doneDateLabel: "Data do pagamento",
+    txKind: "SAIDA",
+    txLink: "payableId",
+    settlePath: "pagar",
+    hasSupplier: true,
+    bumpEvent: (tx, eventId, delta) => tx`
+      update "Event" set "actualCostCents" = greatest("actualCostCents" + ${delta}, 0), "updatedAt" = now()
+      where id = ${eventId}`,
+  },
+};
+
+const MAX_INSTALLMENTS = 36;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Data de liquidação informada pelo usuário ("só-dia" AAAA-MM-DD) ou agora.
+// Não aceita o futuro (uma folga de 1 dia cobre o fuso do navegador).
+function parseSettleDate(value, label) {
+  const d = toDateOrNull(value, label);
+  if (!d) return new Date();
+  if (d.getTime() > Date.now() + DAY_MS) throw new HttpError(400, `${label} não pode estar no futuro.`);
+  return d;
+}
+
+// Desfaz o efeito de uma liquidação: remove o lançamento do caixa e tira o
+// valor do realizado do evento. Usado pelo estorno e pela exclusão de conta
+// já liquidada.
+async function reverseSettlement(tx, cfg, row) {
+  await tx`delete from "Transaction" where ${tx(cfg.txLink)} = ${row.id}`;
+  if (row.eventId) await cfg.bumpEvent(tx, row.eventId, -row.amountCents);
+}
+
+// Carrega a conta travando a linha (evita duas liquidações simultâneas).
+async function loadForUpdate(tx, cfg, id) {
+  const [row] = await tx`select * from ${tx(cfg.table)} where id = ${id} for update`;
+  if (!row) throw new HttpError(404, `${cfg.label} não encontrada.`);
+  return row;
+}
+
+function pickConta(b, cfg) {
+  if (!nn(b.description)) throw new HttpError(400, "Informe a descrição.");
+  const amountCents = toCents(b.amount);
+  // Achado B4 (Fase 5): valor não pode ser negativo nem zero.
+  if (amountCents <= 0) throw new HttpError(400, "O valor deve ser maior que zero.");
+  return {
+    description: String(b.description).trim(),
+    eventId: nn(b.eventId),
+    ...(cfg.hasSupplier ? { supplierId: nn(b.supplierId) } : {}),
+    amountCents,
+    dueDate: toDateOrNull(b.dueDate, "Data de vencimento"),
+  };
+}
+
+const fkMessage = (cfg) =>
+  cfg.hasSupplier ? "Evento ou fornecedor selecionado não existe mais." : "Evento selecionado não existe mais.";
 
 // GET /api/financeiro/opcoes
 financeiroRouter.get(
@@ -21,16 +101,22 @@ financeiroRouter.get(
   }),
 );
 
+// "Hoje" para vencimento = data civil em Teresina (UTC−3, sem horário de
+// verão). Comparar a coluna "date" com now() fazia a conta que vence HOJE
+// já contar como atrasada desde a meia-noite UTC.
+const TODAY_BR = sql`(now() at time zone 'America/Fortaleza')::date`;
+
 // GET /api/financeiro/resumo — KPIs + fluxo do mês.
 financeiroRouter.get(
   "/resumo",
   asyncHandler(async (req, res) => {
-    const [[receber], [pagar], [entradas], [saidas], [atrasadas]] = await Promise.all([
+    const [[receber], [pagar], [entradas], [saidas], [atrasR], [atrasP]] = await Promise.all([
       sql`select coalesce(sum("amountCents"),0)::bigint as v from "AccountReceivable" where status = 'PENDENTE'`,
       sql`select coalesce(sum("amountCents"),0)::bigint as v from "AccountPayable" where status = 'PENDENTE'`,
       sql`select coalesce(sum("amountCents"),0)::bigint as v from "Transaction" where kind = 'ENTRADA'`,
       sql`select coalesce(sum("amountCents"),0)::bigint as v from "Transaction" where kind = 'SAIDA'`,
-      sql`select count(*)::int as n from "AccountReceivable" where status = 'PENDENTE' and "dueDate" < now()`,
+      sql`select count(*)::int as n, coalesce(sum("amountCents"),0)::bigint as v from "AccountReceivable" where status = 'PENDENTE' and "dueDate" < ${TODAY_BR}`,
+      sql`select count(*)::int as n, coalesce(sum("amountCents"),0)::bigint as v from "AccountPayable" where status = 'PENDENTE' and "dueDate" < ${TODAY_BR}`,
     ]);
     res.json({
       aReceberCents: Number(receber.v),
@@ -38,12 +124,15 @@ financeiroRouter.get(
       entradasCents: Number(entradas.v),
       saidasCents: Number(saidas.v),
       saldoCents: Number(entradas.v) - Number(saidas.v),
-      atrasadas: atrasadas.n,
+      atrasadas: atrasR.n,
+      atrasadasReceberCents: Number(atrasR.v),
+      atrasadasPagar: atrasP.n,
+      atrasadasPagarCents: Number(atrasP.v),
     });
   }),
 );
 
-// ---- Contas a receber ----
+// ---- Listagens ----
 financeiroRouter.get(
   "/receber",
   asyncHandler(async (req, res) => {
@@ -61,70 +150,6 @@ financeiroRouter.get(
   }),
 );
 
-financeiroRouter.post(
-  "/receber",
-  asyncHandler(async (req, res) => {
-    const b = req.body || {};
-    if (!nn(b.description)) throw new HttpError(400, "Informe a descrição.");
-    const amountCents = toCents(b.amount);
-    // Achado B4 (Fase 5): valor não pode ser negativo nem zero.
-    if (amountCents <= 0) throw new HttpError(400, "O valor deve ser maior que zero.");
-    const data = prepInsert({
-      description: b.description.trim(),
-      eventId: nn(b.eventId),
-      amountCents,
-      dueDate: toDateOrNull(b.dueDate, "Data de vencimento"),
-      status: "PENDENTE",
-    });
-    try {
-      // Achado B22 (Fase 5): escrita + logAudit na mesma transação.
-      const created = await sql.begin(async (tx) => {
-        const [c] = await tx`insert into "AccountReceivable" ${tx(data)} returning *`;
-        await logAudit(tx, { table: "AccountReceivable", recordId: c.id, action: "CREATE", user: req.user, before: null, after: c });
-        return c;
-      });
-      res.status(201).json(created);
-    } catch (e) {
-      if (e.code === "23503")
-        throw new HttpError(400, "Evento selecionado não existe mais.");
-      throw e;
-    }
-  }),
-);
-
-// Marcar como recebido → cria Transaction (ENTRADA) e soma no realizado do evento.
-financeiroRouter.post(
-  "/receber/:id/receber",
-  asyncHandler(async (req, res) => {
-    await sql.begin(async (tx) => {
-      const [r] = await tx`select * from "AccountReceivable" where id = ${req.params.id}`;
-      if (!r) throw new HttpError(404, "Conta não encontrada.");
-      if (r.status === "RECEBIDO") return;
-      const [updated] = await tx`update "AccountReceivable" set status = 'RECEBIDO', "receivedDate" = now(), "updatedAt" = now() where id = ${r.id} returning *`;
-      await tx`insert into "Transaction" ${tx(withId({
-        kind: "ENTRADA", description: r.description, amountCents: r.amountCents,
-        date: new Date(), eventId: r.eventId,
-      }))}`;
-      if (r.eventId) await tx`update "Event" set "actualRevenueCents" = "actualRevenueCents" + ${r.amountCents}, "updatedAt" = now() where id = ${r.eventId}`;
-      await logAudit(tx, { table: "AccountReceivable", recordId: r.id, action: "UPDATE", user: req.user, before: r, after: updated });
-    });
-    res.json({ ok: true });
-  }),
-);
-
-financeiroRouter.delete(
-  "/receber/:id",
-  asyncHandler(async (req, res) => {
-    await sql.begin(async (tx) => {
-      const [deleted] = await tx`delete from "AccountReceivable" where id = ${req.params.id} returning *`;
-      if (!deleted) throw new HttpError(404, "Conta a receber não encontrada.");
-      await logAudit(tx, { table: "AccountReceivable", recordId: deleted.id, action: "DELETE", user: req.user, before: deleted, after: null });
-    });
-    res.json({ ok: true });
-  }),
-);
-
-// ---- Contas a pagar ----
 financeiroRouter.get(
   "/pagar",
   asyncHandler(async (req, res) => {
@@ -144,68 +169,144 @@ financeiroRouter.get(
   }),
 );
 
-financeiroRouter.post(
-  "/pagar",
-  asyncHandler(async (req, res) => {
-    const b = req.body || {};
-    if (!nn(b.description)) throw new HttpError(400, "Informe a descrição.");
-    const amountCents = toCents(b.amount);
-    // Achado B4 (Fase 5): valor não pode ser negativo nem zero.
-    if (amountCents <= 0) throw new HttpError(400, "O valor deve ser maior que zero.");
-    const data = prepInsert({
-      description: b.description.trim(),
-      eventId: nn(b.eventId),
-      supplierId: nn(b.supplierId),
-      amountCents,
-      dueDate: toDateOrNull(b.dueDate, "Data de vencimento"),
-      status: "PENDENTE",
-    });
-    try {
-      const created = await sql.begin(async (tx) => {
-        const [c] = await tx`insert into "AccountPayable" ${tx(data)} returning *`;
-        await logAudit(tx, { table: "AccountPayable", recordId: c.id, action: "CREATE", user: req.user, before: null, after: c });
-        return c;
+// ---- Escrita (igual para contas a receber e a pagar) ----
+for (const [path, cfg] of Object.entries(KINDS)) {
+  // Criar — com "installments" (1 a 36) gera parcelas mensais: "amount" é o
+  // valor de CADA parcela e o vencimento da primeira vem em "dueDate".
+  financeiroRouter.post(
+    `/${path}`,
+    asyncHandler(async (req, res) => {
+      const b = req.body || {};
+      const base = pickConta(b, cfg);
+      const n = nn(b.installments) === null ? 1 : Math.floor(Number(b.installments));
+      if (!(n >= 1 && n <= MAX_INSTALLMENTS))
+        throw new HttpError(400, `Parcelas: informe de 1 a ${MAX_INSTALLMENTS}.`);
+      if (n > 1 && !base.dueDate)
+        throw new HttpError(400, "Para parcelar, informe o vencimento da primeira parcela.");
+
+      try {
+        const created = await sql.begin(async (tx) => {
+          const out = [];
+          for (let i = 0; i < n; i += 1) {
+            const data = prepInsert({
+              ...base,
+              description: n > 1 ? `${base.description} (${i + 1}/${n})` : base.description,
+              dueDate: n > 1 ? addMonthsClamped(base.dueDate, i) : base.dueDate,
+              status: "PENDENTE",
+            });
+            const [c] = await tx`insert into ${tx(cfg.table)} ${tx(data)} returning *`;
+            await logAudit(tx, { table: cfg.table, recordId: c.id, action: "CREATE", user: req.user, before: null, after: c });
+            out.push(c);
+          }
+          return out;
+        });
+        res.status(201).json(n > 1 ? { parcelas: created } : created[0]);
+      } catch (e) {
+        if (e.code === "23503") throw new HttpError(400, fkMessage(cfg));
+        throw e;
+      }
+    }),
+  );
+
+  // Editar. Conta já liquidada só aceita nova descrição (valor/vencimento/
+  // evento mexem no caixa já lançado — estorne antes); cancelada é definitiva.
+  financeiroRouter.put(
+    `/${path}/:id`,
+    asyncHandler(async (req, res) => {
+      const b = req.body || {};
+      try {
+        const updated = await sql.begin(async (tx) => {
+          const cur = await loadForUpdate(tx, cfg, req.params.id);
+          if (cur.status === "CANCELADO") throw new HttpError(400, `${cfg.label} cancelada não pode ser editada.`);
+          const fields = cur.status === cfg.doneStatus
+            ? { description: pickConta({ ...b, amount: cur.amountCents / 100 }, cfg).description }
+            : pickConta(b, cfg);
+          const [row] = await tx`update ${tx(cfg.table)} set ${tx(fields)}, "updatedAt" = now() where id = ${cur.id} returning *`;
+          if (fields.description !== cur.description)
+            await tx`update "Transaction" set description = ${fields.description} where ${tx(cfg.txLink)} = ${cur.id}`;
+          await logAudit(tx, { table: cfg.table, recordId: cur.id, action: "UPDATE", user: req.user, before: cur, after: row });
+          return row;
+        });
+        res.json(updated);
+      } catch (e) {
+        if (e.code === "23503") throw new HttpError(400, fkMessage(cfg));
+        throw e;
+      }
+    }),
+  );
+
+  // Liquidar (pagar/receber) → lançamento no caixa + realizado do evento.
+  // "date" (opcional, AAAA-MM-DD) é o dia em que o dinheiro de fato saiu/entrou.
+  financeiroRouter.post(
+    `/${path}/:id/${cfg.settlePath}`,
+    asyncHandler(async (req, res) => {
+      const date = parseSettleDate(req.body?.date, cfg.doneDateLabel);
+      await sql.begin(async (tx) => {
+        const row = await loadForUpdate(tx, cfg, req.params.id);
+        if (row.status === cfg.doneStatus) return;
+        if (row.status === "CANCELADO") throw new HttpError(400, `${cfg.label} cancelada não pode ser liquidada.`);
+        const [updated] = await tx`
+          update ${tx(cfg.table)} set ${tx({ status: cfg.doneStatus, [cfg.doneDateCol]: date })}, "updatedAt" = now()
+          where id = ${row.id} returning *`;
+        await tx`insert into "Transaction" ${tx(withId({
+          kind: cfg.txKind, description: row.description, amountCents: row.amountCents,
+          date, eventId: row.eventId, [cfg.txLink]: row.id,
+        }))}`;
+        if (row.eventId) await cfg.bumpEvent(tx, row.eventId, row.amountCents);
+        await logAudit(tx, { table: cfg.table, recordId: row.id, action: "UPDATE", user: req.user, before: row, after: updated });
       });
-      res.status(201).json(created);
-    } catch (e) {
-      if (e.code === "23503")
-        throw new HttpError(400, "Evento ou fornecedor selecionado não existe mais.");
-      throw e;
-    }
-  }),
-);
+      res.json({ ok: true });
+    }),
+  );
 
-// Marcar como pago → Transaction (SAIDA) e soma no custo realizado do evento.
-financeiroRouter.post(
-  "/pagar/:id/pagar",
-  asyncHandler(async (req, res) => {
-    await sql.begin(async (tx) => {
-      const [p] = await tx`select * from "AccountPayable" where id = ${req.params.id}`;
-      if (!p) throw new HttpError(404, "Conta não encontrada.");
-      if (p.status === "PAGO") return;
-      const [updated] = await tx`update "AccountPayable" set status = 'PAGO', "paidDate" = now(), "updatedAt" = now() where id = ${p.id} returning *`;
-      await tx`insert into "Transaction" ${tx(withId({
-        kind: "SAIDA", description: p.description, amountCents: p.amountCents,
-        date: new Date(), eventId: p.eventId,
-      }))}`;
-      if (p.eventId) await tx`update "Event" set "actualCostCents" = "actualCostCents" + ${p.amountCents}, "updatedAt" = now() where id = ${p.eventId}`;
-      await logAudit(tx, { table: "AccountPayable", recordId: p.id, action: "UPDATE", user: req.user, before: p, after: updated });
-    });
-    res.json({ ok: true });
-  }),
-);
+  // Estornar: desfaz a liquidação (volta a PENDENTE, sai do caixa e do realizado).
+  financeiroRouter.post(
+    `/${path}/:id/estornar`,
+    asyncHandler(async (req, res) => {
+      await sql.begin(async (tx) => {
+        const row = await loadForUpdate(tx, cfg, req.params.id);
+        if (row.status !== cfg.doneStatus)
+          throw new HttpError(400, `Só é possível estornar uma conta ${cfg.doneVerb}.`);
+        await reverseSettlement(tx, cfg, row);
+        const [updated] = await tx`
+          update ${tx(cfg.table)} set ${tx({ status: "PENDENTE", [cfg.doneDateCol]: null })}, "updatedAt" = now()
+          where id = ${row.id} returning *`;
+        await logAudit(tx, { table: cfg.table, recordId: row.id, action: "UPDATE", user: req.user, before: row, after: updated });
+      });
+      res.json({ ok: true });
+    }),
+  );
 
-financeiroRouter.delete(
-  "/pagar/:id",
-  asyncHandler(async (req, res) => {
-    await sql.begin(async (tx) => {
-      const [deleted] = await tx`delete from "AccountPayable" where id = ${req.params.id} returning *`;
-      if (!deleted) throw new HttpError(404, "Conta a pagar não encontrada.");
-      await logAudit(tx, { table: "AccountPayable", recordId: deleted.id, action: "DELETE", user: req.user, before: deleted, after: null });
-    });
-    res.json({ ok: true });
-  }),
-);
+  // Cancelar: só conta pendente; definitivo.
+  financeiroRouter.post(
+    `/${path}/:id/cancelar`,
+    asyncHandler(async (req, res) => {
+      await sql.begin(async (tx) => {
+        const row = await loadForUpdate(tx, cfg, req.params.id);
+        if (row.status !== "PENDENTE")
+          throw new HttpError(400, "Só é possível cancelar uma conta pendente (estorne antes, se já foi liquidada).");
+        const [updated] = await tx`
+          update ${tx(cfg.table)} set status = 'CANCELADO', "updatedAt" = now() where id = ${row.id} returning *`;
+        await logAudit(tx, { table: cfg.table, recordId: row.id, action: "UPDATE", user: req.user, before: row, after: updated });
+      });
+      res.json({ ok: true });
+    }),
+  );
+
+  // Excluir. Conta já liquidada é estornada junto (caixa e evento voltam).
+  financeiroRouter.delete(
+    `/${path}/:id`,
+    asyncHandler(async (req, res) => {
+      await sql.begin(async (tx) => {
+        const row = await loadForUpdate(tx, cfg, req.params.id);
+        if (row.status === cfg.doneStatus) await reverseSettlement(tx, cfg, row);
+        await tx`delete from ${tx(cfg.table)} where id = ${row.id}`;
+        await logAudit(tx, { table: cfg.table, recordId: row.id, action: "DELETE", user: req.user, before: row, after: null });
+      });
+      res.json({ ok: true });
+    }),
+  );
+}
 
 // ---- Fluxo de caixa ----
 financeiroRouter.get(
