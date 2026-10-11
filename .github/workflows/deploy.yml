@@ -32,4 +32,5 @@ jobs:
           fi
           code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$HOOK")
           echo "Render respondeu HTTP $code"
-          [ "$code" = "200" ] || [ "$code" = "201" ]
+          # Qualquer 2xx é sucesso (o Render já respondeu 200 e 202).
+          case "$code" in 2??) ;; *) exit 1 ;; esac
