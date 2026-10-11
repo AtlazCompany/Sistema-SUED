@@ -2,12 +2,13 @@
 import { api } from "../api.js";
 import { el, formatBRL, formatDate, formatPercent, toCents, centsToReais } from "../utils.js";
 import { icon } from "../components/icons.js";
-import { renderTable } from "../components/table.js";
+import { renderTable, rowActions } from "../components/table.js";
 import { toast } from "../components/toast.js";
 import { field } from "../components/form.js";
 import { renderOrcamentoDocumento } from "../components/orcamento-doc.js";
 import { openModal } from "../components/modal.js";
 import { TAX_RATE_PERCENT, TAX_REMINDER, calcBudgetTotals } from "../budget-math.js";
+import { confirmDialog } from "../components/confirm.js";
 
 // O cabeçalho/rodapé que o navegador imprime por cima da página (data,
 // título, URL, número da página) usa o title da aba — não dá para
@@ -55,6 +56,13 @@ export const BUDGET_STATUS = {
 export async function renderOrcamentos() {
   const container = el("div", {});
 
+  // Excluir (do editor ou do ícone da lista).
+  async function deleteBudget(b) {
+    if (!(await confirmDialog({ title: "Excluir orçamento?", message: `O orçamento ${b.number} será excluído. Essa ação não pode ser desfeita.` }))) return;
+    try { await api.del(`/orcamentos/${b.id}`); toast("Orçamento excluído."); loadList(); }
+    catch (e) { toast(e.message, "error"); }
+  }
+
   // ---------------- LISTA ----------------
   async function loadList() {
     container.replaceChildren(el("div", { class: "center-screen loading-box" }, [el("div", { class: "spinner" })]));
@@ -89,6 +97,8 @@ export async function renderOrcamentos() {
             ver,
           ]);
         } },
+        { header: "", align: "right", render: (r) =>
+          rowActions({ label: r.number, onEdit: () => openEditor(r.id), onDelete: () => deleteBudget(r) }) },
       ],
       rows: budgets,
       empty: { title: "Nenhum orçamento", desc: "Crie um orçamento reutilizando itens do catálogo." },
@@ -303,11 +313,7 @@ export async function renderOrcamentos() {
     const actions = [voltar, salvar];
     if (isEdit) {
       const excluir = el("button", { class: "btn btn--danger" }, "Excluir");
-      excluir.onclick = async () => {
-        if (!confirm(`Excluir o orçamento ${budget.number}?`)) return;
-        try { await api.del(`/orcamentos/${id}`); toast("Orçamento excluído."); loadList(); }
-        catch (e) { toast(e.message, "error"); }
-      };
+      excluir.onclick = () => deleteBudget({ id, number: budget.number });
       actions.unshift(excluir);
     }
 

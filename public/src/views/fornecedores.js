@@ -2,10 +2,11 @@
 import { api } from "../api.js";
 import { el, formatBRL } from "../utils.js";
 import { icon } from "../components/icons.js";
-import { renderTable } from "../components/table.js";
+import { renderTable, rowActions } from "../components/table.js";
 import { openModal } from "../components/modal.js";
 import { toast } from "../components/toast.js";
 import { field } from "../components/form.js";
+import { confirmDialog } from "../components/confirm.js";
 
 function supplierForm(supplier, onSaved) {
   const isEdit = !!supplier;
@@ -73,11 +74,20 @@ async function supplierDetail(id, onChanged) {
   const modal = openModal({ title: s.name, body, footer: [delBtn, closeBtn, editBtn], wide: true });
   closeBtn.onclick = modal.close;
   editBtn.onclick = () => { modal.close(); supplierForm(s, onChanged); };
-  delBtn.onclick = async () => {
-    if (!confirm(`Excluir o fornecedor "${s.name}"?`)) return;
-    try { await api.del(`/fornecedores/${s.id}`); modal.close(); toast("Fornecedor excluído."); onChanged(); }
-    catch (err) { toast(err.message, "error"); }
-  };
+  delBtn.onclick = async () => { if (await deleteSupplier(s, onChanged)) modal.close(); };
+}
+
+// Excluir (do detalhe ou do ícone da lista). Devolve true se excluiu.
+async function deleteSupplier(s, onChanged) {
+  if (!(await confirmDialog({ title: "Excluir fornecedor?", message: `O fornecedor "${s.name}" será excluído. Essa ação não pode ser desfeita.` }))) return false;
+  try { await api.del(`/fornecedores/${s.id}`); toast("Fornecedor excluído."); onChanged(); return true; }
+  catch (err) { toast(err.message, "error"); return false; }
+}
+
+// Editar a partir da lista: busca o fornecedor completo, como o detalhe faz.
+async function editSupplier(id, onChanged) {
+  try { supplierForm(await api.get(`/fornecedores/${id}`), onChanged); }
+  catch (err) { toast(err.message, "error"); }
 }
 
 export async function renderFornecedores() {
@@ -100,6 +110,8 @@ export async function renderFornecedores() {
         { header: "Categoria", render: (r) => r.category || "—" },
         { header: "Contato", render: (r) => r.email || r.phone || "—" },
         { header: "Itens", align: "center", render: (r) => String(r.products) },
+        { header: "", align: "right", render: (r) =>
+          rowActions({ label: r.name, onEdit: () => editSupplier(r.id, load), onDelete: () => deleteSupplier(r, load) }) },
       ],
       rows: suppliers,
       empty: { title: "Nenhum fornecedor cadastrado", desc: "Cadastre fornecedores para vinculá-los aos itens do catálogo." },

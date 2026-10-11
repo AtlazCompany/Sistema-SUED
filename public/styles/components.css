@@ -189,6 +189,11 @@ table.table { width: 100%; border-collapse: collapse; }
   padding: 16px 24px;
   border-top: 1px solid var(--sued-border);
 }
+/* Confirmação (components/confirm.js): acima de um modal aberto, abaixo dos avisos. */
+.modal-backdrop--confirm { z-index: 95; }
+.modal--confirm { max-width: 420px; }
+.confirm__title { font-size: 20px; margin-bottom: 8px; }
+.confirm__message { margin: 0; font-size: 14px; line-height: 1.55; color: var(--sued-ink-soft); }
 
 /* ---- Utilitários ---- */
 .spinner {

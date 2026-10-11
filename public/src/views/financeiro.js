@@ -7,6 +7,7 @@ import { openModal } from "../components/modal.js";
 import { toast } from "../components/toast.js";
 import { field } from "../components/form.js";
 import { TAX_RATE_PERCENT } from "../budget-math.js";
+import { confirmDialog } from "../components/confirm.js";
 
 const FIN_STATUS = {
   PENDENTE: { label: "Pendente", cls: "badge--gold" },
@@ -312,8 +313,9 @@ async function categoriasModal(onChanged) {
       el("span", { class: "flex items-center gap-2" }, [
         el("span", { class: "text-muted" }, c.uses ? `${c.uses} uso(s)` : "sem uso"),
         iconBtn("edit", `Renomear ${c.name}`, edit),
-        iconBtn("trash", `Excluir ${c.name}`, () => {
-          if (confirm(`Excluir a categoria "${c.name}"?`)) changed(api.del(`/financeiro/categorias/${c.id}`));
+        iconBtn("trash", `Excluir ${c.name}`, async () => {
+          if (await confirmDialog({ title: "Excluir categoria?", message: `A categoria "${c.name}" será excluída.` }))
+            changed(api.del(`/financeiro/categorias/${c.id}`));
         }),
       ]),
     );
@@ -576,24 +578,32 @@ export async function renderFinanceiro() {
         btns.push(liq);
       } else if (isDone(r)) {
         const est = el("button", { class: "btn btn--subtle btn--sm", type: "button", title: "Desfazer o lançamento e voltar a conta para pendente" }, "Estornar");
-        est.onclick = () => {
-          if (!confirm(`Estornar esta conta? Ela volta a ficar pendente e o lançamento sai do fluxo de caixa${r.eventId ? " e do realizado do evento" : ""}.`)) return;
+        est.onclick = async () => {
+          if (!(await confirmDialog({
+            title: "Estornar esta conta?",
+            message: `Ela volta a ficar pendente e o lançamento sai do fluxo de caixa${r.eventId ? " e do realizado do evento" : ""}.`,
+            confirmLabel: "Estornar", danger: false,
+          }))) return;
           acao(api.post(`/financeiro/${kind}/${r.id}/estornar`), "Conta estornada.");
         };
         btns.push(est);
       }
       if (r.status !== "CANCELADO") btns.push(iconBtn("edit", "Editar", () => contaForm(kind, reload, r)));
       if (r.status === "PENDENTE") {
-        btns.push(iconBtn("x", "Cancelar conta", () => {
-          if (!confirm("Cancelar esta conta? Ela deixa de contar nos totais e não pode ser reaberta.")) return;
+        btns.push(iconBtn("x", "Cancelar conta", async () => {
+          if (!(await confirmDialog({
+            title: "Cancelar esta conta?",
+            message: "Ela deixa de contar nos totais e não pode ser reaberta.",
+            confirmLabel: "Cancelar conta", cancelLabel: "Voltar",
+          }))) return;
           acao(api.post(`/financeiro/${kind}/${r.id}/cancelar`), "Conta cancelada.");
         }));
       }
-      btns.push(iconBtn("trash", "Excluir", () => {
-        const aviso = isDone(r)
-          ? "Esta conta já foi liquidada. Excluir também remove o lançamento do fluxo de caixa e abate do realizado do evento. Excluir mesmo assim?"
-          : "Excluir esta conta?";
-        if (!confirm(aviso)) return;
+      btns.push(iconBtn("trash", "Excluir", async () => {
+        const message = isDone(r)
+          ? "Esta conta já foi liquidada: excluir também remove o lançamento do fluxo de caixa e abate do realizado do evento."
+          : `A conta "${r.description}" será excluída.`;
+        if (!(await confirmDialog({ title: "Excluir esta conta?", message }))) return;
         acao(api.del(`/financeiro/${kind}/${r.id}`), "Conta excluída.");
       }));
       return el("div", { class: "flex items-center row-actions" }, btns);
@@ -726,7 +736,7 @@ export async function renderFinanceiro() {
           if (!r.avulso) return "";
           const del = el("button", { class: "btn btn--icon btn--ghost", type: "button", title: "Excluir lançamento", "aria-label": "Excluir lançamento", html: icon("trash", 15) });
           del.onclick = async () => {
-            if (!confirm("Excluir este lançamento avulso?")) return;
+            if (!(await confirmDialog({ title: "Excluir lançamento avulso?", message: `"${r.description}" sai do fluxo de caixa.` }))) return;
             try { await api.del(`/financeiro/lancamentos/${r.id}`); toast("Lançamento excluído."); render(); }
             catch (e) { toast(e.message, "error"); }
           };

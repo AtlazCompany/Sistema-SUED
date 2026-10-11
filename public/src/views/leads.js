@@ -7,6 +7,7 @@ import { openModal } from "../components/modal.js";
 import { toast } from "../components/toast.js";
 import { field } from "../components/form.js";
 import { router } from "../router.js";
+import { confirmDialog } from "../components/confirm.js";
 
 export const LEAD_STATUS = {
   NOVO: { label: "Novo", cls: "badge--info" },
@@ -82,7 +83,7 @@ export async function renderLeads() {
           if (r.status !== "CONVERTIDO") {
             const conv = el("button", { class: "btn btn--subtle btn--sm", title: "Converter em cliente" }, "Converter");
             conv.onclick = async () => {
-              if (!confirm(`Converter "${r.name}" em cliente?`)) return;
+              if (!(await confirmDialog({ title: "Converter em cliente?", message: `"${r.name}" passa a ser um cliente.`, confirmLabel: "Converter", danger: false }))) return;
               try {
                 await api.post(`/leads/${r.id}/converter`);
                 toast("Lead convertido em cliente.");
@@ -95,7 +96,7 @@ export async function renderLeads() {
           edit.onclick = () => leadForm(r, load);
           const del = el("button", { class: "btn btn--icon btn--ghost", title: "Excluir", html: icon("trash", 16) });
           del.onclick = async () => {
-            if (!confirm(`Excluir o lead "${r.name}"?`)) return;
+            if (!(await confirmDialog({ title: "Excluir lead?", message: `O lead "${r.name}" será excluído. Essa ação não pode ser desfeita.` }))) return;
             try { await api.del(`/leads/${r.id}`); toast("Lead excluído."); load(); }
             catch (err) { toast(err.message, "error"); }
           };

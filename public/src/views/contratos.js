@@ -2,11 +2,12 @@
 import { api } from "../api.js";
 import { el, formatBRL, formatDate } from "../utils.js";
 import { icon } from "../components/icons.js";
-import { renderTable } from "../components/table.js";
+import { renderTable, rowActions } from "../components/table.js";
 import { toast } from "../components/toast.js";
 import { field } from "../components/form.js";
 import { openModal } from "../components/modal.js";
 import { renderOrcamentoDocumento } from "../components/orcamento-doc.js";
+import { confirmDialog } from "../components/confirm.js";
 
 const STATUS = {
   RASCUNHO: { label: "Rascunho", cls: "badge--muted" },
@@ -42,6 +43,13 @@ ______________________________          ______________________________
 export async function renderContratos() {
   const container = el("div", {});
 
+  // Excluir (do editor ou do ícone da lista).
+  async function deleteContract(c) {
+    if (!(await confirmDialog({ title: "Excluir contrato?", message: `O contrato ${c.number} será excluído. Essa ação não pode ser desfeita.` }))) return;
+    try { await api.del(`/contratos/${c.id}`); toast("Contrato excluído."); loadList(); }
+    catch (e) { toast(e.message, "error"); }
+  }
+
   async function loadList() {
     container.replaceChildren(el("div", { class: "center-screen loading-box" }, [el("div", { class: "spinner" })]));
     const contratos = await api.get("/contratos");
@@ -60,6 +68,8 @@ export async function renderContratos() {
         { header: "Valor", align: "right", render: (r) => formatBRL(r.valueCents) },
         { header: "Assinado em", render: (r) => r.signedAt ? formatDate(r.signedAt) : "—" },
         { header: "Status", render: (r) => { const s = STATUS[r.status] || {}; return el("span", { class: `badge ${s.cls}` }, s.label || r.status); } },
+        { header: "", align: "right", render: (r) =>
+          rowActions({ label: r.number, onEdit: () => openEditor(r.id), onDelete: () => deleteContract(r) }) },
       ],
       rows: contratos,
       empty: { title: "Nenhum contrato", desc: "Gere contratos a partir dos eventos e clientes." },
@@ -94,11 +104,11 @@ export async function renderContratos() {
     const content = el("textarea", { class: "textarea", style: "min-height:320px;font-family:ui-monospace,monospace;font-size:12.5px;line-height:1.6" }, ct.content || "");
 
     const gerar = el("button", { class: "btn btn--outline btn--sm", type: "button" }, "Gerar minuta base");
-    gerar.onclick = () => {
+    gerar.onclick = async () => {
       const clientName = opts.clients.find((c) => c.id === header.querySelector("[name=clientId]").value)?.name;
       const eventTitle = opts.events.find((e) => e.id === header.querySelector("[name=eventId]").value)?.title;
       const val = (() => { const v = header.querySelector("[name=value]").value; return v ? Math.round(Number(v.replace(/\./g, "").replace(",", ".")) * 100) : 0; })();
-      if (content.value.trim() && !confirm("Substituir o conteúdo atual pela minuta base?")) return;
+      if (content.value.trim() && !(await confirmDialog({ title: "Substituir o texto do contrato?", message: "O conteúdo atual será trocado pela minuta base.", confirmLabel: "Substituir" }))) return;
       content.value = minuta(clientName, eventTitle, val);
     };
 
@@ -159,7 +169,7 @@ export async function renderContratos() {
     const actions = [voltar, salvar];
     if (isEdit) {
       const del = el("button", { class: "btn btn--danger" }, "Excluir");
-      del.onclick = async () => { if (confirm(`Excluir o contrato ${ct.number}?`)) { try { await api.del(`/contratos/${id}`); toast("Contrato excluído."); loadList(); } catch (e) { toast(e.message, "error"); } } };
+      del.onclick = () => deleteContract({ id, number: ct.number });
       actions.unshift(del);
     }
 

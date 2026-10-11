@@ -5,6 +5,7 @@ import { icon } from "../components/icons.js";
 import { openModal } from "../components/modal.js";
 import { toast } from "../components/toast.js";
 import { field } from "../components/form.js";
+import { confirmDialog } from "../components/confirm.js";
 
 // Achado B12 (Fase 5): antes só dava para criar/listar/excluir — sem
 // forma de corrigir um dado já cadastrado. Mesmo padrão de formulário em
@@ -61,7 +62,7 @@ export async function renderLocais() {
             edit.onclick = () => venueForm(v, load);
             const del = el("button", { class: "btn btn--icon btn--ghost", title: "Excluir", html: icon("trash", 16) });
             del.onclick = async () => {
-              if (!confirm(`Excluir o local "${v.name}"?`)) return;
+              if (!(await confirmDialog({ title: "Excluir local?", message: `O local "${v.name}" será excluído. Essa ação não pode ser desfeita.` }))) return;
               try { await api.del(`/locais/${v.id}`); toast("Local excluído."); load(); }
               catch (err) { toast(err.message, "error"); }
             };

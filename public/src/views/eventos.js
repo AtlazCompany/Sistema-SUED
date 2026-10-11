@@ -3,10 +3,11 @@
 import { api } from "../api.js";
 import { el, formatBRL, formatDate, formatPercent, centsToReais } from "../utils.js";
 import { icon } from "../components/icons.js";
-import { renderTable } from "../components/table.js";
+import { renderTable, rowActions } from "../components/table.js";
 import { openModal } from "../components/modal.js";
 import { toast } from "../components/toast.js";
 import { field } from "../components/form.js";
+import { confirmDialog } from "../components/confirm.js";
 
 export const EVENT_STATUS = {
   RASCUNHO: { label: "Rascunho", cls: "badge--muted" },
@@ -144,11 +145,20 @@ async function eventDetail(id, onChanged) {
   const modal = openModal({ title: e.title, body, footer: [delBtn, closeBtn, editBtn], wide: true });
   closeBtn.onclick = modal.close;
   editBtn.onclick = () => { modal.close(); eventForm(e, onChanged); };
-  delBtn.onclick = async () => {
-    if (!confirm(`Excluir o evento "${e.title}"?`)) return;
-    try { await api.del(`/eventos/${e.id}`); modal.close(); toast("Evento excluído."); onChanged(); }
-    catch (err) { toast(err.message, "error"); }
-  };
+  delBtn.onclick = async () => { if (await deleteEvent(e, onChanged)) modal.close(); };
+}
+
+// Excluir (do detalhe ou do ícone da lista). Devolve true se excluiu.
+async function deleteEvent(e, onChanged) {
+  if (!(await confirmDialog({ title: "Excluir evento?", message: `O evento "${e.title}" será excluído. Essa ação não pode ser desfeita.` }))) return false;
+  try { await api.del(`/eventos/${e.id}`); toast("Evento excluído."); onChanged(); return true; }
+  catch (err) { toast(err.message, "error"); return false; }
+}
+
+// Editar a partir da lista: busca o evento completo, como o detalhe faz.
+async function editEvent(id, onChanged) {
+  try { eventForm(await api.get(`/eventos/${id}`), onChanged); }
+  catch (err) { toast(err.message, "error"); }
 }
 
 // ---------- Tipos de evento (achado B11, Fase 5) ----------
@@ -163,7 +173,7 @@ async function eventTypesModal(onChanged) {
         ? el("ul", { class: "list-none" }, types.map((t) => {
             const del = el("button", { class: "btn btn--icon btn--ghost", title: "Excluir", html: icon("trash", 15) });
             del.onclick = async () => {
-              if (!confirm(`Excluir o tipo "${t.name}"?`)) return;
+              if (!(await confirmDialog({ title: "Excluir tipo de evento?", message: `O tipo "${t.name}" será excluído.` }))) return;
               try { await api.del(`/tipos-evento/${t.id}`); reload(); onChanged(); }
               catch (err) { toast(err.message, "error"); }
             };
@@ -233,6 +243,8 @@ export async function renderEventos() {
           const st = EVENT_STATUS[r.status] || { label: r.status, cls: "" };
           return el("span", { class: `badge ${st.cls}` }, st.label);
         } },
+        { header: "", align: "right", render: (r) =>
+          rowActions({ label: r.title, onEdit: () => editEvent(r.id, load), onDelete: () => deleteEvent(r, load) }) },
       ],
       rows: eventos,
       empty: { title: "Nenhum evento encontrado", desc: "Crie um evento para organizar o ciclo completo — do planejamento ao pós-evento." },

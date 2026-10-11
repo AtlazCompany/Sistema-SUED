@@ -1,5 +1,17 @@
 // Tabela reutilizável. renderTable({ columns, rows, empty }) → nó DOM.
 import { el } from "../utils.js";
+import { icon } from "./icons.js";
+
+// Ícones de editar e excluir no fim da linha (mesmo visual de Clientes).
+// `label` é o nome do registro, para o leitor de tela ("Editar Fornecedor X").
+export function rowActions({ label, onEdit, onDelete }) {
+  const btn = (name, title, onclick) => {
+    const b = el("button", { class: "btn btn--icon btn--ghost", type: "button", title, "aria-label": `${title} ${label}`, html: icon(name, 16) });
+    b.onclick = onclick;
+    return b;
+  };
+  return el("div", { class: "flex items-center row-actions" }, [btn("edit", "Editar", onEdit), btn("trash", "Excluir", onDelete)]);
+}
 
 /**
  * columns: [{ header, render(row) -> node|string, align }]

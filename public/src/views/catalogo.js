@@ -2,10 +2,11 @@
 import { api } from "../api.js";
 import { el, formatBRL, formatPercent, centsToReais } from "../utils.js";
 import { icon } from "../components/icons.js";
-import { renderTable } from "../components/table.js";
+import { renderTable, rowActions } from "../components/table.js";
 import { openModal } from "../components/modal.js";
 import { toast } from "../components/toast.js";
 import { field } from "../components/form.js";
+import { confirmDialog } from "../components/confirm.js";
 
 // ---------- Formulário do item ----------
 async function productForm(product, onSaved) {
@@ -128,11 +129,20 @@ async function productDetail(id, onChanged) {
   const modal = openModal({ title: p.name, body, footer: [delBtn, closeBtn, editBtn], wide: true });
   closeBtn.onclick = modal.close;
   editBtn.onclick = () => { modal.close(); productForm(p, onChanged); };
-  delBtn.onclick = async () => {
-    if (!confirm(`Excluir "${p.name}" do catálogo?`)) return;
-    try { await api.del(`/catalogo/${p.id}`); modal.close(); toast("Item excluído."); onChanged(); }
-    catch (err) { toast(err.message, "error"); }
-  };
+  delBtn.onclick = async () => { if (await deleteProduct(p, onChanged)) modal.close(); };
+}
+
+// Excluir (do detalhe ou do ícone da lista). Devolve true se excluiu.
+async function deleteProduct(p, onChanged) {
+  if (!(await confirmDialog({ title: "Excluir item do catálogo?", message: `"${p.name}" sai do catálogo. Essa ação não pode ser desfeita.` }))) return false;
+  try { await api.del(`/catalogo/${p.id}`); toast("Item excluído."); onChanged(); return true; }
+  catch (err) { toast(err.message, "error"); return false; }
+}
+
+// Editar a partir da lista: busca o item completo, como o detalhe faz.
+async function editProduct(id, onChanged) {
+  try { productForm(await api.get(`/catalogo/${id}`), onChanged); }
+  catch (err) { toast(err.message, "error"); }
 }
 
 // ---------- Gestão de categorias ----------
@@ -145,7 +155,7 @@ async function categoriesModal(onChanged) {
         ? el("ul", { class: "list-none" }, cats.map((c) => {
             const del = el("button", { class: "btn btn--icon btn--ghost", title: "Excluir", html: icon("trash", 15) });
             del.onclick = async () => {
-              if (!confirm(`Excluir a categoria "${c.name}"?`)) return;
+              if (!(await confirmDialog({ title: "Excluir categoria?", message: `A categoria "${c.name}" será excluída.` }))) return;
               try { await api.del(`/catalogo/categorias/${c.id}`); reload(); onChanged(); }
               catch (err) { toast(err.message, "error"); }
             };
@@ -202,6 +212,8 @@ export async function renderCatalogo() {
         { header: "Forn.", align: "center", render: (r) => String(r.suppliers) },
         { header: "Status", align: "center", render: (r) =>
           el("span", { class: `badge ${r.active ? "badge--success" : "badge--muted"}` }, r.active ? "Ativo" : "Inativo") },
+        { header: "", align: "right", render: (r) =>
+          rowActions({ label: r.name, onEdit: () => editProduct(r.id, load), onDelete: () => deleteProduct(r, load) }) },
       ],
       rows: items,
       empty: { title: "Catálogo vazio", desc: "Cadastre produtos e serviços para agilizar a montagem de orçamentos." },

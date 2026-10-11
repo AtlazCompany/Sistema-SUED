@@ -8,6 +8,7 @@ import { openModal } from "../components/modal.js";
 import { toast } from "../components/toast.js";
 import { field } from "../components/form.js";
 import { ROLE_LABELS } from "../config.js";
+import { confirmDialog } from "../components/confirm.js";
 
 const ROLE_OPTIONS = Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }));
 
@@ -105,7 +106,7 @@ export async function renderUsuarios() {
           key.onclick = () => resetPasswordModal(r);
           const del = el("button", { class: "btn btn--icon btn--ghost", title: "Excluir", html: icon("trash", 16) });
           del.onclick = async () => {
-            if (!confirm(`Excluir o usuário "${r.name}"?`)) return;
+            if (!(await confirmDialog({ title: "Excluir usuário?", message: `"${r.name}" perde o acesso ao sistema. Essa ação não pode ser desfeita.` }))) return;
             try { await api.del(`/usuarios/${r.id}`); toast("Usuário excluído."); load(); }
             catch (err) { toast(err.message, "error"); }
           };

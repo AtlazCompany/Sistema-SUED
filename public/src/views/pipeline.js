@@ -6,6 +6,7 @@ import { icon } from "../components/icons.js";
 import { openModal } from "../components/modal.js";
 import { toast } from "../components/toast.js";
 import { field, centsToInput } from "../components/form.js";
+import { confirmDialog } from "../components/confirm.js";
 
 const STAGES = {
   PROSPECCAO: "Prospecção",
@@ -150,7 +151,7 @@ async function oppDetail(id, onChanged) {
   closeBtn.onclick = modal.close;
   editBtn.onclick = () => { modal.close(); oppForm(o, onChanged); };
   delBtn.onclick = async () => {
-    if (!confirm(`Excluir a oportunidade "${o.title}"?`)) return;
+    if (!(await confirmDialog({ title: "Excluir oportunidade?", message: `A oportunidade "${o.title}" será excluída. Essa ação não pode ser desfeita.` }))) return;
     try { await api.del(`/oportunidades/${o.id}`); modal.close(); toast("Oportunidade excluída."); onChanged(); }
     catch (err) { toast(err.message, "error"); }
   };

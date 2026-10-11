@@ -6,6 +6,7 @@ import { renderTable } from "../components/table.js";
 import { openModal } from "../components/modal.js";
 import { toast } from "../components/toast.js";
 import { field } from "../components/form.js";
+import { confirmDialog } from "../components/confirm.js";
 
 function clientForm(client, onSaved) {
   const isEdit = !!client;
@@ -75,7 +76,7 @@ async function contactsModal(client, onChanged) {
             };
             const delBtn = el("button", { class: "btn btn--icon btn--ghost", title: "Excluir", html: icon("trash", 15) });
             delBtn.onclick = async () => {
-              if (!confirm(`Excluir o contato "${c.name}"?`)) return;
+              if (!(await confirmDialog({ title: "Excluir contato?", message: `O contato "${c.name}" será excluído.` }))) return;
               try { await api.del(`/clientes/contatos/${c.id}`); reload(); }
               catch (err) { toast(err.message, "error"); }
             };
@@ -160,7 +161,7 @@ export async function renderClientes() {
           edit.onclick = () => clientForm(r, load);
           const del = el("button", { class: "btn btn--icon btn--ghost", title: "Excluir", html: icon("trash", 16) });
           del.onclick = async () => {
-            if (!confirm(`Excluir "${r.name}"?`)) return;
+            if (!(await confirmDialog({ title: "Excluir cliente?", message: `O cliente "${r.name}" será excluído. Essa ação não pode ser desfeita.` }))) return;
             try { await api.del(`/clientes/${r.id}`); toast("Cliente excluído."); load(); }
             catch (err) { toast(err.message, "error"); }
           };

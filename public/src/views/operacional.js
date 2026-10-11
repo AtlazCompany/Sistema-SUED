@@ -3,6 +3,7 @@ import { api } from "../api.js";
 import { el, formatDate } from "../utils.js";
 import { icon } from "../components/icons.js";
 import { toast } from "../components/toast.js";
+import { confirmDialog } from "../components/confirm.js";
 
 const TASK_STATUS = {
   A_FAZER: { label: "A fazer", cls: "badge--muted" },
@@ -140,7 +141,7 @@ export async function renderOperacional() {
         }
       };
       const delList = el("button", { class: "btn btn--icon btn--ghost", html: icon("trash", 14) });
-      delList.onclick = async () => { if (confirm(`Excluir checklist "${cl.title}"?`)) { try { await api.del(`/operacional/checklists/${cl.id}`); loadPanel(); } catch (e) { toast(e.message, "error"); } } };
+      delList.onclick = async () => { if (await confirmDialog({ title: "Excluir checklist?", message: `O checklist "${cl.title}" será excluído.` })) { try { await api.del(`/operacional/checklists/${cl.id}`); loadPanel(); } catch (e) { toast(e.message, "error"); } } };
       lists.append(el("div", { class: "checklist" }, [
         el("div", { class: "flex items-center justify-between", style: "margin-bottom:6px" }, [
           el("span", { style: "font-weight:600;font-size:13px" }, `${cl.title} (${done}/${cl.items.length})`), delList,
