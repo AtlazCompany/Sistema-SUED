@@ -30,7 +30,7 @@ const TABLE_ORDER = [
   "Category", "ProductService", "Supplier", "SupplierProduct",
   "Budget", "BudgetItem", "Contract",
   "Task", "Checklist", "ChecklistItem", "ScheduleItem",
-  "AccountPayable", "AccountReceivable", "Transaction",
+  "FinanceCategory", "AccountPayable", "AccountReceivable", "Transaction",
   "AuditLog",
 ];
 
